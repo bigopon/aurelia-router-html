@@ -1,0 +1,14 @@
+{
+  "name": "aurelia-v2-router-html",
+  "private": true,
+  "version": "0.0.0",
+  "port": 9017,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:e2e": "cross-env APP_PORT=9017 playwright test",
+    "test:e2e:watch": "cross-env APP_PORT=9017 playwright-watch test",
+    "test": "npm run test:e2e"
+  }
+}

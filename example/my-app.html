@@ -1,0 +1,45 @@
+<nav data-e2e="nav">
+  <a href="/" data-e2e="link-home">Home</a> |
+  <a href="/store" data-e2e="link-store">Store</a> |
+  <a href="/store/123" data-e2e="link-store-123">Store 123</a> |
+  <a href="/store/123/order" data-e2e="link-store-123-order">Store 123 order</a>
+</nav>
+
+<h2 data-e2e="current-path">Document URL: ${path}</h2>
+<hr />
+
+<section data-e2e="route-demo">
+  <au-route path="/store">
+    <div style="border: 2px solid blue; padding: 4px;" data-e2e="route-store">
+      <strong>Store route</strong>
+
+      <au-route path="/">
+        <div style="border: 2px solid red; padding: 4px;" data-e2e="route-store-index">
+          Index route for /store
+        </div>
+      </au-route>
+
+      <div data-e2e="route-store-shared">
+        <b>Shared content inside /store between child route blocks</b>
+      </div>
+
+      <au-route path="/:storeId">
+        <div style="border: 1px solid black; padding: 4px;" data-e2e="route-store-id">
+          <div>Nested store route</div>
+          <div data-e2e="store-id-value">Store with id: ${$params.storeId}</div>
+          <div data-e2e="store-id-params">Params: ${JSON.stringify($params)}</div>
+          <hr>
+          <div>Lazy order route below</div>
+          <au-route path="/order">
+            <div data-e2e="route-store-order">
+              <au-compose
+                component.bind="getStoreOrderComponent()"
+                model.bind="{ storeId: $parent.$params.storeId }">
+              </au-compose>
+            </div>
+          </au-route>
+        </div>
+      </au-route>
+    </div>
+  </au-route>
+</section>
