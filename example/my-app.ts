@@ -10,6 +10,8 @@ export class MyApp {
   } as const;
 
   public path: string = '/';
+  public showPromoRoute: boolean = false;
+  public repeatedFlashRoutes: Array<{ id: number; label: string }> = [];
   private readonly router = resolve(IRouteCoordinator);
   private unobservePath: (() => void) | null = null;
 
@@ -26,5 +28,20 @@ export class MyApp {
 
   public getStoreOrderComponent() {
     return import('./pages/store-order').then(m => m.StoreOrder);
+  }
+
+  public togglePromoRoute(): void {
+    this.showPromoRoute = !this.showPromoRoute;
+  }
+
+  public addFlashRoute(): void {
+    if (this.repeatedFlashRoutes.length > 0) {
+      return;
+    }
+    this.repeatedFlashRoutes = [{ id: Date.now(), label: 'Flash route from repeat' }];
+  }
+
+  public removeFlashRoute(): void {
+    this.repeatedFlashRoutes = [];
   }
 }

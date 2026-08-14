@@ -11,6 +11,10 @@
 - [x] `A1` `RouteContext` parameter match extracts params and forwards remaining residue.
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.
 - [x] `A1` Child contexts update when the parent residue changes across successive `apply()` calls.
+- [x] `A1` An `au-route` introduced later via `if/else` becomes active immediately when the current residue already matches it.
+- [x] `A1` Removing an active conditional `au-route` tears down its branch cleanly and restores the `else` branch.
+- [x] `A1` An `au-route` introduced later from inside a repeated template becomes active immediately when the current residue already matches it.
+- [x] `A1` Removing a repeated-template `au-route` tears down its active branch cleanly.
 - [x] `A2` Trailing slash input normalizes to the same match state as the non-trailing form.
 - [x] `A2` Repeated `apply()` with the same path preserves stable state for params and residue.
 - [x] `A2` Disposed child contexts stop receiving parent updates.

@@ -28,6 +28,35 @@
           <div>Nested store route</div>
           <div data-e2e="store-id-value">Store with id: ${$params.storeId}</div>
           <div data-e2e="store-id-params">Params: ${JSON.stringify($params)}</div>
+          <div style="margin-top: 8px;" data-e2e="dynamic-route-controls">
+            <button type="button" click.trigger="togglePromoRoute()" data-e2e="toggle-promo-route">
+              Toggle promo route
+            </button>
+            <button type="button" click.trigger="addFlashRoute()" data-e2e="add-flash-route">
+              Add flash route
+            </button>
+            <button type="button" click.trigger="removeFlashRoute()" data-e2e="remove-flash-route">
+              Remove flash route
+            </button>
+          </div>
+
+          <au-route if.bind="showPromoRoute" path="/promo">
+            <div data-e2e="route-store-promo">
+              Promo route for store ${$parent.$params.storeId}
+            </div>
+          </au-route>
+          <div else data-e2e="promo-route-else">
+            Promo route currently unavailable
+          </div>
+
+          <template repeat.for="flashRoute of repeatedFlashRoutes">
+            <au-route path="/flash">
+              <div data-e2e="route-store-flash">
+                ${flashRoute.label}
+              </div>
+            </au-route>
+          </template>
+
           <hr>
           <div>Lazy order route below</div>
           <au-route path="/order">

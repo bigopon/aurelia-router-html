@@ -42,4 +42,34 @@ test.describe.serial('html-router', () => {
     await expect(page).toHaveURL(/\/store\/123\/order$/);
     await expect(page.locator('[data-e2e="lazy-order"]')).toContainText('123');
   });
+
+  test('A1 conditional au-route added later becomes active for current residue', async ({ page }) => {
+    await page.goto('/store/123/promo');
+
+    await expect(page.locator('[data-e2e="route-store-id"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="promo-route-else"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-store-promo"]')).toHaveCount(0);
+
+    await page.locator('[data-e2e="toggle-promo-route"]').click();
+    await expect(page.locator('[data-e2e="route-store-promo"]')).toContainText('123');
+    await expect(page.locator('[data-e2e="promo-route-else"]')).toHaveCount(0);
+
+    await page.locator('[data-e2e="toggle-promo-route"]').click();
+    await expect(page.locator('[data-e2e="route-store-promo"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="promo-route-else"]')).toBeVisible();
+  });
+
+  test('A1 repeated-template au-route added later becomes active for current residue', async ({ page }) => {
+    await page.goto('/store/123/flash');
+
+    await expect(page.locator('[data-e2e="route-store-id"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-store-flash"]')).toHaveCount(0);
+
+    await page.locator('[data-e2e="add-flash-route"]').click();
+    await expect(page.locator('[data-e2e="route-store-flash"]')).toContainText('Flash route from repeat');
+    await expect(page).toHaveURL(/\/store\/123\/flash$/);
+
+    await page.locator('[data-e2e="remove-flash-route"]').click();
+    await expect(page.locator('[data-e2e="route-store-flash"]')).toHaveCount(0);
+  });
 });
