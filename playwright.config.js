@@ -1,14 +1,18 @@
 // @ts-check
-const config = require('./playwright-util')(require('./package.json'));
+const pkg = require('./package.json');
+const config = require('./playwright-util')(pkg);
 
 module.exports = {
   ...config,
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    port: require('./package.json').port,
-    reuseExistingServer: true,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    timeout: 120000,
-  },
+  testDir: './playwright',
+  ...(process.env.PLAYWRIGHT_CI_WEBSERVER === '1'
+    ? {
+        webServer: {
+          command: 'npm run dev:host',
+          port: pkg.port,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120000,
+        },
+      }
+    : {}),
 };
