@@ -1,0 +1,98 @@
+<div class="checkout-shell" data-e2e="checkout-flow">
+  <div class="nested-head">
+    <div>
+      <div class="eyebrow">Checkout route</div>
+      <h3>Multi-step nested flow</h3>
+    </div>
+    <div class="mini-list">
+      <a href="/checkout/shipping" class="pill-link">Shipping</a>
+      <a href="/checkout/payment" class="pill-link">Payment</a>
+      <a href="/checkout/review" class="pill-link">Review</a>
+    </div>
+  </div>
+
+  <div class="checkout-summary">
+    Cart total ${state.cartTotalLabel} for ${state.cartCount} item(s)
+  </div>
+
+  <au-route path="/">
+    <div class="route-callout" data-e2e="checkout-index">
+      Start with shipping details, then unlock payment and review branches.
+    </div>
+  </au-route>
+
+  <au-route path="/shipping">
+    <div class="editor-card" data-e2e="checkout-shipping">
+      <div class="form-grid two-col">
+        <label>
+          <span>Email</span>
+          <input value.bind="state.checkout.email" placeholder="alex@northvale.co" data-e2e="checkout-email">
+        </label>
+        <label>
+          <span>Name</span>
+          <input value.bind="state.checkout.shippingName" placeholder="Alex North" data-e2e="checkout-name">
+        </label>
+      </div>
+
+      <label class="stack-field">
+        <span>Address</span>
+        <textarea value.bind="state.checkout.address" rows="3" placeholder="Street, city, country" data-e2e="checkout-address"></textarea>
+      </label>
+
+      <label class="stack-field">
+        <span>Shipping speed</span>
+        <select value.bind="state.checkout.shippingSpeed" data-e2e="checkout-speed">
+          <option value="">Select one</option>
+          <option value="express">Express</option>
+          <option value="ground">Ground</option>
+        </select>
+      </label>
+
+      <div class="hero-actions">
+        <button type="button" click.trigger="continueToPayment()" data-e2e="continue-payment">Continue to payment</button>
+      </div>
+    </div>
+  </au-route>
+
+  <au-route if.bind="state.canOpenPayment" path="/payment">
+    <div class="editor-card" data-e2e="checkout-payment">
+      <div class="form-grid two-col">
+        <label>
+          <span>Cardholder</span>
+          <input value.bind="state.checkout.cardholder" placeholder="Alex North" data-e2e="checkout-cardholder">
+        </label>
+        <label>
+          <span>Payment method</span>
+          <select value.bind="state.checkout.paymentMethod" data-e2e="checkout-method">
+            <option value="">Select one</option>
+            <option value="visa">Visa ending in 2411</option>
+            <option value="amex">Amex ending in 8804</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="hero-actions">
+        <button type="button" click.trigger="continueToReview()" data-e2e="continue-review">Continue to review</button>
+      </div>
+    </div>
+  </au-route>
+  <div else class="route-callout promo-offline" data-e2e="checkout-payment-locked">
+    Payment unlocks after the shipping form is complete.
+  </div>
+
+  <au-route if.bind="state.canOpenReview" path="/review">
+    <div class="editor-card" data-e2e="checkout-review">
+      <h4>Review your order</h4>
+      <div class="stack-list">
+        <div>Email: ${state.checkout.email}</div>
+        <div>Name: ${state.checkout.shippingName}</div>
+        <div>Speed: ${state.checkout.shippingSpeed}</div>
+        <div>Payment: ${state.checkout.paymentMethod}</div>
+        <div>Total: ${state.cartTotalLabel}</div>
+      </div>
+    </div>
+  </au-route>
+  <div else class="route-callout promo-offline" data-e2e="checkout-review-locked">
+    Review unlocks after payment details are complete.
+  </div>
+</div>

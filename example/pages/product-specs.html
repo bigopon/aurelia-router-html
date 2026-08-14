@@ -1,0 +1,21 @@
+<div class="nested-panel" data-e2e="product-specs">
+  <div class="nested-head">
+    <div>
+      <div class="eyebrow">Specs route</div>
+      <h3>Generated sections from product data</h3>
+    </div>
+  </div>
+
+  <div class="mini-list" data-e2e="spec-nav">
+    <div repeat.for="group of product?.specGroups ?? []" class="mini-chip">${group.title}</div>
+  </div>
+
+  <div class="spec-grid">
+    <article repeat.for="group of product?.specGroups ?? []" class="spec-card" data-e2e="spec-group">
+      <h4>${group.title}</h4>
+      <ul class="stack-list">
+        <li repeat.for="point of group.points">${point}</li>
+      </ul>
+    </article>
+  </div>
+</div>

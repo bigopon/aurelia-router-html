@@ -1,0 +1,35 @@
+<div class="nested-panel" data-e2e="product-reviews">
+  <div class="nested-head">
+    <div>
+      <div class="eyebrow">Reviews route</div>
+      <h3>Field notes from recent buyers</h3>
+    </div>
+    <button type="button" class="secondary" click.trigger="openEditor()" data-e2e="open-review-editor">
+      Write a review
+    </button>
+  </div>
+
+  <div if.bind="reviews.length === 0" class="empty-state" data-e2e="reviews-empty">
+    No reviews yet for ${product?.name}. Open the lazy editor to seed the first one.
+  </div>
+
+  <div else class="review-grid">
+    <article repeat.for="review of reviews" class="review-card">
+      <div class="featured-head">
+        <div>
+          <h4>${review.author}</h4>
+          <div class="meta">${review.role}</div>
+        </div>
+        <div class="badge">${review.score}/5</div>
+      </div>
+      <p>${review.body}</p>
+    </article>
+  </div>
+
+  <div if.bind="showEditor" class="editor-host" data-e2e="review-editor-host">
+    <au-compose
+      component.bind="getReviewEditorComponent()"
+      model.bind="{ productId, onSubmit: submitReview, onCancel: closeEditor }">
+    </au-compose>
+  </div>
+</div>

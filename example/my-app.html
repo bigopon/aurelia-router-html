@@ -1,74 +1,335 @@
-<nav data-e2e="nav">
-  <a href="/" data-e2e="link-home">Home</a> |
-  <a href="/store" data-e2e="link-store">Store</a> |
-  <a href="/store/123" data-e2e="link-store-123">Store 123</a> |
-  <a href="/store/123/order" data-e2e="link-store-123-order">Store 123 order</a>
-</nav>
-
-<h2 data-e2e="current-path">Document URL: ${path}</h2>
-<hr />
-
-<section data-e2e="route-demo">
-  <au-route path="/store">
-    <div style="border: 2px solid blue; padding: 4px;" data-e2e="route-store">
-      <strong>Store route</strong>
-
-      <au-route path="/">
-        <div style="border: 2px solid red; padding: 4px;" data-e2e="route-store-index">
-          Index route for /store
+<div class="app-shell">
+  <div class="shell-grid">
+    <header class="topbar" data-e2e="nav">
+      <div class="brand">
+        <div class="brand-mark">NV</div>
+        <div class="brand-copy">
+          <strong>North Vale Goods</strong>
+          <span>Router-html example app with nested commerce flows.</span>
         </div>
-      </au-route>
-
-      <div data-e2e="route-store-shared">
-        <b>Shared content inside /store between child route blocks</b>
       </div>
 
-      <au-route path="/:storeId">
-        <div style="border: 1px solid black; padding: 4px;" data-e2e="route-store-id">
-          <div>Nested store route</div>
-          <div data-e2e="store-id-value">Store with id: ${$params.storeId}</div>
-          <div data-e2e="store-id-params">Params: ${JSON.stringify($params)}</div>
-          <div style="margin-top: 8px;" data-e2e="dynamic-route-controls">
-            <button type="button" click.trigger="togglePromoRoute()" data-e2e="toggle-promo-route">
-              Toggle promo route
-            </button>
-            <button type="button" click.trigger="addFlashRoute()" data-e2e="add-flash-route">
-              Add flash route
-            </button>
-            <button type="button" click.trigger="removeFlashRoute()" data-e2e="remove-flash-route">
-              Remove flash route
-            </button>
-          </div>
+      <nav class="nav-links">
+        <a href="/" data-e2e="link-home">Home</a>
+        <a href="/products" data-e2e="link-products">Products</a>
+        <a href="/products/aster-pack/overview" data-e2e="link-aster">Aster</a>
+        <a href="/checkout/shipping" data-e2e="link-checkout">Checkout</a>
+        <a href="/account" data-e2e="link-account">Account</a>
+      </nav>
 
-          <au-route if.bind="showPromoRoute" path="/promo">
-            <div data-e2e="route-store-promo">
-              Promo route for store ${$parent.$params.storeId}
+      <div class="cart-badge" data-e2e="cart-count">Cart ${cartCount}</div>
+    </header>
+
+    <au-route path="/">
+      <section class="hero" data-e2e="route-home">
+        <div>
+          <div class="badge">HTML router exercise</div>
+          <h1>Purpose-built routes for real Aurelia behaviors.</h1>
+          <p>
+            Each branch in this sample is deliberate. The catalog pushes repeaters, sort and filter bindings,
+            product detail keeps a parent shell alive while nested routes swap, checkout is a gated wizard,
+            and account is lazy-loaded with a conditional orders branch.
+          </p>
+          <div class="hero-actions">
+            <a href="/products" class="button" data-e2e="hero-shop-link">Browse products</a>
+            <a href="/products/aster-pack/promo" class="button secondary">Deep-link promo route</a>
+          </div>
+        </div>
+
+        <div class="hero-rail">
+          <article repeat.for="product of featuredProducts" class="feature-card">
+            <div class="product-head">
+              <div>
+                <div class="badge">${product.releaseTag}</div>
+                <h3>${product.name}</h3>
+              </div>
+              <div class="price">${formatPrice(product.price)}</div>
             </div>
-          </au-route>
-          <div else data-e2e="promo-route-else">
-            Promo route currently unavailable
-          </div>
+            <p>${product.blurb}</p>
+            <ul class="highlight-list">
+              <li repeat.for="highlight of product.highlights">${highlight}</li>
+            </ul>
+            <div class="hero-actions">
+              <a href="/products/${product.id}/overview" class="pill-link">Open details</a>
+              <button class="secondary" click.trigger="addToCart(product.id)">Add to cart</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </au-route>
 
-          <template repeat.for="flashRoute of repeatedFlashRoutes">
-            <au-route path="/flash">
-              <div data-e2e="route-store-flash">
-                ${flashRoute.label}
+    <div class="content-grid">
+      <main class="panel route-stack" data-e2e="route-stage">
+        <au-route path="/products">
+          <section data-e2e="route-products">
+            <div class="catalog-head">
+              <div>
+                <div class="badge">Products route</div>
+                <h2>Field-tested carry goods</h2>
+                <p class="muted">Repeaters, converters, nested tabs, async detail loading, and dynamic route insertion all live here.</p>
+              </div>
+
+              <div class="catalog-tools">
+                <input value.bind="state.searchTerm" placeholder="Search packs, totes, slings" data-e2e="catalog-search">
+                <select value.bind="state.sortMode" data-e2e="catalog-sort">
+                  <option value="featured">Featured</option>
+                  <option value="price-asc">Price: low to high</option>
+                  <option value="price-desc">Price: high to low</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="catalog-actions">
+              <button
+                repeat.for="category of categories"
+                class.bind="state.activeCategory === category ? 'button' : 'button secondary'"
+                click.trigger="setCategory(category)">
+                ${category}
+              </button>
+            </div>
+
+            <au-route path="/">
+              <div class="catalog-grid" data-e2e="products-index">
+                <article
+                  repeat.for="product of products | productSearch: state.searchTerm : state.activeCategory | productSort: state.sortMode"
+                  class="product-card"
+                  data-e2e="product-card">
+                  <div class="product-head">
+                    <div>
+                      <div class="badge">${product.category}</div>
+                      <h3>${product.name}</h3>
+                    </div>
+                    <div class="price">${formatPrice(product.price)}</div>
+                  </div>
+
+                  <p>${product.blurb}</p>
+                  <ul class="highlight-list">
+                    <li repeat.for="highlight of product.highlights">${highlight}</li>
+                  </ul>
+                  <div class="hero-actions">
+                    <a href="/products/${product.id}/overview" class="pill-link">Inspect</a>
+                    <button class="secondary" click.trigger="addToCart(product.id)">Add to cart</button>
+                  </div>
+                </article>
               </div>
             </au-route>
-          </template>
 
-          <hr>
-          <div>Lazy order route below</div>
-          <au-route path="/order">
-            <div data-e2e="route-store-order">
-              <au-compose
-                component.bind="getStoreOrderComponent()"
-                model.bind="{ storeId: $parent.$params.storeId }">
-              </au-compose>
+            <div class="route-shell-note" data-e2e="products-shared-shell">
+              Parent catalog markup remains mounted while nested product routes swap below.
             </div>
-          </au-route>
+
+            <au-route path="/:productId">
+              <section class="product-shell" data-e2e="product-shell">
+                <div class="detail-head">
+                  <div>
+                    <div class="badge">Product shell</div>
+                    <h2>${detailProduct?.name ?? $params.productId}</h2>
+                    <div class="meta" data-e2e="product-param">Route product id: ${$params.productId}</div>
+                  </div>
+                  <a href="/products" class="pill-link">Back to list</a>
+                </div>
+
+                <div if.bind="detailLoading" class="loading-shell" data-e2e="product-loading">
+                  Loading product data asynchronously before nested routes settle.
+                </div>
+
+                <div else>
+                  <div if.bind="detailProduct === null" class="empty-state" data-e2e="product-missing">
+                    Unknown product id. The parent route still matched, but the detail data did not.
+                  </div>
+
+                  <div else class="route-stack">
+                    <div class="product-layout">
+                      <div class="detail-copy">
+                        <div class="badge">${detailProduct?.releaseTag}</div>
+                        <h3>${detailProduct?.name}</h3>
+                        <p>${detailProduct?.description}</p>
+                        <ul class="highlight-list">
+                          <li repeat.for="highlight of detailProduct?.highlights ?? []">${highlight}</li>
+                        </ul>
+                      </div>
+
+                      <aside class="detail-side">
+                        <div class="price">${formatPrice(detailProduct?.price ?? 0)}</div>
+                        <div class="status-note">${detailProduct?.inventory ?? 0} units in stock</div>
+                        <label class="qty-row">
+                          <span>Quantity</span>
+                          <input class="qty-input" type="number" min="1" value.bind="detailQuantity">
+                        </label>
+                        <button click.trigger="addDetailToCart()" data-e2e="add-detail-to-cart">Add to cart</button>
+                      </aside>
+                    </div>
+
+                    <nav class="detail-tabs" data-e2e="detail-tabs">
+                      <a href="/products/${detailProduct?.id}/overview" class="pill-link">Overview</a>
+                      <a href="/products/${detailProduct?.id}/reviews" class="pill-link">Reviews</a>
+                      <a href="/products/${detailProduct?.id}/specs" class="pill-link">Specs</a>
+                      <a
+                        if.bind="relatedProducts.length > 0"
+                        href="/products/${detailProduct?.id}/related/${relatedProducts[0].id}"
+                        class="pill-link">
+                        Related
+                      </a>
+                      <a
+                        if.bind="detailProduct?.isOnSale"
+                        href="/products/${detailProduct?.id}/promo"
+                        class="pill-link"
+                        data-e2e="promo-link">
+                        Promo
+                      </a>
+                    </nav>
+
+                    <div class="dynamic-controls" data-e2e="dynamic-route-controls">
+                      <button type="button" click.trigger="togglePromoRoute()" data-e2e="toggle-promo-route">
+                        Toggle promo route
+                      </button>
+                      <button type="button" class="secondary" click.trigger="addFlashRoute()" data-e2e="add-flash-route">
+                        Add flash route
+                      </button>
+                      <button type="button" class="secondary" click.trigger="removeFlashRoute()" data-e2e="remove-flash-route">
+                        Remove flash route
+                      </button>
+                    </div>
+
+                    <au-route path="/">
+                      <div class="route-callout" data-e2e="product-default-overview">
+                        Default nested route active. This mirrors the overview content until a deeper tab path is chosen.
+                      </div>
+                    </au-route>
+
+                    <au-route path="/overview">
+                      <div class="route-callout" data-e2e="product-overview">
+                        <div class="eyebrow">Overview route</div>
+                        <p>${detailProduct?.description}</p>
+                      </div>
+                    </au-route>
+
+                    <au-route path="/reviews">
+                      <au-compose component.bind="getReviewComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
+                    </au-route>
+
+                    <au-route path="/specs">
+                      <au-compose component.bind="getSpecsComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
+                    </au-route>
+
+                    <au-route path="/related/:relatedId">
+                      <div class="route-callout" data-e2e="product-related">
+                        <div class="nested-head">
+                          <div>
+                            <div class="eyebrow">Related route</div>
+                            <h3>${relatedProduct?.name ?? $params.relatedId}</h3>
+                          </div>
+                          <a href="/products/${relatedProduct?.id}/overview" class="pill-link">Switch to related product</a>
+                        </div>
+                        <p>${relatedProduct?.blurb}</p>
+                        <div class="mini-list">
+                          <a
+                            repeat.for="product of relatedProducts"
+                            href="/products/${detailProduct?.id}/related/${product.id}"
+                            class="mini-chip">
+                            ${product.name}
+                          </a>
+                        </div>
+                      </div>
+                    </au-route>
+
+                    <au-route if.bind="allowPromoRoute && detailProduct?.isOnSale" path="/promo">
+                      <div class="route-callout" data-e2e="product-promo">
+                        <div class="eyebrow">Conditional promo route</div>
+                        <p>${detailProduct?.name} is on sale, so this branch appears only after async product data resolves.</p>
+                      </div>
+                    </au-route>
+                    <div else class="route-callout" data-e2e="product-promo-fallback">
+                      Promo route currently unavailable for this product.
+                    </div>
+
+                    <template repeat.for="flashRoute of repeatedFlashRoutes">
+                      <au-route path="/flash">
+                        <div class="route-callout" data-e2e="product-flash">
+                          ${flashRoute.label}
+                        </div>
+                      </au-route>
+                    </template>
+                  </div>
+                </div>
+              </section>
+            </au-route>
+          </section>
+        </au-route>
+
+        <au-route path="/cart">
+          <section data-e2e="route-cart">
+            <div class="summary-head">
+              <div>
+                <div class="badge">Cart route</div>
+                <h2>Shared state across distant branches</h2>
+              </div>
+              <a href="/checkout/shipping" class="pill-link">Go to checkout</a>
+            </div>
+
+            <div class="summary-list">
+              <article repeat.for="line of cartItems" class="summary-item">
+                <div class="product-head">
+                  <div>
+                    <h4>${line.product.name}</h4>
+                    <div class="meta">${line.product.category}</div>
+                  </div>
+                  <div class="price">${formatPrice(line.lineTotal)}</div>
+                </div>
+                <div class="form-grid two-col">
+                  <label>
+                    <span>Qty</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value.bind="line.quantity"
+                      input.trigger="state.setQuantity(line.product.id, Number($event.target.value))">
+                  </label>
+                </div>
+              </article>
+            </div>
+          </section>
+        </au-route>
+
+        <au-route path="/checkout">
+          <au-compose component.bind="getCheckoutComponent()"></au-compose>
+        </au-route>
+
+        <au-route path="/account">
+          <au-compose component.bind="getAccountComponent()"></au-compose>
+        </au-route>
+      </main>
+
+      <aside class="summary-panel">
+        <div>
+          <div class="badge">App state</div>
+          <h2>Persistent cart summary</h2>
         </div>
-      </au-route>
+
+        <div class="summary-list">
+          <article repeat.for="line of cartItems" class="summary-item">
+            <div class="product-head">
+              <div>
+                <h4>${line.product.name}</h4>
+                <div class="meta">${line.quantity} x ${formatPrice(line.product.price)}</div>
+              </div>
+              <div class="price">${formatPrice(line.lineTotal)}</div>
+            </div>
+            <p>${line.product.blurb}</p>
+          </article>
+        </div>
+
+        <div class="summary-actions">
+          <a href="/cart" class="pill-link">Open cart route</a>
+          <a href="/account/orders/ord-4102" class="pill-link">Deep-link account order</a>
+        </div>
+
+        <div class="current-path" data-e2e="current-path">
+          Document URL: ${path}<br>
+          Cart total: ${cartTotal}
+        </div>
+      </aside>
     </div>
-  </au-route>
-</section>
+  </div>
+</div>

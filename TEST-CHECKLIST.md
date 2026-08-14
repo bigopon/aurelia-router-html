@@ -1,19 +1,21 @@
 # Test Checklist
 
-- [x] `A0` Initial load at `/store` renders the parent route and the nested index route.
-- [x] `A0` Initial load at `/store/123/order` renders nested parameter and lazy order content.
-- [x] `A0` Anchor navigation updates the visible route branch and URL together.
-- [x] `A0` Browser back and forward navigation restore the expected route branch.
+- [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
+- [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
+- [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.
+- [x] `A1` Shared cart state updates across product detail, cart, and checkout routes.
+- [x] `A1` The checkout payment branch stays locked until shipping state is complete.
+- [x] `A1` The lazy `/account` area activates a deep-linked `/orders/:orderId` branch after sign-in.
 - [x] `A1` Markup between nested `au-route` elements remains visible while the parent route is active.
-- [x] `A1` The `/store` index branch is not shown when `/store/:storeId` is active.
-- [x] `A1` Route params are exposed to the matching branch and to lazy loaded content.
+- [x] `A1` Conditional promo route removal tears down the active branch cleanly.
+- [x] `A1` A repeated-template `au-route` introduced later becomes active immediately when the current residue already matches it.
+- [x] `A1` Route params are exposed to matched product and account branches, including deeper nested params.
 - [x] `A1` `RouteContext` exact static match activates and leaves `/` residue when fully consumed.
 - [x] `A1` `RouteContext` parameter match extracts params and forwards remaining residue.
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.
 - [x] `A1` Child contexts update when the parent residue changes across successive `apply()` calls.
 - [x] `A1` An `au-route` introduced later via `if/else` becomes active immediately when the current residue already matches it.
 - [x] `A1` Removing an active conditional `au-route` tears down its branch cleanly and restores the `else` branch.
-- [x] `A1` An `au-route` introduced later from inside a repeated template becomes active immediately when the current residue already matches it.
 - [x] `A1` Removing a repeated-template `au-route` tears down its active branch cleanly.
 - [x] `A2` Trailing slash input normalizes to the same match state as the non-trailing form.
 - [x] `A2` Repeated `apply()` with the same path preserves stable state for params and residue.

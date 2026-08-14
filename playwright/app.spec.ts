@@ -1,75 +1,100 @@
 import { expect, test } from '@playwright/test';
 
-test.describe.serial('html-router', () => {
-  test('A0 initial /store renders parent and index routes', async ({ page }) => {
-    await page.goto('/store');
+test.describe.serial('html-router example app', () => {
+  test('A0 initial /products renders the catalog index branch', async ({ page }) => {
+    await page.goto('/products');
 
-    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/store');
-    await expect(page.locator('[data-e2e="route-store"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-index"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-shared"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-id"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/products');
+    await expect(page.locator('[data-e2e="route-products"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="products-index"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="products-shared-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-shell"]')).toHaveCount(0);
   });
 
-  test('A0 initial deep link renders nested params and lazy content', async ({ page }) => {
-    await page.goto('/store/123/order');
+  test('A0 deep link to promo waits for async data and activates the conditional branch', async ({ page }) => {
+    await page.goto('/products/aster-pack/promo');
 
-    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/store/123/order');
-    await expect(page.locator('[data-e2e="route-store"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-id"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="store-id-value"]')).toContainText('123');
-    await expect(page.locator('[data-e2e="route-store-order"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="lazy-order"]')).toContainText('123');
-    await expect(page.locator('[data-e2e="route-store-index"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-loading"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-promo"]')).toContainText('Aster Travel Pack');
+    await expect(page.locator('[data-e2e="product-promo-fallback"]')).toHaveCount(0);
   });
 
-  test('A0 anchor navigation and browser history keep routes in sync', async ({ page }) => {
-    await page.goto('/');
+  test('A0 sibling tab navigation keeps the product shell mounted', async ({ page }) => {
+    await page.goto('/products/aster-pack/overview');
 
-    await page.locator('[data-e2e="link-store"]').click();
-    await expect(page).toHaveURL(/\/store$/);
-    await expect(page.locator('[data-e2e="route-store-index"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
 
-    await page.locator('[data-e2e="link-store-123-order"]').click();
-    await expect(page).toHaveURL(/\/store\/123\/order$/);
-    await expect(page.locator('[data-e2e="lazy-order"]')).toContainText('123');
+    await page.getByRole('link', { name: 'Reviews' }).click();
+    await expect(page).toHaveURL(/\/products\/aster-pack\/reviews$/);
+    await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-reviews"]')).toBeVisible();
 
-    await page.goBack();
-    await expect(page).toHaveURL(/\/store$/);
-    await expect(page.locator('[data-e2e="route-store-index"]')).toBeVisible();
-
-    await page.goForward();
-    await expect(page).toHaveURL(/\/store\/123\/order$/);
-    await expect(page.locator('[data-e2e="lazy-order"]')).toContainText('123');
+    await page.getByRole('link', { name: 'Specs' }).click();
+    await expect(page).toHaveURL(/\/products\/aster-pack\/specs$/);
+    await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-specs"]')).toBeVisible();
   });
 
-  test('A1 conditional au-route added later becomes active for current residue', async ({ page }) => {
-    await page.goto('/store/123/promo');
+  test('A1 conditional au-route can be removed while it is active', async ({ page }) => {
+    await page.goto('/products/aster-pack/promo');
 
-    await expect(page.locator('[data-e2e="route-store-id"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="promo-route-else"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-promo"]')).toHaveCount(0);
-
+    await expect(page.locator('[data-e2e="product-promo"]')).toBeVisible();
     await page.locator('[data-e2e="toggle-promo-route"]').click();
-    await expect(page.locator('[data-e2e="route-store-promo"]')).toContainText('123');
-    await expect(page.locator('[data-e2e="promo-route-else"]')).toHaveCount(0);
-
-    await page.locator('[data-e2e="toggle-promo-route"]').click();
-    await expect(page.locator('[data-e2e="route-store-promo"]')).toHaveCount(0);
-    await expect(page.locator('[data-e2e="promo-route-else"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-promo"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="product-promo-fallback"]')).toBeVisible();
   });
 
   test('A1 repeated-template au-route added later becomes active for current residue', async ({ page }) => {
-    await page.goto('/store/123/flash');
+    await page.goto('/products/aster-pack/flash');
 
-    await expect(page.locator('[data-e2e="route-store-id"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="route-store-flash"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-flash"]')).toHaveCount(0);
 
     await page.locator('[data-e2e="add-flash-route"]').click();
-    await expect(page.locator('[data-e2e="route-store-flash"]')).toContainText('Flash route from repeat');
-    await expect(page).toHaveURL(/\/store\/123\/flash$/);
+    await expect(page.locator('[data-e2e="product-flash"]')).toContainText('Flash route');
+    await expect(page).toHaveURL(/\/products\/aster-pack\/flash$/);
 
     await page.locator('[data-e2e="remove-flash-route"]').click();
-    await expect(page.locator('[data-e2e="route-store-flash"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="product-flash"]')).toHaveCount(0);
+  });
+
+  test('A1 shared cart state updates across detail and cart routes', async ({ page }) => {
+    await page.goto('/products/aster-pack/overview');
+
+    await page.locator('[data-e2e="add-detail-to-cart"]').click();
+    await expect(page.locator('[data-e2e="cart-count"]')).toContainText('Cart 2');
+
+    await page.goto('/cart');
+    await expect(page.locator('[data-e2e="route-cart"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/cart');
+    await expect(page.locator('[data-e2e="route-cart"] .summary-item')).toHaveCount(1);
+  });
+
+  test('A1 checkout payment branch unlocks after shipping state is complete', async ({ page }) => {
+    await page.goto('/checkout/payment');
+
+    await expect(page.locator('[data-e2e="checkout-payment-locked"]')).toBeVisible();
+
+    await page.goto('/checkout/shipping');
+    await page.locator('[data-e2e="checkout-email"]').fill('alex@northvale.co');
+    await page.locator('[data-e2e="checkout-name"]').fill('Alex North');
+    await page.locator('[data-e2e="checkout-address"]').fill('1 Harbour Way, Sydney');
+    await page.locator('[data-e2e="checkout-speed"]').selectOption('express');
+    await page.locator('[data-e2e="continue-payment"]').click();
+
+    await expect(page).toHaveURL(/\/checkout\/payment$/);
+    await expect(page.locator('[data-e2e="checkout-payment"]')).toBeVisible();
+  });
+
+  test('A1 lazy account area activates deep-linked order detail after sign-in', async ({ page }) => {
+    await page.goto('/account/orders/ord-4102');
+
+    await expect(page.locator('[data-e2e="account-area"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="account-signin-prompt"]')).toBeVisible();
+
+    await page.locator('[data-e2e="toggle-account"]').click();
+    await expect(page.locator('[data-e2e="account-order-detail"]')).toContainText('ord-4102');
   });
 });

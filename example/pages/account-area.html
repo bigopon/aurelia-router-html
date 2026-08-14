@@ -1,0 +1,47 @@
+<div class="account-shell" data-e2e="account-area">
+  <div class="nested-head">
+    <div>
+      <div class="eyebrow">Lazy account route</div>
+      <h3>Orders and auth-like branch switching</h3>
+    </div>
+    <button type="button" class="secondary" click.trigger="toggleAccount()" data-e2e="toggle-account">
+      ${state.accountSignedIn ? 'Sign out' : 'Sign in'}
+    </button>
+  </div>
+
+  <div if.bind="state.accountSignedIn">
+    <div class="order-grid">
+      <div class="editor-card">
+        <h4>Your orders</h4>
+        <div class="stack-list">
+          <a
+            repeat.for="order of state.orders"
+            href="/account/orders/${order.id}"
+            class="order-link"
+            data-e2e="account-order-link">
+            ${order.id} · ${order.status}
+          </a>
+        </div>
+      </div>
+
+      <div class="editor-card">
+        <au-route path="/">
+          <div class="route-callout" data-e2e="account-index">
+            Pick an order to open the lazy detail pane.
+          </div>
+        </au-route>
+
+        <au-route path="/orders/:orderId">
+          <au-compose
+            component.bind="getOrderDetailComponent()"
+            model.bind="{ orderId: $params.orderId }">
+          </au-compose>
+        </au-route>
+      </div>
+    </div>
+  </div>
+
+  <div else class="route-callout promo-offline" data-e2e="account-signin-prompt">
+    Sign in to activate the nested orders route.
+  </div>
+</div>

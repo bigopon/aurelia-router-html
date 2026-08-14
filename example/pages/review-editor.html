@@ -1,0 +1,40 @@
+<div class="editor-card" data-e2e="review-editor">
+  <div class="nested-head">
+    <div>
+      <div class="eyebrow">Lazy editor</div>
+      <h3>Post a review for ${productId}</h3>
+    </div>
+  </div>
+
+  <div class="form-grid two-col">
+    <label>
+      <span>Name</span>
+      <input value.bind="author" placeholder="Your name" data-e2e="review-author">
+    </label>
+    <label>
+      <span>Role</span>
+      <input value.bind="role" placeholder="Designer, traveler, founder">
+    </label>
+  </div>
+
+  <div class="form-grid two-col">
+    <label>
+      <span>Score</span>
+      <select value.bind="score" data-e2e="review-score">
+        <option repeat.for="value of [5, 4, 3, 2, 1]" model.bind="value">${value}</option>
+      </select>
+    </label>
+  </div>
+
+  <label class="stack-field">
+    <span>Review</span>
+    <textarea value.bind="body" rows="4" placeholder="How did it perform?" data-e2e="review-body"></textarea>
+  </label>
+
+  <div if.bind="error !== ''" class="form-error" data-e2e="review-error">${error}</div>
+
+  <div class="hero-actions">
+    <button type="button" click.trigger="submit()" data-e2e="submit-review">Publish review</button>
+    <button type="button" class="secondary" click.trigger="cancel()">Cancel</button>
+  </div>
+</div>
