@@ -8,6 +8,16 @@
     </div>
   </header>
 
+  <div class="feature-details">
+    <section>
+      <h3>Dynamic path syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path.bind="item.path"&gt;...&lt;/au-route&gt;
+&lt;au-route path.to-view="item.path"&gt;...&lt;/au-route&gt;
+&lt;au-route :path="item.path"&gt;...&lt;/au-route&gt;</pre>
+      <p>Dynamic paths must use <code>path.bind</code>, <code>path.to-view</code>, or the <code>:path</code> shorthand. A plain <code>path="$<span>{item.path}</span>"</code> resembles a static route during route registration and produces a development warning.</p>
+    </section>
+  </div>
+
   <div class="page-grid">
     <article class="demo-card route-stack">
       <h3>Runnable demo</h3>
@@ -40,7 +50,7 @@
         </au-route>
 
         <template repeat.for="item of state.repeatedRoutes">
-          <au-route path.bind="'/demo/' + item.id">
+          <au-route :path="'/demo/' + item.id">
             <div class="route-pill">${item.label}</div>
           </au-route>
         </template>
@@ -62,7 +72,7 @@
   &lt;div class="mini-stage"&gt;
     &lt;au-route path="/demo/list"&gt;Base list route&lt;/au-route&gt;
     &lt;template repeat.for="item of state.repeatedRoutes"&gt;
-      &lt;au-route path="/demo/:itemId"&gt;
+      &lt;au-route :path="'/demo/' + item.id"&gt;
         Generated route content
       &lt;/au-route&gt;
     &lt;/template&gt;

@@ -17,7 +17,7 @@
     &lt;kitchen-shell title.bind="room.name"&gt;
       &lt;strong au-slot="heading"&gt;${room.name}&lt;/strong&gt;
       &lt;template repeat.for="page of room.pages"&gt;
-        &lt;au-route path.bind="'/' + page.id" exact&gt;${page.label}&lt;/au-route&gt;
+        &lt;au-route :path="'/' + page.id" exact&gt;${page.label}&lt;/au-route&gt;
       &lt;/template&gt;
     &lt;/kitchen-shell&gt;
   &lt;/au-route&gt;
@@ -69,7 +69,7 @@
 
             <div class="route-stack">
               <template repeat.for="page of room.pages">
-                <au-route path.bind="'/' + page.id" exact>
+                <au-route :path="'/' + page.id" exact>
                   <div class="route-stack">
                     <nav class="route-link-group" aria-label="${room.name} pages">
                       <a
@@ -128,7 +128,7 @@ feature-kitchen-sink-page.html
 
         &lt;div class="route-stack"&gt;
           &lt;template repeat.for="page of room.pages"&gt;
-            &lt;au-route path.bind="'/' + page.id" exact&gt;
+            &lt;au-route :path="'/' + page.id" exact&gt;
               &lt;div class="route-stack"&gt;
                 &lt;nav class="route-link-group"&gt;
                   &lt;a repeat.for="pageLink of room.pages" href="${base}/${pageLink.id}"&gt;

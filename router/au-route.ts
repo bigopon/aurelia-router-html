@@ -18,6 +18,11 @@ import {
 import { IRouteAnimationOptions } from './animation';
 import { IRouteContext, type SwapOrder } from './route-context';
 
+declare const __DEV__: boolean;
+const isDevelopment = typeof __DEV__ !== 'undefined'
+  ? __DEV__
+  : (import.meta as ImportMeta & { readonly env?: { readonly DEV?: boolean } }).env?.DEV === true;
+
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
     type: 'custom-element',
@@ -27,8 +32,13 @@ export class AuRoute implements ICustomElementViewModel {
     bindables: ['path'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
-      const pathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
+      const pathExpression = node.getAttribute('path.bind')
+        ?? node.getAttribute('path.to-view')
+        ?? node.getAttribute(':path');
       const hasBoundPath = pathExpression != null;
+      if (isDevelopment && !hasBoundPath && path?.includes('${') === true) {
+        console.warn(`[au-route] The path value "${path}" looks like an interpolation. Dynamic paths must use path.bind, path.to-view, or :path.`);
+      }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
       data.pathExpression = pathExpression;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
@@ -89,9 +99,7 @@ export class AuRoute implements ICustomElementViewModel {
   public $params?: Record<string, unknown>;
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
-    this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext);
-    Object.setPrototypeOf(this.overrideContext, parent.scope.overrideContext);
-    this.scope.overrideContext = this.overrideContext;
+    this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
       this.path = String(astEvaluate(expression, this.scope, null, null));

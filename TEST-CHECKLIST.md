@@ -6,6 +6,7 @@
 - [x] `A1` Kitchen-sink generated route links track the active URL across outer and inner repeated branches.
 - [x] `A1` Kitchen-sink source shows the complete slotted shell and declarative repeated route tree.
 - [x] `A1` Rapid swaps between repeated outer routes serialize view attachment and removal without DOM hierarchy errors or leftover layout nodes.
+- [x] `A1` Dynamic paths accept `path.bind`, `path.to-view`, and `:path`; interpolation-looking static paths warn in development.
 - [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
 - [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
 - [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.

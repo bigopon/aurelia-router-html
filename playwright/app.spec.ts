@@ -140,6 +140,38 @@ test.describe.serial('html-router example app', () => {
     await expect(page).toHaveURL(/\/products\/aster-pack\/overview$/);
   });
 
+  test('A1 dynamic path shorthand is captured and interpolation syntax warns in development', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', message => {
+      if (message.type() === 'warning' && message.text().startsWith('[au-route]')) {
+        warnings.push(message.text());
+      }
+    });
+    await page.goto('/products');
+
+    const metadata = await page.evaluate(async () => {
+      const modulePath = '/router/au-route.ts';
+      const { AuRoute } = await (0, eval)(`import(${JSON.stringify(modulePath)})`);
+      const processContent = AuRoute.$au.processContent!;
+      const read = (name: string, value: string) => {
+        const element = document.createElement('au-route');
+        element.setAttribute(name, value);
+        const data: Record<string, unknown> = {};
+        processContent(element, null!, data);
+        return data;
+      };
+      return {
+        shorthand: read(':path', 'item.path'),
+        interpolation: read('path', '/items/${item.id}'),
+      };
+    });
+
+    expect(metadata.shorthand.pathExpression).toBe('item.path');
+    expect(metadata.shorthand.path).toBe('/__pending_route_path__');
+    expect(metadata.interpolation.path).toBe('/items/${item.id}');
+    expect(warnings).toContain('[au-route] The path value "/items/${item.id}" looks like an interpolation. Dynamic paths must use path.bind, path.to-view, or :path.');
+  });
+
   test('A2 individual exact route requires a complete path match', async ({ page }) => {
     await page.goto('/about');
 

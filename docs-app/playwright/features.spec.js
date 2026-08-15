@@ -37,6 +37,22 @@ test.describe('router HTML docs features', () => {
     expect(fallbackColor).toBe(pathColor);
   });
 
+  test('dynamic route docs show every supported binding syntax and the shorthand drives repeated routes', async ({ page }) => {
+    await page.goto('/features/repeated/demo/list');
+
+    const syntax = page.locator('.feature-details pre');
+    await expect(syntax).toContainText('<au-route path.bind="item.path">');
+    await expect(syntax).toContainText('<au-route path.to-view="item.path">');
+    await expect(syntax).toContainText('<au-route :path="item.path">');
+    await expect(page.getByText('Dynamic paths must use')).toContainText('path.bind');
+    await expect(page.getByText('Dynamic paths must use')).toContainText('path.to-view');
+    await expect(page.getByText('Dynamic paths must use')).toContainText(':path');
+
+    await page.getByRole('button', { name: 'Add repeated route' }).click();
+    await expect(page).toHaveURL(/\/features\/repeated\/demo\/generated-1$/);
+    await expect(page.locator('.mini-stage')).toContainText('Generated route 1');
+  });
+
   test('exact and fallback demo responds to parent residue', async ({ page }) => {
     await page.goto('/features/matching/demo/exact');
 
@@ -115,6 +131,7 @@ test.describe('router HTML docs features', () => {
     await expect(source).toContainText('<let base.bind="\'/features/kitchen-sink/demo/\' + room.id">');
     await expect(source).toContainText('<strong au-slot="heading">');
     await expect(source).toContainText('<template repeat.for="page of room.pages">');
+    await expect(source).toContainText('<au-route :path="\'/\' + page.id" exact>');
   });
 
   test('rapid playroom swaps serialize routed view attachment and removal', async ({ page }) => {
