@@ -4,6 +4,7 @@ interface OverviewFeature {
   title: string;
   summary: string;
   path: string;
+  playgroundId: string;
   syntax: string;
 }
 
@@ -19,61 +20,75 @@ export class OverviewPage {
       title: 'Basic Routes',
       summary: 'Map a URL directly to the markup visitors should see.',
       path: '/features/basic',
+      playgroundId: 'basic-routes',
       syntax: '<au-route path="/welcome">Welcome</au-route>',
     },
     {
       title: 'Nested Routes',
       summary: 'Keep a parent layout mounted while child routes change.',
       path: '/features/nested',
+      playgroundId: 'nested-routes',
       syntax: '<au-route path="/account">\n  <au-route path="/profile">Profile</au-route>\n</au-route>',
     },
     {
       title: 'Params',
       summary: 'Capture dynamic URL segments and expose them to the matched view.',
       path: '/features/params',
+      playgroundId: 'route-params',
       syntax: '<au-route path="/users/:userId">\n  User: ${$params.userId}\n</au-route>',
     },
     {
       title: 'Conditional Routes',
       summary: 'Add and remove routes with Aurelia template controllers.',
       path: '/features/conditional',
+      playgroundId: 'conditional-routes',
       syntax: '<au-route if.bind="canEdit" path="/edit">Edit</au-route>',
     },
     {
       title: 'Repeated Routes',
       summary: 'Generate route branches from application data.',
       path: '/features/repeated',
+      playgroundId: 'repeated-routes',
       syntax: '<template repeat.for="tab of tabs">\n  <au-route path.bind="tab.path">${tab.label}</au-route>\n</template>',
     },
     {
       title: 'Exact & Fallback',
       summary: 'Choose complete matches first and a fallback only when siblings miss.',
       path: '/features/matching',
+      playgroundId: 'exact-fallback',
       syntax: '<au-route path="/products" exact>Products</au-route>\n<au-route path="*" fallback>Not found</au-route>',
     },
     {
       title: 'Swap Order',
       summary: 'Coordinate outgoing and incoming sibling views in parallel.',
       path: '/features/swap',
+      playgroundId: 'swap-order',
       syntax: '<au-route path="/products/:id" swap-order="parallel">\n  <au-route path="/specs">Specs</au-route>\n  <au-route path="/reviews">Reviews</au-route>\n</au-route>',
     },
     {
       title: 'Animations',
       summary: 'Opt individual routes into CSS-driven enter and leave transitions.',
       path: '/features/animation',
+      playgroundId: 'route-animations',
       syntax: '<au-route path="/panel" animate>Animated panel</au-route>',
     },
     {
       title: 'Shared State',
       summary: 'Bind routed views to the same application state without route-specific plumbing.',
       path: '/features/shared-state',
+      playgroundId: 'shared-state',
       syntax: '<au-route path="/cart">\n  Items: ${state.totalQty}\n</au-route>',
     },
     {
       title: 'Kitchen Sink',
       summary: 'Build simple rooms and pages from Aurelia scopes, slots, bindings, and repeated routes.',
       path: '/features/kitchen-sink',
+      playgroundId: 'kitchen-sink',
       syntax: '<template repeat.for="room of rooms">\n  <au-route path.bind="room.path">\n    <room-shell>...</room-shell>\n  </au-route>\n</template>',
     },
   ];
+
+  public playgroundPath(feature: OverviewFeature): string {
+    return `/playground/${feature.playgroundId}`;
+  }
 }

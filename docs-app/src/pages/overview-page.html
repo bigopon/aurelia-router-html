@@ -13,7 +13,10 @@
       <div class="overview-feature-copy">
         <h3>${feature.title}</h3>
         <p>${feature.summary}</p>
-        <a class="example-jump" href.bind="feature.path">Jump to example</a>
+        <div class="overview-links">
+          <a class="example-jump" href.bind="feature.path">Jump to example</a>
+          <a class="example-jump" href.bind="playgroundPath(feature)">Edit in playground</a>
+        </div>
       </div>
       <pre class="code-block overview-syntax" syntax-html>${feature.syntax}</pre>
     </article>

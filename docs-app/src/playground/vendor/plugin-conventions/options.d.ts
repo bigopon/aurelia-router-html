@@ -1,0 +1,59 @@
+export type ResourceType = 'customElement' | 'customAttribute' | 'valueConverter' | 'bindingBehavior' | 'bindingCommand' | 'templateController';
+export interface INameConvention {
+    name: string;
+    type: ResourceType;
+}
+export interface IFileUnit {
+    path: string;
+    base?: string;
+    contents: string;
+    filePair?: string;
+    readFile?(path: string): string;
+}
+export interface IFileUnitHost {
+    fileExists(unit: IFileUnit, path: string): boolean;
+    readFile(unit: IFileUnit, path: string): string;
+}
+export interface IOptionalPreprocessOptions {
+    defaultShadowOptions?: {
+        mode: 'open' | 'closed';
+    };
+    stringModuleWrap?: ((id: string) => string);
+    cssExtensions?: string[];
+    jsExtensions?: string[];
+    templateExtensions?: string[];
+    useProcessedFilePairFilename?: boolean;
+    useCSSModule?: boolean;
+    hmr?: boolean;
+    isDev?: boolean;
+    enableConventions?: boolean;
+    hmrModule?: string;
+    transformHtmlImportSpecifier?: (specifier: string) => string;
+    transformHtml?: (html: string) => string;
+    getHmrCode?: (viewModelClassName: string, moduleName?: string) => string;
+    experimentalTemplateTypeCheck?: boolean;
+}
+export interface IPreprocessOptions {
+    defaultShadowOptions?: {
+        mode: 'open' | 'closed';
+    };
+    stringModuleWrap?: ((id: string) => string);
+    cssExtensions: string[];
+    jsExtensions: string[];
+    templateExtensions: string[];
+    useProcessedFilePairFilename?: boolean;
+    useCSSModule: boolean;
+    hmr?: boolean;
+    isDev: boolean;
+    enableConventions?: boolean;
+    hmrModule?: string;
+    transformHtmlImportSpecifier?: (specifier: string) => string;
+    transformHtml?: (html: string) => string;
+    getHmrCode?: (viewModelClassName: string, moduleName?: string) => string;
+    experimentalTemplateTypeCheck: boolean;
+}
+export declare const defaultCssExtensions: string[];
+export declare const defaultJsExtensions: string[];
+export declare const defaultTemplateExtensions: string[];
+export declare function preprocessOptions(options?: IOptionalPreprocessOptions): IPreprocessOptions;
+//# sourceMappingURL=options.d.ts.map

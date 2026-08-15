@@ -46,3 +46,17 @@
 - [x] `A2` The docs app demonstrates exact, prefix, and fallback outcomes from one nested parent context.
 - [x] `A2` The matching demo source includes the complete parent route and appears above its rendered stage.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
+# Browser playground
+
+- [x] CodeMirror highlights TypeScript, JavaScript, HTML, and CSS while preserving editor state across file tabs.
+- [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
+- [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.
+- [x] Virtual paths normalize Windows separators, dot segments, extensionless imports, and index imports.
+- [x] A conventional `main.ts`, `app.ts`, `app.html`, and `app.css` project compiles in the browser worker.
+- [x] Nested conventional custom elements load through template imports.
+- [x] Unsupported packages and source locations appear in compiler diagnostics.
+- [x] Router links update the memory-backed preview URL and rendered route.
+- [x] Reset restores every source file and the initial route.
+- [x] Every Run replaces the sandboxed iframe instead of reusing an Aurelia application.
+- [x] The preview iframe has scripts enabled without same-origin access.
+- [x] Runtime errors and console messages are relayed to the documentation page.

@@ -1,0 +1,73 @@
+<section class="route-stack playground-page" data-e2e="playground">
+  <header class="page-header playground-header">
+    <div>
+      <h2>Router HTML Playground</h2>
+      <p class="page-copy">Edit a conventional Aurelia project, compile it entirely in your browser, and run it in a fresh isolated preview.</p>
+    </div>
+    <div class="playground-actions">
+      <label>
+        <span class="sr-only">Example</span>
+        <select change.trigger="chooseExample($event)">
+          <option repeat.for="example of examples" value.bind="example.id" selected.bind="example.id === project.id">${example.title}</option>
+        </select>
+      </label>
+      <label class="route-input">
+        <span>Initial route</span>
+        <input value.bind="project.initialPath">
+      </label>
+      <button click.trigger="copyProject()">Copy project</button>
+      <button click.trigger="reset()">Reset</button>
+      <button class="primary" disabled.bind="compiling" click.trigger="run()">${compiling ? 'Compiling…' : 'Run'}</button>
+    </div>
+  </header>
+
+  <div class="playground-status" role="status">
+    <strong>${status}</strong>
+    <span>Preview URL: ${currentPreviewPath}</span>
+  </div>
+
+  <div class="playground-workspace">
+    <section class="playground-editor-panel">
+      <div class="file-tabs" role="tablist" aria-label="Project files">
+        <button
+          repeat.for="file of fileNames"
+          role="tab"
+          aria-selected.bind="file === selectedFile"
+          class.is-active.bind="file === selectedFile"
+          click.trigger="selectFile(file)">${file.replace('/src/', '')}</button>
+      </div>
+      <div class="code-editor" ref="editorHost"></div>
+    </section>
+
+    <section class="playground-preview-panel">
+      <div class="panel-label">Preview</div>
+      <div class="preview-host" ref="previewHost"></div>
+    </section>
+  </div>
+
+  <div class="playground-output-grid">
+    <section>
+      <h3>Diagnostics</h3>
+      <p if.bind="diagnostics.length === 0" class="muted">No compiler diagnostics.</p>
+      <template else>
+        <button
+          repeat.for="diagnostic of diagnostics"
+          class="diagnostic-entry"
+          click.trigger="diagnostic.file && selectFile(diagnostic.file)">
+          <strong>${diagnostic.severity}</strong>
+          <span if.bind="diagnostic.file">${diagnostic.file}:${diagnostic.line}:${diagnostic.column}</span>
+          <span>${diagnostic.message}</span>
+        </button>
+      </template>
+    </section>
+    <section>
+      <h3>Console</h3>
+      <p if.bind="consoleEntries.length === 0" class="muted">Runtime messages appear here.</p>
+      <template else>
+        <div repeat.for="entry of consoleEntries" class="console-entry ${entry.level}">
+          <strong>${entry.level}</strong> ${entry.message}
+        </div>
+      </template>
+    </section>
+  </div>
+</section>

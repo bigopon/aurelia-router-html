@@ -477,6 +477,217 @@ button.primary,
   transform: translateY(-12px);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.overview-links,
+.playground-actions,
+.playground-status,
+.file-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.playground-page {
+  min-width: 0;
+}
+
+.playground-header {
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.playground-actions {
+  justify-content: flex-end;
+}
+
+.playground-actions select,
+.playground-actions input {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+}
+
+.route-input {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.route-input input {
+  width: 120px;
+}
+
+.playground-status {
+  justify-content: space-between;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.playground-workspace {
+  display: flex;
+  align-items: stretch;
+  min-height: 520px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: white;
+  box-shadow: var(--shadow);
+}
+
+.playground-editor-panel {
+  width: 52%;
+  min-width: 320px;
+  max-width: 78%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  resize: horizontal;
+  overflow: auto;
+  border-right: 1px solid var(--line-strong);
+  background: var(--code);
+}
+
+.file-tabs {
+  padding: 8px;
+  background: #111923;
+}
+
+.file-tabs button {
+  padding: 7px 10px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #aebacc;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.file-tabs button.is-active {
+  border-color: #6bcabd;
+  background: rgba(107, 202, 189, 0.14);
+  color: white;
+}
+
+.code-editor {
+  width: 100%;
+  min-height: 470px;
+  background: var(--code);
+  overflow: hidden;
+}
+
+.code-editor .cm-editor {
+  min-height: 470px;
+  height: 100%;
+  font: 0.88rem/1.55 Consolas, 'Courier New', monospace;
+}
+
+.code-editor .cm-scroller {
+  min-height: 470px;
+  overflow: auto;
+}
+
+.code-editor .cm-content {
+  padding: 16px 0;
+  caret-color: #8be0d2;
+}
+
+.code-editor .cm-gutters {
+  padding-top: 16px;
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+.code-editor .cm-focused {
+  outline: 1px solid #6bcabd;
+  outline-offset: -1px;
+}
+
+.playground-preview-panel {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.panel-label {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.preview-host,
+.preview-host iframe {
+  width: 100%;
+  min-height: 480px;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
+.playground-output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.playground-output-grid > section {
+  min-height: 100px;
+  max-height: 190px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.playground-output-grid h3 {
+  margin-bottom: 9px;
+}
+
+.diagnostic-entry {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 6px;
+  text-align: left;
+  border-color: rgba(180, 67, 48, 0.35);
+  background: rgba(180, 67, 48, 0.07);
+}
+
+.console-entry {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font: 0.82rem/1.4 Consolas, 'Courier New', monospace;
+}
+
+.console-entry.error,
+.console-entry.warn {
+  color: #a13c2d;
+}
+
 @media (max-width: 1080px) {
   .docs-grid,
   .page-grid,
@@ -492,5 +703,21 @@ button.primary,
 
   .nav-list {
     overflow: visible;
+  }
+
+  .playground-workspace {
+    display: grid;
+  }
+
+  .playground-editor-panel {
+    width: 100%;
+    max-width: none;
+    resize: vertical;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .playground-output-grid {
+    grid-template-columns: 1fr;
   }
 }

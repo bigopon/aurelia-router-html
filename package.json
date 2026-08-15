@@ -11,7 +11,7 @@
     "serve": "concurrently -n example,docs \"npm run example\" \"npm run docs:serve\" --kill-others",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:node": "tsc -p tests/tsconfig.json && cross-env NODE_OPTIONS=--conditions=development mocha --require .tmp-node/tests/setup-node.js --ui bdd --reporter spec --timeout 5000 .tmp-node/tests/au-route.spec.js",
+    "test:node": "tsc -p tests/tsconfig.json && cross-env NODE_OPTIONS=--conditions=development mocha --require .tmp-node/tests/setup-node.js --ui bdd --reporter spec --timeout 5000 .tmp-node/tests/au-route.spec.js .tmp-node/tests/playground-path.spec.js",
     "test:matcher": "tsc -p tests/tsconfig.matcher.json && node .tmp-matcher/tests/route-context.spec.js",
     "test:e2e": "cross-env APP_PORT=9017 concurrently -n app,e2e \"node ./node_modules/vite/bin/vite.js dev --host 127.0.0.1\" \"node ./node_modules/@playwright/test/cli.js test\" --kill-others --success command-1",
     "test:e2e:watch": "cross-env APP_PORT=9017 concurrently -n app,e2e \"node ./node_modules/vite/bin/vite.js dev --host 127.0.0.1\" \"node ./node_modules/playwright-watch/cli.js test\" --kill-others --success command-1",

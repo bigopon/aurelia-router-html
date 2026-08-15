@@ -84,4 +84,11 @@ export const docNav: DocNavItem[] = [
     summary: 'A tiny playroom app built from Aurelia scopes, let bindings, slots, and repeated routes.',
     badge: 'Full app',
   },
+  {
+    id: 'playground',
+    title: 'Playground',
+    path: '/playground',
+    summary: 'Edit and run a conventional Router HTML application entirely in the browser.',
+    badge: 'Try it',
+  },
 ];

@@ -1,6 +1,85 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('router HTML docs features', () => {
+  test('playground compiles conventions and runs routes in an isolated replaceable preview', async ({ page }) => {
+    await page.goto('/playground');
+
+    const preview = page.locator('[data-e2e="playground-preview"]');
+    await expect(preview).toHaveAttribute('sandbox', 'allow-scripts');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const highlightedTokens = page.locator('.code-editor .cm-content span');
+    await expect(highlightedTokens.first()).toBeVisible();
+    const tokenColors = await highlightedTokens.evaluateAll(tokens => [
+      ...new Set(tokens.map(token => getComputedStyle(token).color)),
+    ]);
+    expect(tokenColors.length).toBeGreaterThan(1);
+
+    const frame = page.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Build routes where the view lives.' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Camera' }).click();
+    await expect(page.getByRole('status')).toContainText('Preview URL: /products/camera');
+    await expect(frame.getByRole('heading', { name: 'Product: camera' })).toBeVisible();
+
+    const firstPreview = await preview.elementHandle();
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(preview).toHaveCount(1);
+    const secondPreview = await preview.elementHandle();
+    expect(await firstPreview?.evaluate((first, second) => first !== second, secondPreview)).toBe(true);
+  });
+
+  test('playground reports compiler errors and reset restores the example', async ({ page }) => {
+    await page.goto('/playground');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    await page.getByRole('tab', { name: 'main.ts' }).click();
+    const editor = page.getByRole('textbox', { name: 'Editing /src/main.ts' });
+    await editor.fill("import missing from 'not-installed';\nconsole.log(missing);");
+    await page.getByRole('tab', { name: 'app.html' }).click();
+    await expect(page.getByRole('textbox', { name: 'Editing /src/app.html' })).toBeVisible();
+    await page.getByRole('tab', { name: 'main.ts' }).click();
+    await expect(editor).toContainText("import missing from 'not-installed';");
+    await page.getByRole('button', { name: 'Run' }).click();
+
+    await expect(page.getByRole('status')).toContainText('Compilation failed', { timeout: 60000 });
+    await expect(page.getByText('Package "not-installed" is not available in this playground.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Reset' }).click();
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(editor).toContainText("import Aurelia from 'aurelia';");
+  });
+
+  test('playground composes nested, HTML-only, and value-converter conventions', async ({ page }) => {
+    await page.goto('/playground/nested-conventions');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    const frame = page.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByText('COMPILER')).toBeVisible();
+    await expect(frame.getByText('ROUTER')).toBeVisible();
+    await expect(frame.getByText('PREVIEW')).toBeVisible();
+    await expect(frame.getByText('HTML-only element')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'status-card.html' }).click();
+    const editor = page.getByRole('textbox', { name: 'Editing /src/status-card.html' });
+    await editor.fill('<template bindable="name"><article><strong>${name}</strong><span>Healthy</span></article></template>');
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(frame.getByText('Healthy').first()).toBeVisible();
+  });
+
+  test('playground relays runtime errors from the isolated preview', async ({ page }) => {
+    await page.goto('/playground');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    await page.getByRole('tab', { name: 'main.ts' }).click();
+    const editor = page.getByRole('textbox', { name: 'Editing /src/main.ts' });
+    await editor.fill("setTimeout(() => { throw new Error('Playground boom'); }, 0);");
+    await page.getByRole('button', { name: 'Run' }).click();
+
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(page.locator('.playground-output-grid').getByText('Playground boom')).toBeVisible();
+  });
+
   test('overview presents static feature syntax with links to focused examples', async ({ page }) => {
     await page.goto('/');
 
@@ -12,8 +91,43 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
     await expect(swapSyntax).toContainText('<au-route path="/reviews">Reviews</au-route>');
     await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(10);
+    const editLinks = features.getByRole('link', { name: 'Edit in playground' });
+    await expect(editLinks).toHaveCount(10);
+    expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
+      '/playground/basic-routes',
+      '/playground/nested-routes',
+      '/playground/route-params',
+      '/playground/conditional-routes',
+      '/playground/repeated-routes',
+      '/playground/exact-fallback',
+      '/playground/swap-order',
+      '/playground/route-animations',
+      '/playground/shared-state',
+      '/playground/kitchen-sink',
+    ]);
     await expect(page.getByText('Runnable demo')).toHaveCount(0);
     await expect(page.locator('button')).toHaveCount(0);
+  });
+
+  test('an overview edit link opens its matching runnable source', async ({ page }) => {
+    await page.goto('/');
+    const basic = page.locator('[data-e2e="overview-features"] .overview-feature').filter({ hasText: 'Basic Routes' });
+
+    await basic.getByRole('link', { name: 'Edit in playground' }).click();
+
+    await expect(page).toHaveURL(/\/playground\/basic-routes$/);
+    await expect(page.getByLabel('Example')).toHaveValue('basic-routes');
+    const editor = page.getByRole('textbox', { name: 'Editing /src/app.html' });
+    const sourceLines = await editor.locator('.cm-line').allTextContents();
+    const welcomeRoute = sourceLines.indexOf('  <au-route path="/welcome">');
+    expect(sourceLines.slice(welcomeRoute, welcomeRoute + 5)).toEqual([
+      '  <au-route path="/welcome">',
+      '    <h1>Welcome</h1>',
+      '    <p>Your first declarative route is running.</p>',
+      '  </au-route>',
+      '  <au-route path="/about">',
+    ]);
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
   });
 
   test('syntax highlighting gives valued and valueless attributes the same color', async ({ page }) => {

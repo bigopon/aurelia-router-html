@@ -11,11 +11,23 @@ export default defineConfig(({ command }) => ({
   },
   server: {
     port: Number(process.env.APP_PORT ?? 9027),
+    cors: true,
     fs: {
       allow: [
         resolve(__dirname, '..'),
       ],
     },
+  },
+  resolve: {
+    dedupe: [
+      'aurelia',
+      '@aurelia/expression-parser',
+      '@aurelia/kernel',
+      '@aurelia/metadata',
+      '@aurelia/runtime',
+      '@aurelia/runtime-html',
+      '@aurelia/template-compiler',
+    ],
   },
   build: {
     minify: false,
@@ -24,6 +36,9 @@ export default defineConfig(({ command }) => ({
   },
   esbuild: {
     target: 'es2022',
+  },
+  worker: {
+    format: 'es',
   },
   plugins: [
     aurelia({ enableConventions: true, hmr: true }),

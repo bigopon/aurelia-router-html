@@ -18,10 +18,16 @@
     "@aurelia/runtime": "2.0.0-rc.1",
     "@aurelia/runtime-html": "2.0.0-rc.1",
     "@aurelia/template-compiler": "2.0.0-rc.1",
-    "aurelia": "2.0.0-rc.1"
+    "@codemirror/lang-css": "6.3.1",
+    "@codemirror/lang-html": "6.4.10",
+    "@codemirror/lang-javascript": "6.2.4",
+    "@codemirror/theme-one-dark": "6.1.2",
+    "aurelia": "2.0.0-rc.1",
+    "codemirror": "6.0.2"
   },
   "devDependencies": {
     "@aurelia/vite-plugin": "2.0.0-rc.1",
+    "esbuild-wasm": "0.17.8",
     "typescript": "5.7.2",
     "vite": "^7.0.2"
   }
