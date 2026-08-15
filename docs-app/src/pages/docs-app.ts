@@ -5,6 +5,7 @@ import { DocsState } from '../state/docs-state';
 import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
+import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
@@ -30,6 +31,7 @@ export class DocsApp {
       FeatureSwapPage,
       FeatureAnimationPage,
       FeatureSharedStatePage,
+      FeatureKitchenSinkPage,
     ],
   } as const;
 

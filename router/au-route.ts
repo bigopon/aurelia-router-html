@@ -1,4 +1,4 @@
-import { resolve, IContainer, Registration } from '@aurelia/kernel';
+import { isPromise, onResolve, resolve, IContainer, Registration } from '@aurelia/kernel';
 import { astEvaluate, Scope } from '@aurelia/runtime';
 import { IExpressionParser } from 'aurelia';
 import {
@@ -50,6 +50,8 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly pathExpression: string | null;
   private readonly unsubscribe: () => void;
   private viewActive: boolean = false;
+  private requestedViewActive: boolean = false;
+  private viewTransition: Promise<void> | null = null;
   private animationRunId: number = 0;
 
   public constructor() {
@@ -96,9 +98,8 @@ export class AuRoute implements ICustomElementViewModel {
     }
     this.updatePath(this.path);
 
-    if (this.isActive) {
-      return this.activateView();
-    }
+    this.requestedViewActive = this.isActive;
+    return this.queueViewUpdate();
   }
 
   public pathChanged(path: string): void {
@@ -122,7 +123,8 @@ export class AuRoute implements ICustomElementViewModel {
 
   public unbinding(_initiator: IHydratedController, _parent: IHydratedController): void | Promise<void> {
     this.scope = void 0;
-    return this.deactivateView();
+    this.requestedViewActive = false;
+    return this.queueViewUpdate();
   }
 
   public dispose(): void {
@@ -136,14 +138,46 @@ export class AuRoute implements ICustomElementViewModel {
   }
   public set isActive(value: boolean) {
     this._isActive = value;
+    this.requestedViewActive = value;
     if (!this.$controller?.isActive) {
       return;
     }
 
-    if (value) {
-      void this.activateView();
-    } else {
-      void this.deactivateView();
+    void this.queueViewUpdate();
+  }
+
+  private queueViewUpdate(): void | Promise<void> {
+    const update = this.viewTransition == null
+      ? this.updateView()
+      : this.viewTransition.then(() => this.updateView());
+    if (!isPromise(update)) {
+      return;
+    }
+
+    const pending = update.catch(() => {});
+    this.viewTransition = pending;
+    void pending.then(() => {
+      if (this.viewTransition === pending) {
+        this.viewTransition = null;
+      }
+    });
+    return update;
+  }
+
+  private updateView(): void | Promise<void> {
+    while (this.viewActive !== this.requestedViewActive) {
+      let transition: void | Promise<void>;
+      if (this.requestedViewActive) {
+        if (this.scope == null) {
+          return;
+        }
+        transition = this.activateView();
+      } else {
+        transition = this.deactivateView();
+      }
+      if (isPromise(transition)) {
+        return transition.then(() => this.updateView());
+      }
     }
   }
 
@@ -151,28 +185,49 @@ export class AuRoute implements ICustomElementViewModel {
     return this.factory.create().setLocation(this.location);
   }
 
-  private async activateView(): Promise<void> {
+  private activateView(): void | Promise<void> {
     if (this.viewActive || this.scope == null) {
       return;
     }
 
     this.view ??= this.getView();
     this.viewActive = true;
-    await this.view.activate(this.view, this.$controller, this.scope);
-    await this.animate('enter');
+    return onResolve(
+      this.view.activate(this.view, this.$controller, this.scope),
+      () => this.animate('enter'),
+    );
   }
 
-  private async deactivateView(): Promise<void> {
+  private deactivateView(): void | Promise<void> {
     if (!this.viewActive || this.view == null) {
       return;
     }
 
-    await this.animate('leave');
-    this.viewActive = false;
-    await this.view.deactivate(this.view, this.$controller);
+    const view = this.view;
+    return onResolve(this.animate('leave'), () => {
+      this.viewActive = false;
+      return onResolve(view.deactivate(view, this.$controller), () => {
+        this.clearViewLocation();
+        view.dispose();
+        if (this.view === view) {
+          this.view = null;
+        }
+      });
+    });
   }
 
-  private async animate(direction: 'enter' | 'leave'): Promise<void> {
+  private clearViewLocation(): void {
+    // Nested controllers can detach their sequences before the route view, so clear any emptied hosts still owned by this location.
+    const start = this.location.$start;
+    let current = start?.nextSibling ?? null;
+    while (current != null && current !== this.location) {
+      const next = current.nextSibling;
+      current.remove();
+      current = next;
+    }
+  }
+
+  private animate(direction: 'enter' | 'leave'): void | Promise<void> {
     if (!this.animationsEnabled || this.view == null) {
       return;
     }
@@ -182,6 +237,10 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
+    return this.runAnimation(direction, elements);
+  }
+
+  private async runAnimation(direction: 'enter' | 'leave', elements: HTMLElement[]): Promise<void> {
     const runId = ++this.animationRunId;
     const prefix = this.animationOptions.classPrefix;
     const fromClass = `${prefix}-${direction}-from`;

@@ -2,6 +2,10 @@
 
 - [x] `A0` The docs overview presents every feature as static syntax with a link to its focused example and no demo controls.
 - [x] `A0` Syntax highlighting gives valued and valueless HTML attributes the same attribute color.
+- [x] `A1` The kitchen-sink docs example composes VM and repeat scopes, `let` bindings, named slots, two-way bindings, and nested repeated routes.
+- [x] `A1` Kitchen-sink generated route links track the active URL across outer and inner repeated branches.
+- [x] `A1` Kitchen-sink source shows the complete slotted shell and declarative repeated route tree.
+- [x] `A1` Rapid swaps between repeated outer routes serialize view attachment and removal without DOM hierarchy errors or leftover layout nodes.
 - [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
 - [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
 - [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.

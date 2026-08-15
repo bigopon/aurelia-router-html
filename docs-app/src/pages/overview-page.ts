@@ -69,5 +69,11 @@ export class OverviewPage {
       path: '/features/shared-state',
       syntax: '<au-route path="/cart">\n  Items: ${state.totalQty}\n</au-route>',
     },
+    {
+      title: 'Kitchen Sink',
+      summary: 'Build simple rooms and pages from Aurelia scopes, slots, bindings, and repeated routes.',
+      path: '/features/kitchen-sink',
+      syntax: '<template repeat.for="room of rooms">\n  <au-route path.bind="room.path">\n    <room-shell>...</room-shell>\n  </au-route>\n</template>',
+    },
   ];
 }

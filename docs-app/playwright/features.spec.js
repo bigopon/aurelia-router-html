@@ -5,13 +5,13 @@ test.describe('router HTML docs features', () => {
     await page.goto('/');
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(9);
+    await expect(features).toHaveCount(10);
     await expect(features.filter({ hasText: 'Exact & Fallback' }).locator('pre')).toContainText('<au-route path="/products" exact>');
     const swapSyntax = features.filter({ hasText: 'Swap Order' }).locator('pre');
     await expect(swapSyntax).toContainText('swap-order="parallel"');
     await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
     await expect(swapSyntax).toContainText('<au-route path="/reviews">Reviews</au-route>');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(9);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(10);
     await expect(page.getByText('Runnable demo')).toHaveCount(0);
     await expect(page.locator('button')).toHaveCount(0);
   });
@@ -86,5 +86,71 @@ test.describe('router HTML docs features', () => {
     await overlapSeen;
     await expect(page).toHaveURL(/\/features\/swap\/demo\/beta$/);
     await expect(page.locator('[data-e2e="parallel-beta"]')).toBeVisible();
+  });
+
+  test('kitchen sink composes VM scope, let bindings, slots, and nested repeated routes', async ({ page }) => {
+    await page.goto('/features/kitchen-sink/demo/sunny/toys');
+
+    await expect(page.locator('[data-e2e="kitchen-heading"]:visible')).toContainText('Sunny Room uses Router HTML');
+    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Sunny Room / Toys');
+    await expect(page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Toys', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('[data-e2e="kitchen-footer"]')).toContainText('2 pages - No room note yet');
+
+    await page.locator('[data-e2e="kitchen-note"]').fill('Nap after snacks');
+    await expect(page.locator('[data-e2e="kitchen-footer"]')).toContainText('2 pages - Nap after snacks');
+
+    await page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Snacks', exact: true }).click();
+    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/snacks$/);
+    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Sunny Room / Snacks');
+    await expect(page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Snacks', exact: true })).toHaveAttribute('aria-current', 'page');
+
+    await page.getByRole('link', { name: 'Moon Room', exact: true }).last().click();
+    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/moon\/stories$/);
+    await expect(page.locator('[data-e2e="kitchen-heading"]')).toContainText('Moon Room uses Router HTML');
+    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Moon Room / Stories');
+
+    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toHaveCount(1);
+    await page.locator('[data-e2e="kitchen-source-toggle"]').click();
+    const source = page.locator('[data-e2e="kitchen-source"]');
+    await expect(source).toContainText('<let base.bind="\'/features/kitchen-sink/demo/\' + room.id">');
+    await expect(source).toContainText('<strong au-slot="heading">');
+    await expect(source).toContainText('<template repeat.for="page of room.pages">');
+  });
+
+  test('rapid playroom swaps serialize routed view attachment and removal', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => {
+      pageErrors.push(error.message);
+    });
+    await page.goto('/features/kitchen-sink/demo/sunny/toys');
+    await expect(page.locator('[data-e2e="kitchen-heading"]')).toContainText('Sunny Room uses Router HTML');
+    const demo = page.locator('[data-e2e="kitchen-demo"]');
+    const initialLayout = await demo.evaluate(element => ({
+      childElements: element.children.length,
+      height: element.getBoundingClientRect().height,
+      shells: element.querySelectorAll('kitchen-shell').length,
+    }));
+
+    for (let index = 0; index < 6; index++) {
+      await page.getByRole('link', { name: 'Moon Room', exact: true }).last().click();
+      await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/moon\/stories$/);
+      await page.waitForTimeout(50);
+      expect(pageErrors).toEqual([]);
+      await expect(page.locator('[data-e2e="kitchen-heading"]:visible')).toContainText('Moon Room uses Router HTML');
+      await page.getByRole('link', { name: 'Sunny Room', exact: true }).last().click();
+      await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/toys$/);
+    }
+
+    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/toys$/);
+    await expect(page.locator('[data-e2e="kitchen-section"]:visible')).toContainText('Sunny Room / Toys');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toHaveCount(1);
+    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toBeVisible();
+    await expect.poll(() => demo.evaluate(element => ({
+      childElements: element.children.length,
+      height: element.getBoundingClientRect().height,
+      shells: element.querySelectorAll('kitchen-shell').length,
+    }))).toEqual(initialLayout);
+    expect(pageErrors).toEqual([]);
   });
 });

@@ -1,0 +1,157 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Kitchen Sink</h2>
+      <p class="page-copy">
+        Build a tiny playroom app by mixing normal Aurelia templates with a declarative route tree.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;template repeat.for="room of rooms"&gt;
+  &lt;au-route path.bind="'/demo/' + room.id"&gt;
+    &lt;let base.bind="'/features/kitchen-sink/demo/' + room.id"&gt;&lt;/let&gt;
+    &lt;kitchen-shell title.bind="room.name"&gt;
+      &lt;strong au-slot="heading"&gt;${room.name}&lt;/strong&gt;
+      &lt;template repeat.for="page of room.pages"&gt;
+        &lt;au-route path.bind="'/' + page.id" exact&gt;${page.label}&lt;/au-route&gt;
+      &lt;/template&gt;
+    &lt;/kitchen-shell&gt;
+  &lt;/au-route&gt;
+&lt;/template&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p>Routes use the same scopes as the surrounding Aurelia template. Room and page repeat items, <code>&lt;let&gt;</code> variables, VM properties, bindings, and projected slots all remain available inside matched branches.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <p>Keep each route beside the markup it controls. Generate routes from data when the choices come from a list, and use ordinary slotted components for reusable page shells.</p>
+    </section>
+  </div>
+
+  <div class="page-grid">
+    <article class="demo-card route-stack" data-e2e="kitchen-demo">
+      <h3>Playroom route builder</h3>
+      <div class="mini-nav">
+        <button data-e2e="kitchen-source-toggle" click.trigger="state.toggleSource()">${state.sourceVisible ? 'Hide' : 'Show'} source</button>
+      </div>
+
+      <au-route path="/" exact>
+        <div class="route-stack">
+          <div class="mini-nav" role="group" aria-label="Playrooms">
+            <a
+              repeat.for="room of rooms"
+              class="route-link"
+              href="/features/kitchen-sink/demo/${room.id}/${room.pages[0].id}">Open ${room.name}</a>
+          </div>
+          <div class="route-pill">Choose a room. Its pages are created from the room data.</div>
+        </div>
+      </au-route>
+
+      <template repeat.for="room of rooms">
+        <au-route path.bind="'/demo/' + room.id">
+          <let base.bind="'/features/kitchen-sink/demo/' + room.id"></let>
+
+          <div class="mini-nav" role="group" aria-label="Playrooms">
+            <a
+              repeat.for="roomLink of rooms"
+              class.bind="roomLink.id === room.id ? 'route-link is-active' : 'route-link'"
+              aria-current.bind="roomLink.id === room.id ? 'page' : null"
+              href="/features/kitchen-sink/demo/${roomLink.id}/${roomLink.pages[0].id}">${roomLink.name}</a>
+          </div>
+
+          <kitchen-shell title.bind="room.name">
+            <strong au-slot="heading" data-e2e="kitchen-heading">${room.name} uses ${productName}</strong>
+
+            <div class="route-stack">
+              <template repeat.for="page of room.pages">
+                <au-route path.bind="'/' + page.id" exact>
+                  <div class="route-stack">
+                    <nav class="route-link-group" aria-label="${room.name} pages">
+                      <a
+                        repeat.for="pageLink of room.pages"
+                        class.bind="pageLink.id === page.id ? 'route-link is-active' : 'route-link'"
+                        aria-current.bind="pageLink.id === page.id ? 'page' : null"
+                        href="${base}/${pageLink.id}">${pageLink.label}</a>
+                    </nav>
+
+                    <article class="route-pill route-stack" data-e2e="kitchen-section">
+                      <div><strong>${room.name} / ${page.label}</strong></div>
+                      <p>${page.description}</p>
+                      <label class="form-field">
+                        <span>Room note</span>
+                        <input value.bind="room.note" data-e2e="kitchen-note" placeholder="Write a note for the footer">
+                      </label>
+                    </article>
+                  </div>
+                </au-route>
+              </template>
+            </div>
+
+            <span au-slot="footer" data-e2e="kitchen-footer">
+              ${room.pages.length} pages - ${room.note || 'No room note yet'}
+            </span>
+          </kitchen-shell>
+        </au-route>
+      </template>
+
+      <pre if.bind="state.sourceVisible" class="code-block" data-e2e="kitchen-source" syntax-html>kitchen-shell.html
+&lt;section class="kitchen-shell"&gt;
+  &lt;header&gt;&lt;au-slot name="heading"&gt;${title}&lt;/au-slot&gt;&lt;/header&gt;
+  &lt;main&gt;&lt;au-slot&gt;&lt;/au-slot&gt;&lt;/main&gt;
+  &lt;footer&gt;&lt;au-slot name="footer"&gt;Ready for another page.&lt;/au-slot&gt;&lt;/footer&gt;
+&lt;/section&gt;
+
+feature-kitchen-sink-page.html
+&lt;article class="demo-card route-stack"&gt;
+  &lt;button click.trigger="state.toggleSource()"&gt;
+    ${state.sourceVisible ? 'Hide' : 'Show'} source
+  &lt;/button&gt;
+
+  &lt;template repeat.for="room of rooms"&gt;
+    &lt;au-route path.bind="'/demo/' + room.id"&gt;
+      &lt;let base.bind="'/features/kitchen-sink/demo/' + room.id"&gt;&lt;/let&gt;
+
+      &lt;div class="mini-nav"&gt;
+        &lt;a repeat.for="roomLink of rooms"
+           href="/features/kitchen-sink/demo/${roomLink.id}/${roomLink.pages[0].id}"&gt;
+          ${roomLink.name}
+        &lt;/a&gt;
+      &lt;/div&gt;
+
+      &lt;kitchen-shell title.bind="room.name"&gt;
+        &lt;strong au-slot="heading"&gt;${room.name} uses ${productName}&lt;/strong&gt;
+
+        &lt;div class="route-stack"&gt;
+          &lt;template repeat.for="page of room.pages"&gt;
+            &lt;au-route path.bind="'/' + page.id" exact&gt;
+              &lt;div class="route-stack"&gt;
+                &lt;nav class="route-link-group"&gt;
+                  &lt;a repeat.for="pageLink of room.pages" href="${base}/${pageLink.id}"&gt;
+                    ${pageLink.label}
+                  &lt;/a&gt;
+                &lt;/nav&gt;
+                &lt;article class="route-pill route-stack"&gt;
+                  &lt;strong&gt;${room.name} / ${page.label}&lt;/strong&gt;
+                  &lt;p&gt;${page.description}&lt;/p&gt;
+                  &lt;input value.bind="room.note" placeholder="Write a note for the footer"&gt;
+                &lt;/article&gt;
+              &lt;/div&gt;
+            &lt;/au-route&gt;
+          &lt;/template&gt;
+        &lt;/div&gt;
+
+        &lt;span au-slot="footer"&gt;
+          ${room.pages.length} pages - ${room.note || 'No room note yet'}
+        &lt;/span&gt;
+      &lt;/kitchen-shell&gt;
+    &lt;/au-route&gt;
+  &lt;/template&gt;
+&lt;/article&gt;</pre>
+    </article>
+  </div>
+</section>

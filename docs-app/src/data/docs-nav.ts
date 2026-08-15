@@ -77,4 +77,11 @@ export const docNav: DocNavItem[] = [
     summary: 'Bindings that stay in sync across distant route branches.',
     badge: 'Demo',
   },
+  {
+    id: 'kitchen-sink',
+    title: 'Kitchen Sink',
+    path: '/features/kitchen-sink',
+    summary: 'A tiny playroom app built from Aurelia scopes, let bindings, slots, and repeated routes.',
+    badge: 'Full app',
+  },
 ];

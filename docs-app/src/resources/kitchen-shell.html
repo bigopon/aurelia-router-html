@@ -1,0 +1,18 @@
+<section class="kitchen-shell" data-e2e="kitchen-shell">
+  <header class="kitchen-shell-header">
+    <div class="slot-heading">
+      <au-slot name="heading">
+        <h3>${title}</h3>
+      </au-slot>
+    </div>
+    <span class="badge">${title}</span>
+  </header>
+
+  <div class="kitchen-shell-body">
+    <au-slot></au-slot>
+  </div>
+
+  <footer class="kitchen-shell-footer">
+    <au-slot name="footer">Ready for another page.</au-slot>
+  </footer>
+</section>
