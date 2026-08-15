@@ -1,5 +1,7 @@
 # Test Checklist
 
+- [x] `A0` The docs overview presents every feature as static syntax with a link to its focused example and no demo controls.
+- [x] `A0` Syntax highlighting gives valued and valueless HTML attributes the same attribute color.
 - [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
 - [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
 - [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.

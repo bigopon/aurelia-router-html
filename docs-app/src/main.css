@@ -260,6 +260,50 @@ button:hover {
   line-height: 1.65;
 }
 
+.feature-catalog {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.overview-feature {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel-strong);
+}
+
+.overview-feature-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-feature h3,
+.overview-feature p {
+  margin: 0;
+}
+
+.overview-feature p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.overview-syntax {
+  font-size: 0.82rem;
+}
+
+.example-jump {
+  width: fit-content;
+  color: var(--brand);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
 .stat-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -403,7 +447,8 @@ button.primary,
 @media (max-width: 1080px) {
   .docs-grid,
   .page-grid,
-  .stat-grid {
+  .stat-grid,
+  .feature-catalog {
     grid-template-columns: 1fr;
   }
 

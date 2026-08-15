@@ -1,5 +1,11 @@
-import { docNav } from '../data/docs-nav';
 import template from './overview-page.html?raw';
+
+interface OverviewFeature {
+  title: string;
+  summary: string;
+  path: string;
+  syntax: string;
+}
 
 export class OverviewPage {
   public static readonly $au = {
@@ -8,5 +14,60 @@ export class OverviewPage {
     template,
   } as const;
 
-  public readonly nav = docNav.filter(item => item.id !== 'overview');
+  public readonly features: OverviewFeature[] = [
+    {
+      title: 'Basic Routes',
+      summary: 'Map a URL directly to the markup visitors should see.',
+      path: '/features/basic',
+      syntax: '<au-route path="/welcome">Welcome</au-route>',
+    },
+    {
+      title: 'Nested Routes',
+      summary: 'Keep a parent layout mounted while child routes change.',
+      path: '/features/nested',
+      syntax: '<au-route path="/account">\n  <au-route path="/profile">Profile</au-route>\n</au-route>',
+    },
+    {
+      title: 'Params',
+      summary: 'Capture dynamic URL segments and expose them to the matched view.',
+      path: '/features/params',
+      syntax: '<au-route path="/users/:userId">\n  User: ${$params.userId}\n</au-route>',
+    },
+    {
+      title: 'Conditional Routes',
+      summary: 'Add and remove routes with Aurelia template controllers.',
+      path: '/features/conditional',
+      syntax: '<au-route if.bind="canEdit" path="/edit">Edit</au-route>',
+    },
+    {
+      title: 'Repeated Routes',
+      summary: 'Generate route branches from application data.',
+      path: '/features/repeated',
+      syntax: '<template repeat.for="tab of tabs">\n  <au-route path.bind="tab.path">${tab.label}</au-route>\n</template>',
+    },
+    {
+      title: 'Exact & Fallback',
+      summary: 'Choose complete matches first and a fallback only when siblings miss.',
+      path: '/features/matching',
+      syntax: '<au-route path="/products" exact>Products</au-route>\n<au-route path="*" fallback>Not found</au-route>',
+    },
+    {
+      title: 'Swap Order',
+      summary: 'Coordinate outgoing and incoming sibling views in parallel.',
+      path: '/features/swap',
+      syntax: '<au-route path="/products/:id" swap-order="parallel">\n  <au-route path="/specs">Specs</au-route>\n  <au-route path="/reviews">Reviews</au-route>\n</au-route>',
+    },
+    {
+      title: 'Animations',
+      summary: 'Opt individual routes into CSS-driven enter and leave transitions.',
+      path: '/features/animation',
+      syntax: '<au-route path="/panel" animate>Animated panel</au-route>',
+    },
+    {
+      title: 'Shared State',
+      summary: 'Bind routed views to the same application state without route-specific plumbing.',
+      path: '/features/shared-state',
+      syntax: '<au-route path="/cart">\n  Items: ${state.totalQty}\n</au-route>',
+    },
+  ];
 }

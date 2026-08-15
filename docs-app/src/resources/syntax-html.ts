@@ -16,8 +16,17 @@ export class SyntaxHtml {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;');
 
-    this.element.innerHTML = escaped
-      .replace(/(&lt;\/?)([\w-]+)/g, '$1<span class="syntax-tag">$2</span>')
-      .replace(/([\w.-]+)(=)(&quot;[^&]*&quot;)/g, '<span class="syntax-attribute">$1</span>$2<span class="syntax-string">$3</span>');
+    this.element.innerHTML = escaped.replace(
+      /&lt;(\/?)([\w-]+)([\s\S]*?)&gt;/g,
+      (_match, slash: string, tag: string, attributes: string) => {
+        const highlightedAttributes = attributes.replace(
+          /(\s+)([\w.:-]+)(?:=(&quot;.*?&quot;))?/g,
+          (_attributeMatch: string, whitespace: string, name: string, value: string | undefined) => value == null
+            ? `${whitespace}<span class="syntax-attribute">${name}</span>`
+            : `${whitespace}<span class="syntax-attribute">${name}</span>=<span class="syntax-string">${value}</span>`,
+        );
+        return `&lt;${slash}<span class="syntax-tag">${tag}</span>${highlightedAttributes}&gt;`;
+      },
+    );
   }
 }
