@@ -1,0 +1,64 @@
+<div class="docs-shell">
+  <div class="docs-grid">
+    <aside class="sidebar">
+      <div class="brand-stack">
+        <div class="brand-row">
+          <div class="brand-mark">RH</div>
+          <div>
+            <h1>Router HTML</h1>
+            <div class="muted">A lightweight router for Aurelia HTML apps.</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <a
+          repeat.for="item of nav"
+          href.bind="item.path"
+          class="nav-item"
+          class.is-active.bind="isActive(item.path)"
+          aria-current.bind="isActive(item.path) ? 'page' : null">
+          <strong>${item.title}</strong>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main-panel">
+      <au-route path="/">
+        <overview-page></overview-page>
+      </au-route>
+
+      <au-route path="/features/basic">
+        <feature-basic-page></feature-basic-page>
+      </au-route>
+
+      <au-route path="/features/nested">
+        <feature-nested-page></feature-nested-page>
+      </au-route>
+
+      <au-route path="/features/params">
+        <feature-params-page></feature-params-page>
+      </au-route>
+
+      <au-route path="/features/conditional">
+        <feature-conditional-page></feature-conditional-page>
+      </au-route>
+
+      <au-route path="/features/repeated">
+        <feature-repeated-page></feature-repeated-page>
+      </au-route>
+
+      <au-route path="/features/swap">
+        <feature-swap-page></feature-swap-page>
+      </au-route>
+
+      <au-route path="/features/animation">
+        <feature-animation-page></feature-animation-page>
+      </au-route>
+
+      <au-route path="/features/shared-state">
+        <feature-shared-state-page></feature-shared-state-page>
+      </au-route>
+    </main>
+  </div>
+</div>

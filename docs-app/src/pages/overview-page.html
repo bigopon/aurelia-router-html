@@ -1,0 +1,49 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Routing that stays close to your HTML</h2>
+      <p class="page-copy">
+        Router HTML brings approachable, composable client-side routing to Aurelia apps. Explore the live examples to see how it handles everyday navigation without adding ceremony.
+      </p>
+    </div>
+  </header>
+
+  <div class="page-grid">
+    <div class="route-stack">
+      <article class="demo-card">
+        <div class="eyebrow">Built for practical apps</div>
+        <h3>See every capability working before you adopt it</h3>
+        <div class="inline-grid">
+          <div class="route-pill">Navigate live routes from the sidebar.</div>
+          <div class="route-pill">Try each capability in a focused, working example.</div>
+          <div class="route-pill">This documentation app runs on Router HTML end to end.</div>
+        </div>
+      </article>
+
+      <article class="demo-card">
+        <div class="eyebrow">Deploy shape</div>
+        <h3>Separate app folder</h3>
+        <p>
+          The app lives under <code>docs-app/</code> with its own package manifest, Vite config,
+          <code>netlify.toml</code>, and <code>vercel.json</code>, so it can be deployed independently.
+        </p>
+        <pre class="code-block">docs-app/
+  index.html
+  package.json
+  netlify.toml
+  vercel.json
+  src/
+    main.ts
+    pages/...</pre>
+      </article>
+    </div>
+
+    <aside class="route-stack">
+      <article class="stat-card" repeat.for="item of nav">
+        <h3>${item.title}</h3>
+        <p>${item.summary}</p>
+        <a class="route-link" href.bind="item.path">Open demo</a>
+      </article>
+    </aside>
+  </div>
+</section>

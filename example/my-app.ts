@@ -16,7 +16,7 @@ export class MyApp {
   public detailLoading: boolean = false;
   public detailQuantity: number = 1;
   public allowPromoRoute: boolean = true;
-  public repeatedFlashRoutes: Array<{ id: number; label: string }> = [];
+  public repeatedFlashRoutes: Array<{ id: string; label: string }> = [];
   private readonly router = resolve(IRouteCoordinator);
   public readonly state = resolve(StorefrontState);
   private unobservePath: (() => void) | null = null;
@@ -91,7 +91,7 @@ export class MyApp {
       return;
     }
     this.repeatedFlashRoutes = [{
-      id: Date.now(),
+      id: 'flash',
       label: `Flash route for ${this.detailProduct?.name ?? 'current product'}`,
     }];
   }

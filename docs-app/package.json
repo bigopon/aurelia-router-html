@@ -1,0 +1,26 @@
+{
+  "name": "router-html-docs-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "serve": "vite preview --host 127.0.0.1 --port 9027",
+    "build:serve": "npm run build && npm run serve",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@aurelia/kernel": "2.0.0-rc.1",
+    "@aurelia/runtime": "2.0.0-rc.1",
+    "@aurelia/runtime-html": "2.0.0-rc.1",
+    "@aurelia/template-compiler": "2.0.0-rc.1",
+    "aurelia": "2.0.0-rc.1"
+  },
+  "devDependencies": {
+    "@aurelia/vite-plugin": "2.0.0-rc.1",
+    "typescript": "5.7.2",
+    "vite": "^7.0.2"
+  }
+}

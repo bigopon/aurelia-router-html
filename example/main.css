@@ -426,6 +426,27 @@ button.secondary {
   font-size: 0.92rem;
 }
 
+[data-e2e="product-child-stage"] {
+  position: relative;
+}
+
+[data-e2e="product-child-stage"] > .au-route-enter-active,
+[data-e2e="product-child-stage"] > .au-route-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+[data-e2e="product-child-stage"] > .au-route-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+[data-e2e="product-child-stage"] > .au-route-leave-active {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 @media (max-width: 1024px) {
   .hero,
   .content-grid,

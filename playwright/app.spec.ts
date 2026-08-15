@@ -29,11 +29,80 @@ test.describe.serial('html-router example app', () => {
     await page.getByRole('link', { name: 'Reviews' }).click();
     await expect(page).toHaveURL(/\/products\/aster-pack\/reviews$/);
     await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-reviews-stage"]')).toBeVisible();
     await expect(page.locator('[data-e2e="product-reviews"]')).toBeVisible();
 
     await page.getByRole('link', { name: 'Specs' }).click();
     await expect(page).toHaveURL(/\/products\/aster-pack\/specs$/);
     await expect(page.locator('[data-e2e="product-shell"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-specs-stage"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-specs"]')).toBeVisible();
+  });
+
+  test('S1 default swapping avoids an empty child-stage gap during sibling navigation', async ({ page }) => {
+    await page.goto('/products/aster-pack/reviews');
+    await expect(page.locator('[data-e2e="product-reviews"]')).toBeVisible();
+
+    await page.evaluate(() => {
+      const stage = document.querySelector('[data-e2e="product-child-stage"]');
+      if (stage == null) {
+        throw new Error('Missing product child stage');
+      }
+
+      const selectors = [
+        '[data-e2e="product-default-overview"]',
+        '[data-e2e="product-overview"]',
+        '[data-e2e="product-reviews-stage"]',
+        '[data-e2e="product-specs-stage"]',
+        '[data-e2e="product-related"]',
+        '[data-e2e="product-promo"]',
+        '[data-e2e="product-flash"]',
+      ];
+
+      const countPanels = () => selectors.reduce((count, selector) => count + stage.querySelectorAll(selector).length, 0);
+      (window as Window & { __swapProbe?: { sawEmpty: boolean; observer: MutationObserver } }).__swapProbe = {
+        sawEmpty: countPanels() === 0,
+        observer: new MutationObserver(() => {
+          const probe = (window as Window & { __swapProbe?: { sawEmpty: boolean; observer: MutationObserver } }).__swapProbe;
+          if (probe != null && countPanels() === 0) {
+            probe.sawEmpty = true;
+          }
+        }),
+      };
+
+      (window as Window & { __swapProbe?: { sawEmpty: boolean; observer: MutationObserver } }).__swapProbe?.observer.observe(stage, {
+        childList: true,
+        subtree: true,
+      });
+    });
+
+    await page.getByRole('link', { name: 'Specs' }).click();
+    await expect(page.locator('[data-e2e="product-specs"]')).toBeVisible();
+
+    const sawEmpty = await page.evaluate(() => {
+      const probe = (window as Window & { __swapProbe?: { sawEmpty: boolean; observer: MutationObserver } }).__swapProbe;
+      probe?.observer.disconnect();
+      return probe?.sawEmpty ?? true;
+    });
+
+    expect(sawEmpty).toBe(false);
+  });
+
+  test('S2 route animation classes are applied during sibling navigation', async ({ page }) => {
+    await page.goto('/products/aster-pack/reviews');
+    await expect(page.locator('[data-e2e="product-reviews-stage"]')).toBeVisible();
+
+    const animationSeen = page.waitForFunction(() => {
+      const stage = document.querySelector('[data-e2e="product-child-stage"]');
+      if (stage == null) {
+        return false;
+      }
+
+      return stage.querySelector('.au-route-enter-active, .au-route-leave-active, .au-route-animating') != null;
+    });
+
+    await page.getByRole('link', { name: 'Specs' }).click();
+    await animationSeen;
     await expect(page.locator('[data-e2e="product-specs"]')).toBeVisible();
   });
 
@@ -58,6 +127,17 @@ test.describe.serial('html-router example app', () => {
 
     await page.locator('[data-e2e="remove-flash-route"]').click();
     await expect(page.locator('[data-e2e="product-flash"]')).toHaveCount(0);
+  });
+
+  test('A1 repeated-template route that does not match preserves the active detail', async ({ page }) => {
+    await page.goto('/products/aster-pack/overview');
+
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+    await page.locator('[data-e2e="add-flash-route"]').click();
+
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="product-flash"]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/products\/aster-pack\/overview$/);
   });
 
   test('A1 shared cart state updates across detail and cart routes', async ({ page }) => {

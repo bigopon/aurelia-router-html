@@ -10,6 +10,10 @@
 - [x] `A1` Conditional promo route removal tears down the active branch cleanly.
 - [x] `A1` A repeated-template `au-route` introduced later becomes active immediately when the current residue already matches it.
 - [x] `A1` Route params are exposed to matched product and account branches, including deeper nested params.
+- [x] `S1` Default swap order activates an incoming sibling branch before removing the outgoing one.
+- [x] `S1` The opt-out swap order preserves detach-current-attach-next behavior when configured.
+- [x] `S1` Browser navigation between sibling product tabs avoids an empty child-stage gap.
+- [x] `S2` Animated sibling navigation applies route transition classes while the swap is in flight.
 - [x] `A1` `RouteContext` exact static match activates and leaves `/` residue when fully consumed.
 - [x] `A1` `RouteContext` parameter match extracts params and forwards remaining residue.
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.

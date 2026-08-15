@@ -1,0 +1,73 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Repeated Routes</h2>
+      <p class="page-copy">
+        Add routes from repeated data and see each generated URL become available immediately.
+      </p>
+    </div>
+  </header>
+
+  <div class="page-grid">
+    <article class="demo-card route-stack">
+      <h3>Runnable demo</h3>
+      <div class="mini-nav">
+        <a class.bind="state.isRouteActive('/features/repeated/demo/list') ? 'route-link is-active' : 'route-link'" href="/features/repeated/demo/list">Base list</a>
+        <button click.trigger="addRoute()">Add repeated route</button>
+        <button click.trigger="removeRoute()">Remove repeated route</button>
+        <button click.trigger="state.toggleSource()">${state.sourceVisible ? 'Hide' : 'Show'} source</button>
+      </div>
+
+      <div class="generated-route-nav">
+        <strong>Generated routes</strong>
+        <div if.bind="state.repeatedRoutes.length > 0" class="route-link-group" role="group" aria-label="Generated routes">
+          <a
+            repeat.for="item of state.repeatedRoutes"
+            class.bind="selectedGeneratedRouteId === item.id ? 'route-link is-active' : 'route-link'"
+            aria-current.bind="selectedGeneratedRouteId === item.id ? 'page' : null"
+            href="/features/repeated/demo/${item.id}">${item.label}</a>
+        </div>
+        <span else class="muted">Add a route to create the first link.</span>
+      </div>
+
+      <div class="mini-stage">
+        <au-route path="/">
+          <div class="route-pill">Base list route stays available.</div>
+        </au-route>
+
+        <au-route path="/demo/list">
+          <div class="route-pill">Base list route stays available.</div>
+        </au-route>
+
+        <template repeat.for="item of state.repeatedRoutes">
+          <au-route path.bind="'/demo/' + item.id">
+            <div class="route-pill">${item.label}</div>
+          </au-route>
+        </template>
+      </div>
+
+      <pre if.bind="state.sourceVisible" class="code-block" syntax-html>&lt;article class="demo-card route-stack"&gt;
+  &lt;h3&gt;Runnable demo&lt;/h3&gt;
+  &lt;div class="mini-nav"&gt;
+    &lt;a href="/features/repeated/demo/list"&gt;Base list&lt;/a&gt;
+    &lt;button&gt;Add repeated route&lt;/button&gt;
+    &lt;button&gt;Remove repeated route&lt;/button&gt;
+    &lt;button&gt;Show source&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="route-link-group"&gt;
+    &lt;a repeat.for="item of state.repeatedRoutes" href.bind="'/features/repeated/demo/' + item.id"&gt;
+      Generated route link
+    &lt;/a&gt;
+  &lt;/div&gt;
+  &lt;div class="mini-stage"&gt;
+    &lt;au-route path="/demo/list"&gt;Base list route&lt;/au-route&gt;
+    &lt;template repeat.for="item of state.repeatedRoutes"&gt;
+      &lt;au-route path="/demo/:itemId"&gt;
+        Generated route content
+      &lt;/au-route&gt;
+    &lt;/template&gt;
+  &lt;/div&gt;
+&lt;/article&gt;</pre>
+    </article>
+  </div>
+</section>

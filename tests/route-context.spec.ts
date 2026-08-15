@@ -81,6 +81,101 @@ run('A2 disposed children stop receiving updates', () => {
   assert.equal(store.children.length, 0);
 });
 
+run('A2 newly added non-matching route leaves the active sibling unchanged', () => {
+  const root = new RouteContext(null, '*');
+  const overview = root.createChild('/overview') as RouteContext;
+
+  root.apply('/overview');
+  const generated = root.createChild('/generated') as RouteContext;
+
+  assert.equal(overview.active, true);
+  assert.equal(generated.active, false);
+});
+
+run('A2 newly added matching route activates for the current residue', () => {
+  const root = new RouteContext(null, '*');
+
+  root.apply('/generated');
+  const generated = root.createChild('/generated') as RouteContext;
+
+  assert.equal(generated.active, true);
+  assert.equal(generated.residue, '/');
+});
+
+run('S1 default swap order activates matching sibling before deactivating old sibling', () => {
+  const root = new RouteContext(null, '*');
+  const product = root.createChild('/products/:productId') as RouteContext;
+  const reviews = product.createChild('/reviews') as RouteContext;
+  const specs = product.createChild('/specs') as RouteContext;
+  const events: string[] = [];
+
+  reviews.subscribe(state => {
+    events.push(`reviews:${state.active ? 'on' : 'off'}`);
+  });
+  specs.subscribe(state => {
+    events.push(`specs:${state.active ? 'on' : 'off'}`);
+  });
+
+  root.apply('/products/aster-pack/reviews');
+  events.length = 0;
+
+  root.apply('/products/aster-pack/specs');
+
+  assert.deepEqual(events, [
+    'specs:on',
+    'reviews:off',
+  ]);
+});
+
+run('S1 detach-current-attach-next preserves opt-out ordering', () => {
+  const root = new RouteContext(null, '*', { swapOrder: 'detach-current-attach-next' });
+  const product = root.createChild('/products/:productId') as RouteContext;
+  const reviews = product.createChild('/reviews') as RouteContext;
+  const specs = product.createChild('/specs') as RouteContext;
+  const events: string[] = [];
+
+  reviews.subscribe(state => {
+    events.push(`reviews:${state.active ? 'on' : 'off'}`);
+  });
+  specs.subscribe(state => {
+    events.push(`specs:${state.active ? 'on' : 'off'}`);
+  });
+
+  root.apply('/products/aster-pack/reviews');
+  events.length = 0;
+
+  root.apply('/products/aster-pack/specs');
+
+  assert.deepEqual(events, [
+    'reviews:off',
+    'specs:on',
+  ]);
+});
+
+run('S1 parallel swap updates sibling branches in one pass', () => {
+  const root = new RouteContext(null, '*', { swapOrder: 'parallel' });
+  const reviews = root.createChild('/reviews') as RouteContext;
+  const specs = root.createChild('/specs') as RouteContext;
+  const events: string[] = [];
+
+  reviews.subscribe(state => {
+    events.push(`reviews:${state.active ? 'on' : 'off'}`);
+  });
+  specs.subscribe(state => {
+    events.push(`specs:${state.active ? 'on' : 'off'}`);
+  });
+
+  root.apply('/reviews');
+  events.length = 0;
+
+  root.apply('/specs');
+
+  assert.deepEqual(events, [
+    'reviews:off',
+    'specs:on',
+  ]);
+});
+
 console.log('route-context tests passed');
 
 function run(name: string, fn: () => void): void {

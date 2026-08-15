@@ -8,6 +8,11 @@ export interface RouteState {
 }
 
 export type RouteContextCallback = (state: RouteState) => void;
+export type SwapOrder = 'attach-next-detach-current' | 'detach-current-attach-next' | 'parallel';
+
+export interface RouteContextOptions {
+  swapOrder?: SwapOrder;
+}
 
 export interface IRouteContext {
   readonly parent: IRouteContext | null;
@@ -20,7 +25,7 @@ export interface IRouteContext {
 
   usePattern(pattern: string): void;
   apply(path: string): void;
-  createChild(pattern?: string): IRouteContext;
+  createChild(pattern?: string, options?: RouteContextOptions): IRouteContext;
   subscribe(callback: RouteContextCallback): () => void;
   dispose(): void;
 }
@@ -38,11 +43,18 @@ export class RouteContext implements IRouteContext {
   private _matcher: RegExp = /^(?<rest__>\/.*|\/)?$/;
   private readonly _subscriptions = new Set<RouteContextCallback>();
   private _disposed: boolean = false;
+  private readonly _swapOrder: SwapOrder;
 
   public constructor(
     public readonly parent: IRouteContext | null,
     pattern: string = '*',
+    options: RouteContextOptions = {},
   ) {
+    this._swapOrder = options.swapOrder ?? (
+      parent instanceof RouteContext
+        ? parent._swapOrder
+        : 'attach-next-detach-current'
+    );
     this.usePattern(pattern);
   }
 
@@ -83,13 +95,53 @@ export class RouteContext implements IRouteContext {
       this._notify();
     }
 
+    if (this.children.length === 0) {
+      return;
+    }
+
+    const matches: RouteContext[] = [];
+    const misses: RouteContext[] = [];
     for (const child of this.children) {
-      child.apply(nextResidue);
+      if (child._match(nextResidue) === null) {
+        misses.push(child);
+        continue;
+      }
+
+      matches.push(child);
+    }
+
+    switch (this._swapOrder) {
+      case 'detach-current-attach-next':
+        for (const child of misses) {
+          child._deactivateBranch('/__inactive__');
+        }
+        for (const child of matches) {
+          child.apply(nextResidue);
+        }
+        break;
+      case 'attach-next-detach-current':
+      default:
+        for (const child of matches) {
+          child.apply(nextResidue);
+        }
+        for (const child of misses) {
+          child._deactivateBranch('/__inactive__');
+        }
+        break;
+      case 'parallel':
+        for (const child of this.children) {
+          if (matches.includes(child)) {
+            child.apply(nextResidue);
+          } else {
+            child._deactivateBranch('/__inactive__');
+          }
+        }
+        break;
     }
   }
 
-  public createChild(pattern?: string): IRouteContext {
-    const child = new RouteContext(this, pattern);
+  public createChild(pattern?: string, options: RouteContextOptions = {}): IRouteContext {
+    const child = new RouteContext(this, pattern, { swapOrder: options.swapOrder ?? this._swapOrder });
     this.children.push(child);
     child.apply(this.active ? this.residue : '/__inactive__');
     return child;
@@ -138,6 +190,20 @@ export class RouteContext implements IRouteContext {
     for (const child of this.children) {
       child._deactivateBranch('/__inactive__');
     }
+  }
+
+  private _match(path: string): { residue: string } | null {
+    const normalizedPath = normalizePath(path);
+    this._matcher.lastIndex = 0;
+    const match = this._matcher.exec(normalizedPath);
+    if (match === null) {
+      return null;
+    }
+
+    const groups = match.groups ?? {};
+    return {
+      residue: normalizeResidue(groups.rest__),
+    };
   }
 
   private _notify(): void {

@@ -1,0 +1,59 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Params</h2>
+      <p class="page-copy">
+        See how a route parameter selects the right detail view from the URL.
+      </p>
+    </div>
+  </header>
+
+  <div class="page-grid">
+    <article class="demo-card route-stack">
+      <h3>Runnable demo</h3>
+      <div class="mini-nav">
+        <a repeat.for="user of users" class.bind="state.isRouteActive('/features/params/demo/' + user.id + '/profile') ? 'route-link is-active' : 'route-link'" href="/features/params/demo/${user.id}/profile">${user.id}</a>
+        <button click.trigger="state.toggleSource()">${state.sourceVisible ? 'Hide' : 'Show'} source</button>
+      </div>
+
+      <au-route path="/demo/:userId">
+        <div class="mini-stage">
+          <div class="route-pill">Current param object: <code>${JSON.stringify($params)}</code></div>
+          <div class="mini-nav">
+            <a class.bind="state.isRouteActive('/features/params/demo/' + $params.userId + '/profile') ? 'route-link is-active' : 'route-link'" href="/features/params/demo/${$params.userId}/profile">Profile</a>
+            <a class.bind="state.isRouteActive('/features/params/demo/' + $params.userId + '/history') ? 'route-link is-active' : 'route-link'" href="/features/params/demo/${$params.userId}/history">History</a>
+          </div>
+
+          <au-route path="/profile">
+            <div class="route-pill">Profile child route for <code>${$parent.$params.userId}</code>.</div>
+          </au-route>
+
+          <au-route path="/history">
+            <div class="route-pill">History child route for <code>${$parent.$params.userId}</code>.</div>
+          </au-route>
+        </div>
+      </au-route>
+
+      <pre if.bind="state.sourceVisible" class="code-block" syntax-html>&lt;article class="demo-card route-stack"&gt;
+  &lt;h3&gt;Runnable demo&lt;/h3&gt;
+  &lt;div class="mini-nav"&gt;
+    &lt;a href="/features/params/demo/mira/profile"&gt;mira&lt;/a&gt;
+    &lt;a href="/features/params/demo/dev/profile"&gt;dev&lt;/a&gt;
+    &lt;a href="/features/params/demo/ops/profile"&gt;ops&lt;/a&gt;
+    &lt;button&gt;Show source&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;au-route path="/demo/:userId"&gt;
+    &lt;div class="mini-stage"&gt;
+      &lt;div class="route-pill"&gt;Current param object&lt;/div&gt;
+      &lt;div class="mini-nav"&gt;
+        &lt;a href="/features/params/demo/mira/profile"&gt;Profile&lt;/a&gt;
+        &lt;a href="/features/params/demo/mira/history"&gt;History&lt;/a&gt;
+      &lt;/div&gt;
+      &lt;au-route path="/profile"&gt;Profile child route for the selected user.&lt;/au-route&gt;
+      &lt;au-route path="/history"&gt;History child route for the selected user.&lt;/au-route&gt;
+    &lt;/div&gt;
+  &lt;/au-route&gt;
+&lt;/article&gt;</pre>
+    </article>
+  </div>
+</section>

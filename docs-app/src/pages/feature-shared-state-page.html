@@ -1,0 +1,28 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Shared State</h2>
+      <p class="page-copy">
+        See shared application state stay in sync as values change.
+      </p>
+    </div>
+  </header>
+
+  <div class="page-grid">
+    <article class="demo-card route-stack">
+      <h3>Runnable demo</h3>
+      <div class="mini-stage">
+        <div class="item-row" repeat.for="item of state.labItems">
+          <div>
+            <strong>${item.name}</strong><br>
+            <span class="muted">${item.id}</span>
+          </div>
+          <label class="form-field">
+            <span>Qty</span>
+            <input type="number" min="1" value.bind="item.qty" input.trigger="state.setQty(item.id, Number($event.target.value))">
+          </label>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>

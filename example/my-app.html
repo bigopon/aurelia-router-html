@@ -192,65 +192,71 @@
                       </button>
                     </div>
 
-                    <au-route path="/">
-                      <div class="route-callout" data-e2e="product-default-overview">
-                        Default nested route active. This mirrors the overview content until a deeper tab path is chosen.
-                      </div>
-                    </au-route>
-
-                    <au-route path="/overview">
-                      <div class="route-callout" data-e2e="product-overview">
-                        <div class="eyebrow">Overview route</div>
-                        <p>${detailProduct?.description}</p>
-                      </div>
-                    </au-route>
-
-                    <au-route path="/reviews">
-                      <au-compose component.bind="getReviewComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
-                    </au-route>
-
-                    <au-route path="/specs">
-                      <au-compose component.bind="getSpecsComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
-                    </au-route>
-
-                    <au-route path="/related/:relatedId">
-                      <div class="route-callout" data-e2e="product-related">
-                        <div class="nested-head">
-                          <div>
-                            <div class="eyebrow">Related route</div>
-                            <h3>${relatedProduct?.name ?? $params.relatedId}</h3>
-                          </div>
-                          <a href="/products/${relatedProduct?.id}/overview" class="pill-link">Switch to related product</a>
-                        </div>
-                        <p>${relatedProduct?.blurb}</p>
-                        <div class="mini-list">
-                          <a
-                            repeat.for="product of relatedProducts"
-                            href="/products/${detailProduct?.id}/related/${product.id}"
-                            class="mini-chip">
-                            ${product.name}
-                          </a>
-                        </div>
-                      </div>
-                    </au-route>
-
-                    <au-route if.bind="allowPromoRoute && detailProduct?.isOnSale" path="/promo">
-                      <div class="route-callout" data-e2e="product-promo">
-                        <div class="eyebrow">Conditional promo route</div>
-                        <p>${detailProduct?.name} is on sale, so this branch appears only after async product data resolves.</p>
-                      </div>
-                    </au-route>
-                    <div else class="route-callout" data-e2e="product-promo-fallback">
-                      Promo route currently unavailable for this product.
-                    </div>
-
-                    <template repeat.for="flashRoute of repeatedFlashRoutes">
-                      <au-route path="/flash">
-                        <div class="route-callout" data-e2e="product-flash">
-                          ${flashRoute.label}
+                    <div data-e2e="product-child-stage">
+                      <au-route path="/">
+                        <div class="route-callout" data-e2e="product-default-overview">
+                          Default nested route active. This mirrors the overview content until a deeper tab path is chosen.
                         </div>
                       </au-route>
-                    </template>
+
+                      <au-route path="/overview">
+                        <div class="route-callout" data-e2e="product-overview">
+                          <div class="eyebrow">Overview route</div>
+                          <p>${detailProduct?.description}</p>
+                        </div>
+                      </au-route>
+
+                      <au-route path="/reviews">
+                        <div class="route-callout" data-e2e="product-reviews-stage">
+                          <au-compose component.bind="getReviewComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
+                        </div>
+                      </au-route>
+
+                      <au-route path="/specs">
+                        <div class="route-callout" data-e2e="product-specs-stage">
+                          <au-compose component.bind="getSpecsComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
+                        </div>
+                      </au-route>
+
+                      <au-route path="/related/:relatedId">
+                        <div class="route-callout" data-e2e="product-related">
+                          <div class="nested-head">
+                            <div>
+                              <div class="eyebrow">Related route</div>
+                              <h3>${relatedProduct?.name ?? $params.relatedId}</h3>
+                            </div>
+                            <a href="/products/${relatedProduct?.id}/overview" class="pill-link">Switch to related product</a>
+                          </div>
+                          <p>${relatedProduct?.blurb}</p>
+                          <div class="mini-list">
+                            <a
+                              repeat.for="product of relatedProducts"
+                              href="/products/${detailProduct?.id}/related/${product.id}"
+                              class="mini-chip">
+                              ${product.name}
+                            </a>
+                          </div>
+                        </div>
+                      </au-route>
+
+                      <au-route if.bind="allowPromoRoute && detailProduct?.isOnSale" path="/promo">
+                        <div class="route-callout" data-e2e="product-promo">
+                          <div class="eyebrow">Conditional promo route</div>
+                          <p>${detailProduct?.name} is on sale, so this branch appears only after async product data resolves.</p>
+                        </div>
+                      </au-route>
+                      <div else class="route-callout" data-e2e="product-promo-fallback">
+                        Promo route currently unavailable for this product.
+                      </div>
+
+                      <template repeat.for="flashRoute of repeatedFlashRoutes">
+                        <au-route path.bind="'/' + flashRoute.id">
+                          <div class="route-callout" data-e2e="product-flash">
+                            ${flashRoute.label}
+                          </div>
+                        </au-route>
+                      </template>
+                    </div>
                   </div>
                 </div>
               </section>
