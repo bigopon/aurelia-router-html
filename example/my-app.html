@@ -326,6 +326,35 @@
           </section>
         </au-route>
 
+        <au-route path="/selection">
+          <section class="route-stack" data-e2e="exact-fallback-selection">
+            <au-route path="/products" exact>
+              <div class="route-callout" data-e2e="selection-products-index">Exact products index.</div>
+            </au-route>
+            <au-route path="*" fallback>
+              <div class="route-stack" data-e2e="selection-products-fallback">
+                <au-route path="/abc" exact>
+                  <div class="route-callout" data-e2e="selection-product-abc">Exact ABC product.</div>
+                </au-route>
+              </div>
+            </au-route>
+          </section>
+        </au-route>
+
+        <au-route path="/consume">
+          <au-route path="**">
+            <section class="route-stack" data-e2e="rest-wildcard">
+              <div class="route-callout">The rest wildcard consumed the complete URL residue.</div>
+              <au-route path="/" exact>
+                <div class="route-callout" data-e2e="rest-wildcard-index">Nested routes receive root residue.</div>
+              </au-route>
+              <au-route path="/abc" exact>
+                <div class="route-callout" data-e2e="rest-wildcard-consumed-child">This child cannot see a consumed segment.</div>
+              </au-route>
+            </section>
+          </au-route>
+        </au-route>
+
         <au-route path="/parallel" swap-order="parallel">
           <section class="route-stack">
             <nav class="mini-list">

@@ -142,7 +142,7 @@ run('A2 individual fallback route activates only without a regular sibling match
   root.apply('/missing');
   assert.equal(products.active, false);
   assert.equal(fallback.active, true);
-  assert.equal(fallback.residue, '/missing');
+  assert.equal(fallback.residue, '/');
 });
 
 run('A2 nested fallback route uses matching results from its parent context', () => {
@@ -162,14 +162,91 @@ run('A2 nested fallback route uses matching results from its parent context', ()
   assert.equal(account.residue, '/missing');
   assert.equal(settings.active, false);
   assert.equal(fallback.active, true);
-  assert.equal(fallback.residue, '/missing');
+  assert.equal(fallback.residue, '/');
 
   root.apply('/outside');
   assert.equal(account.active, false);
   assert.equal(fallback.active, false);
 });
 
-run('A2 match-all route remains active alongside another matching sibling', () => {
+run('A2 exact sibling yields to a wildcard fallback with an exact child', () => {
+  const root = new RouteContext(null, '*');
+  const productsIndex = root.createChild('/products', { exact: true }) as RouteContext;
+  const productsFallback = root.createChild('*', { fallback: true }) as RouteContext;
+  const productAbc = productsFallback.createChild('/abc', { exact: true }) as RouteContext;
+
+  root.apply('/products');
+  assert.equal(productsIndex.active, true);
+  assert.equal(productsFallback.active, false);
+  assert.equal(productAbc.active, false);
+
+  root.apply('/products/abc');
+  assert.equal(productsIndex.active, false);
+  assert.equal(productsFallback.active, true);
+  assert.equal(productsFallback.residue, '/abc');
+  assert.equal(productAbc.active, true);
+  assert.equal(productAbc.residue, '/');
+
+  root.apply('/products/abc/details');
+  assert.equal(productsIndex.active, false);
+  assert.equal(productsFallback.active, true);
+  assert.equal(productsFallback.residue, '/abc/details');
+  assert.equal(productAbc.active, false);
+});
+
+run('A2 wildcard patterns normalize an optional leading slash', () => {
+  const root = new RouteContext(null, '*');
+  const withoutSlash = root.createChild('*') as RouteContext;
+  const withSlash = root.createChild('/*') as RouteContext;
+
+  root.apply('/products/abc');
+
+  assert.equal(withoutSlash.pattern, '*');
+  assert.equal(withSlash.pattern, '*');
+  assert.equal(withoutSlash.active, true);
+  assert.equal(withSlash.active, true);
+  assert.equal(withoutSlash.residue, '/abc');
+  assert.equal(withSlash.residue, '/abc');
+});
+
+run('A2 rest wildcard consumes all remaining segments', () => {
+  const root = new RouteContext(null, '*');
+  const catchAll = root.createChild('**') as RouteContext;
+  const index = catchAll.createChild('/', { exact: true }) as RouteContext;
+  const consumedSegment = catchAll.createChild('/abc', { exact: true }) as RouteContext;
+
+  root.apply('/products/abc/details');
+
+  assert.equal(catchAll.active, true);
+  assert.equal(catchAll.residue, '/');
+  assert.equal(index.active, true);
+  assert.equal(consumedSegment.active, false);
+});
+
+run('A2 prefixed rest wildcard consumes the complete suffix', () => {
+  const root = new RouteContext(null, '*');
+  const files = root.createChild('/files/**') as RouteContext;
+
+  root.apply('/files/guides/router/start');
+
+  assert.equal(files.active, true);
+  assert.equal(files.residue, '/');
+});
+
+run('A2 rest wildcard patterns normalize an optional leading slash', () => {
+  const withoutSlash = new RouteContext(null, '**');
+  const withSlash = new RouteContext(null, '/**');
+
+  withoutSlash.apply('/products/abc');
+  withSlash.apply('/products/abc');
+
+  assert.equal(withoutSlash.pattern, '**');
+  assert.equal(withSlash.pattern, '**');
+  assert.equal(withoutSlash.residue, '/');
+  assert.equal(withSlash.residue, '/');
+});
+
+run('A2 wildcard route remains active alongside another matching sibling', () => {
   const root = new RouteContext(null, '*');
   const products = root.createChild('/products') as RouteContext;
   const matchAll = root.createChild('*') as RouteContext;
@@ -178,7 +255,7 @@ run('A2 match-all route remains active alongside another matching sibling', () =
 
   assert.equal(products.active, true);
   assert.equal(matchAll.active, true);
-  assert.equal(matchAll.residue, '/products/123');
+  assert.equal(matchAll.residue, '/123');
 });
 
 run('S1 default swap order activates matching sibling before deactivating old sibling', () => {

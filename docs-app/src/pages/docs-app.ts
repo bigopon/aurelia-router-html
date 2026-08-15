@@ -5,6 +5,7 @@ import { DocsState } from '../state/docs-state';
 import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
+import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
@@ -25,6 +26,7 @@ export class DocsApp {
       FeatureParamsPage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
+      FeatureMatchingPage,
       FeatureSwapPage,
       FeatureAnimationPage,
       FeatureSharedStatePage,

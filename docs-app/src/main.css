@@ -197,6 +197,7 @@ button:hover {
 .page-grid,
 .stat-grid,
 .demo-grid,
+.feature-details,
 .route-stack,
 .mini-nav,
 .pill-row {
@@ -231,6 +232,32 @@ button:hover {
 
 .page-grid {
   grid-template-columns: 1fr;
+}
+
+.feature-details {
+  padding-block: 4px;
+}
+
+.feature-details section {
+  display: grid;
+  gap: 8px;
+  padding-block: 4px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.feature-details section:last-child {
+  border-bottom: 0;
+}
+
+.feature-details h3,
+.feature-details p {
+  margin: 0;
+}
+
+.feature-details p {
+  max-width: 78ch;
+  color: var(--muted);
+  line-height: 1.65;
 }
 
 .stat-grid {

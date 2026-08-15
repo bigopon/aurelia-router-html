@@ -67,7 +67,7 @@ export class RouteContext implements IRouteContext {
 
   public usePattern(pattern: string): void {
     this.pattern = normalizePattern(pattern);
-    this._matcher = compilePattern(this.pattern, this._exact);
+    this._matcher = compilePattern(this.pattern, this._exact, this.parent === null);
   }
 
   public apply(path: string): void {
@@ -246,9 +246,14 @@ export class RouteContext implements IRouteContext {
   }
 }
 
-function compilePattern(pattern: string, exact: boolean): RegExp {
+function compilePattern(pattern: string, exact: boolean, transparentRoot: boolean): RegExp {
   if (pattern === '*') {
-    return /^(?<rest__>\/.*|\/)?$/;
+    if (transparentRoot) {
+      return /^(?<rest__>\/.*|\/)?$/;
+    }
+    return exact
+      ? /^\/[^/]+$/
+      : /^\/[^/]+(?<rest__>\/.*)?$/;
   }
 
   if (pattern === '/') {
@@ -256,13 +261,27 @@ function compilePattern(pattern: string, exact: boolean): RegExp {
   }
 
   const parts = pattern.split('/').filter(Boolean);
-  const compiled = parts.map(part => {
+  const restIndex = parts.indexOf('**');
+  if (restIndex >= 0 && restIndex !== parts.length - 1) {
+    throw new Error(`The rest wildcard must be the final segment in route pattern "${pattern}".`);
+  }
+  const consumesRest = restIndex >= 0;
+  const compiled = (consumesRest ? parts.slice(0, -1) : parts).map(part => {
+    if (part === '*') {
+      return '[^/]+';
+    }
     if (part.startsWith(':')) {
       const name = part.slice(1);
       return `(?<${escapeGroupName(name)}>[^/]+)`;
     }
     return escapeRegex(part);
   });
+
+  if (consumesRest) {
+    return compiled.length === 0
+      ? /^\/.*$/
+      : new RegExp(`^/${compiled.join('/')}(?:/.*)?$`);
+  }
 
   return exact
     ? new RegExp(`^/${compiled.join('/')}$`)
@@ -285,12 +304,14 @@ function freezeParams(params: Record<string, string>): Readonly<Record<string, s
 }
 
 function normalizePattern(pattern: string): string {
-  if (pattern === '*' || pattern === '/') {
-    return pattern;
-  }
-
   const trimmed = pattern.trim();
   if (trimmed === '') {
+    return '/';
+  }
+  if (trimmed === '*' || trimmed === '/*' || trimmed === '**' || trimmed === '/**') {
+    return trimmed.endsWith('**') ? '**' : '*';
+  }
+  if (trimmed === '/') {
     return '/';
   }
 

@@ -28,3 +28,11 @@
 - [x] `A2` A nested exact route matches the complete residue supplied by its parent rather than the full URL.
 - [x] `A2` An individual fallback route activates only when no regular sibling route matches.
 - [x] `A2` A nested fallback route uses sibling matches from its parent context and deactivates with that parent.
+- [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
+- [x] `A2` `*` and `/*` normalize to the same one-segment wildcard behavior.
+- [x] `A2` `**` and `/**` consume the complete remaining residue and nested index routes receive `/`.
+- [x] `A2` A non-index child beneath `**` cannot match segments already consumed by the rest wildcard.
+- [x] `A2` A prefixed rest wildcard such as `/files/**` consumes its complete suffix.
+- [x] `A2` The docs app demonstrates exact, prefix, and fallback outcomes from one nested parent context.
+- [x] `A2` The matching demo source includes the complete parent route and appears above its rendered stage.
+- [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.

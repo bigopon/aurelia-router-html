@@ -2,6 +2,7 @@
   "name": "router-html-docs-app",
   "private": true,
   "version": "0.0.0",
+  "port": 9027,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -9,7 +10,8 @@
     "serve": "vite preview --host 127.0.0.1 --port 9027",
     "build:serve": "npm run build && npm run serve",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:e2e:ci": "cross-env APP_PORT=9027 PLAYWRIGHT_CI_WEBSERVER=1 node ../node_modules/@playwright/test/cli.js test --config playwright.config.cjs"
   },
   "dependencies": {
     "@aurelia/kernel": "2.0.0-rc.1",

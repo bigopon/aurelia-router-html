@@ -194,6 +194,36 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
   });
 
+  test('A2 exact sibling yields to a wildcard fallback with an exact child', async ({ page }) => {
+    await page.goto('/selection/products');
+
+    await expect(page.locator('[data-e2e="selection-products-index"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="selection-products-fallback"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="selection-product-abc"]')).toHaveCount(0);
+
+    await page.goto('/selection/products/abc');
+
+    await expect(page.locator('[data-e2e="selection-products-index"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="selection-products-fallback"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="selection-product-abc"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+
+    await page.goto('/selection/products/abc/details');
+
+    await expect(page.locator('[data-e2e="selection-products-fallback"]')).toHaveCount(1);
+    await expect(page.locator('[data-e2e="selection-product-abc"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+  });
+
+  test('A2 rest wildcard consumes the complete residue before matching children', async ({ page }) => {
+    await page.goto('/consume/products/abc/details');
+
+    await expect(page.locator('[data-e2e="rest-wildcard"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="rest-wildcard-index"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="rest-wildcard-consumed-child"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+  });
+
   test('S1 parallel swap overlaps outgoing and incoming route transitions', async ({ page }) => {
     await page.goto('/parallel/alpha');
     await expect(page.locator('[data-e2e="parallel-alpha"]')).toBeVisible();

@@ -50,6 +50,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'matching',
+    title: 'Exact & Fallback',
+    path: '/features/matching',
+    summary: 'Complete residue matching and parent-aware fallback branches.',
+    badge: 'A2',
+  },
+  {
     id: 'swap',
     title: 'Swap Order',
     path: '/features/swap',
