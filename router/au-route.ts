@@ -33,6 +33,8 @@ export class AuRoute implements ICustomElementViewModel {
       data.pathExpression = pathExpression;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
       data.animate = node.hasAttribute('animate');
+      data.exact = node.hasAttribute('exact');
+      data.fallback = node.hasAttribute('fallback');
     },
   };
 
@@ -54,13 +56,17 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; path: string; pathExpression: string | null; swapOrder: SwapOrder | null }>;
-    const { projections, data: { animate, path, pathExpression, swapOrder } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; path: string; pathExpression: string | null; swapOrder: SwapOrder | null }>;
+    const { projections, data: { animate, exact, fallback, path, pathExpression, swapOrder } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = rendering.getViewFactory(routeComponentDefinition, childContainer);
 
-    this.context = parentContext.createChild(path, { swapOrder: swapOrder ?? undefined });
+    this.context = parentContext.createChild(path, {
+      exact,
+      fallback,
+      swapOrder: swapOrder ?? undefined,
+    });
     this.path = path;
     this.pathExpression = pathExpression;
     this.animationsEnabled = this.animationOptions.enabled || animate;
@@ -107,7 +113,11 @@ export class AuRoute implements ICustomElementViewModel {
     this.context.usePattern(path);
     this.overrideContext.$pattern = path;
     const parent = this.context.parent;
-    this.context.apply(parent?.active === true ? parent.residue : '/__inactive__');
+    if (parent?.active === true) {
+      parent.refresh();
+    } else {
+      this.context.apply('/__inactive__');
+    }
   }
 
   public unbinding(_initiator: IHydratedController, _parent: IHydratedController): void | Promise<void> {

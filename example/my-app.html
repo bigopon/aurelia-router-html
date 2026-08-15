@@ -305,6 +305,49 @@
         <au-route path="/account">
           <au-compose component.bind="getAccountComponent()"></au-compose>
         </au-route>
+
+        <au-route path="/about" exact>
+          <section class="route-callout" data-e2e="route-about-exact">
+            Exact about route.
+          </section>
+        </au-route>
+
+        <au-route path="/matching">
+          <section class="route-stack" data-e2e="route-matching">
+            <au-route path="/exact" exact>
+              <div class="route-callout" data-e2e="nested-exact">Nested exact route.</div>
+            </au-route>
+            <au-route path="/known">
+              <div class="route-callout" data-e2e="nested-known">Nested prefix route.</div>
+            </au-route>
+            <au-route path="*" fallback>
+              <div class="route-callout" data-e2e="nested-fallback">No child route matched.</div>
+            </au-route>
+          </section>
+        </au-route>
+
+        <au-route path="/parallel" swap-order="parallel">
+          <section class="route-stack">
+            <nav class="mini-list">
+              <a href="/parallel/alpha" class="mini-chip">Parallel alpha</a>
+              <a href="/parallel/beta" class="mini-chip">Parallel beta</a>
+            </nav>
+            <div class="route-stack" data-e2e="parallel-stage">
+              <au-route path="/alpha">
+                <div class="route-callout" data-e2e="parallel-alpha">Parallel alpha branch</div>
+              </au-route>
+              <au-route path="/beta">
+                <div class="route-callout" data-e2e="parallel-beta">Parallel beta branch</div>
+              </au-route>
+            </div>
+          </section>
+        </au-route>
+
+        <au-route path="*" fallback>
+          <section class="route-callout" data-e2e="route-fallback">
+            No route matched this URL.
+          </section>
+        </au-route>
       </main>
 
       <aside class="summary-panel">

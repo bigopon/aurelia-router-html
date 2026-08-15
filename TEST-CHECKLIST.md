@@ -24,3 +24,7 @@
 - [x] `A2` Trailing slash input normalizes to the same match state as the non-trailing form.
 - [x] `A2` Repeated `apply()` with the same path preserves stable state for params and residue.
 - [x] `A2` Disposed child contexts stop receiving parent updates.
+- [x] `A2` An individual exact route activates only when its complete path is consumed.
+- [x] `A2` A nested exact route matches the complete residue supplied by its parent rather than the full URL.
+- [x] `A2` An individual fallback route activates only when no regular sibling route matches.
+- [x] `A2` A nested fallback route uses sibling matches from its parent context and deactivates with that parent.

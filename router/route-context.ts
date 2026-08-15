@@ -11,6 +11,8 @@ export type RouteContextCallback = (state: RouteState) => void;
 export type SwapOrder = 'attach-next-detach-current' | 'detach-current-attach-next' | 'parallel';
 
 export interface RouteContextOptions {
+  exact?: boolean;
+  fallback?: boolean;
   swapOrder?: SwapOrder;
 }
 
@@ -25,6 +27,7 @@ export interface IRouteContext {
 
   usePattern(pattern: string): void;
   apply(path: string): void;
+  refresh(): void;
   createChild(pattern?: string, options?: RouteContextOptions): IRouteContext;
   subscribe(callback: RouteContextCallback): () => void;
   dispose(): void;
@@ -43,6 +46,8 @@ export class RouteContext implements IRouteContext {
   private _matcher: RegExp = /^(?<rest__>\/.*|\/)?$/;
   private readonly _subscriptions = new Set<RouteContextCallback>();
   private _disposed: boolean = false;
+  private readonly _exact: boolean;
+  private readonly _fallback: boolean;
   private readonly _swapOrder: SwapOrder;
 
   public constructor(
@@ -50,6 +55,8 @@ export class RouteContext implements IRouteContext {
     pattern: string = '*',
     options: RouteContextOptions = {},
   ) {
+    this._exact = options.exact ?? false;
+    this._fallback = options.fallback ?? false;
     this._swapOrder = options.swapOrder ?? (
       parent instanceof RouteContext
         ? parent._swapOrder
@@ -60,7 +67,7 @@ export class RouteContext implements IRouteContext {
 
   public usePattern(pattern: string): void {
     this.pattern = normalizePattern(pattern);
-    this._matcher = compilePattern(this.pattern);
+    this._matcher = compilePattern(this.pattern, this._exact);
   }
 
   public apply(path: string): void {
@@ -95,20 +102,28 @@ export class RouteContext implements IRouteContext {
       this._notify();
     }
 
-    if (this.children.length === 0) {
+    this.refresh();
+  }
+
+  public refresh(): void {
+    if (!this.active || this.children.length === 0) {
       return;
     }
 
-    const matches: RouteContext[] = [];
-    const misses: RouteContext[] = [];
+    const nextResidue = this.residue;
+    const matchingChildren: RouteContext[] = [];
     for (const child of this.children) {
-      if (child._match(nextResidue) === null) {
-        misses.push(child);
-        continue;
+      if (child._match(nextResidue) !== null) {
+        matchingChildren.push(child);
       }
-
-      matches.push(child);
     }
+
+    const regularMatches = matchingChildren.filter(child => !child._fallback);
+    const matches = regularMatches.length > 0
+      ? regularMatches
+      : matchingChildren.filter(child => child._fallback);
+    const matchSet = new Set(matches);
+    const misses = this.children.filter(child => !matchSet.has(child));
 
     switch (this._swapOrder) {
       case 'detach-current-attach-next':
@@ -130,7 +145,7 @@ export class RouteContext implements IRouteContext {
         break;
       case 'parallel':
         for (const child of this.children) {
-          if (matches.includes(child)) {
+          if (matchSet.has(child)) {
             child.apply(nextResidue);
           } else {
             child._deactivateBranch('/__inactive__');
@@ -141,9 +156,17 @@ export class RouteContext implements IRouteContext {
   }
 
   public createChild(pattern?: string, options: RouteContextOptions = {}): IRouteContext {
-    const child = new RouteContext(this, pattern, { swapOrder: options.swapOrder ?? this._swapOrder });
+    const child = new RouteContext(this, pattern, {
+      exact: options.exact,
+      fallback: options.fallback,
+      swapOrder: options.swapOrder ?? this._swapOrder,
+    });
     this.children.push(child);
-    child.apply(this.active ? this.residue : '/__inactive__');
+    if (this.active) {
+      this.refresh();
+    } else {
+      child.apply('/__inactive__');
+    }
     return child;
   }
 
@@ -223,7 +246,7 @@ export class RouteContext implements IRouteContext {
   }
 }
 
-function compilePattern(pattern: string): RegExp {
+function compilePattern(pattern: string, exact: boolean): RegExp {
   if (pattern === '*') {
     return /^(?<rest__>\/.*|\/)?$/;
   }
@@ -241,7 +264,9 @@ function compilePattern(pattern: string): RegExp {
     return escapeRegex(part);
   });
 
-  return new RegExp(`^/${compiled.join('/')}(?<rest__>/.*)?$`);
+  return exact
+    ? new RegExp(`^/${compiled.join('/')}$`)
+    : new RegExp(`^/${compiled.join('/')}(?<rest__>/.*)?$`);
 }
 
 function extractParams(groups: Record<string, string | undefined>): Record<string, string> {

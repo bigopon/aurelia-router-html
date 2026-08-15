@@ -102,6 +102,85 @@ run('A2 newly added matching route activates for the current residue', () => {
   assert.equal(generated.residue, '/');
 });
 
+run('A2 exact route matches only an individual complete path', () => {
+  const settings = new RouteContext(null, '/settings', { exact: true });
+
+  settings.apply('/settings');
+  assert.equal(settings.active, true);
+  assert.equal(settings.residue, '/');
+
+  settings.apply('/settings/profile');
+  assert.equal(settings.active, false);
+});
+
+run('A2 nested exact route matches only the residue from its parent', () => {
+  const root = new RouteContext(null, '*');
+  const account = root.createChild('/account') as RouteContext;
+  const settings = account.createChild('/settings', { exact: true }) as RouteContext;
+
+  root.apply('/account/settings');
+  assert.equal(account.active, true);
+  assert.equal(account.residue, '/settings');
+  assert.equal(settings.active, true);
+  assert.equal(settings.residue, '/');
+
+  root.apply('/account/settings/profile');
+  assert.equal(account.active, true);
+  assert.equal(account.residue, '/settings/profile');
+  assert.equal(settings.active, false);
+});
+
+run('A2 individual fallback route activates only without a regular sibling match', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products') as RouteContext;
+  const fallback = root.createChild('*', { fallback: true }) as RouteContext;
+
+  root.apply('/products/123');
+  assert.equal(products.active, true);
+  assert.equal(fallback.active, false);
+
+  root.apply('/missing');
+  assert.equal(products.active, false);
+  assert.equal(fallback.active, true);
+  assert.equal(fallback.residue, '/missing');
+});
+
+run('A2 nested fallback route uses matching results from its parent context', () => {
+  const root = new RouteContext(null, '*');
+  const account = root.createChild('/account') as RouteContext;
+  const settings = account.createChild('/settings') as RouteContext;
+  const fallback = account.createChild('*', { fallback: true }) as RouteContext;
+
+  root.apply('/account/settings/profile');
+  assert.equal(account.active, true);
+  assert.equal(settings.active, true);
+  assert.equal(settings.residue, '/profile');
+  assert.equal(fallback.active, false);
+
+  root.apply('/account/missing');
+  assert.equal(account.active, true);
+  assert.equal(account.residue, '/missing');
+  assert.equal(settings.active, false);
+  assert.equal(fallback.active, true);
+  assert.equal(fallback.residue, '/missing');
+
+  root.apply('/outside');
+  assert.equal(account.active, false);
+  assert.equal(fallback.active, false);
+});
+
+run('A2 match-all route remains active alongside another matching sibling', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products') as RouteContext;
+  const matchAll = root.createChild('*') as RouteContext;
+
+  root.apply('/products/123');
+
+  assert.equal(products.active, true);
+  assert.equal(matchAll.active, true);
+  assert.equal(matchAll.residue, '/products/123');
+});
+
 run('S1 default swap order activates matching sibling before deactivating old sibling', () => {
   const root = new RouteContext(null, '*');
   const product = root.createChild('/products/:productId') as RouteContext;

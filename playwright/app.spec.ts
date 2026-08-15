@@ -140,6 +140,75 @@ test.describe.serial('html-router example app', () => {
     await expect(page).toHaveURL(/\/products\/aster-pack\/overview$/);
   });
 
+  test('A2 individual exact route requires a complete path match', async ({ page }) => {
+    await page.goto('/about');
+
+    await expect(page.locator('[data-e2e="route-about-exact"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+
+    await page.goto('/about/team');
+
+    await expect(page.locator('[data-e2e="route-about-exact"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="route-fallback"]')).toBeVisible();
+  });
+
+  test('A2 nested exact route requires a complete parent residue match', async ({ page }) => {
+    await page.goto('/matching/exact');
+
+    await expect(page.locator('[data-e2e="route-matching"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-exact"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-fallback"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+
+    await page.goto('/matching/exact/child');
+
+    await expect(page.locator('[data-e2e="route-matching"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-exact"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="nested-fallback"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+  });
+
+  test('A2 individual fallback route activates only without a root sibling match', async ({ page }) => {
+    await page.goto('/not-a-route');
+
+    await expect(page.locator('[data-e2e="route-fallback"]')).toBeVisible();
+
+    await page.goto('/products');
+    await expect(page.locator('[data-e2e="route-products"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+  });
+
+  test('A2 nested fallback route uses matches from its parent context', async ({ page }) => {
+    await page.goto('/matching/known/detail');
+
+    await expect(page.locator('[data-e2e="route-matching"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-known"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-fallback"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+
+    await page.goto('/matching/missing');
+
+    await expect(page.locator('[data-e2e="route-matching"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="nested-known"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="nested-fallback"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toHaveCount(0);
+  });
+
+  test('S1 parallel swap overlaps outgoing and incoming route transitions', async ({ page }) => {
+    await page.goto('/parallel/alpha');
+    await expect(page.locator('[data-e2e="parallel-alpha"]')).toBeVisible();
+
+    const overlapSeen = page.waitForFunction(() => {
+      const stage = document.querySelector('[data-e2e="parallel-stage"]');
+      return stage?.querySelector('[data-au-route-transition="leave"]') != null
+        && stage.querySelector('[data-au-route-transition="enter"]') != null;
+    });
+
+    await page.getByRole('link', { name: 'Parallel beta' }).click();
+    await overlapSeen;
+    await expect(page.locator('[data-e2e="parallel-beta"]')).toBeVisible();
+  });
+
   test('A1 shared cart state updates across detail and cart routes', async ({ page }) => {
     await page.goto('/products/aster-pack/overview');
 
