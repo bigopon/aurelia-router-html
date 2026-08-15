@@ -19,9 +19,6 @@ import { IRouteAnimationOptions } from './animation';
 import { IRouteContext, type SwapOrder } from './route-context';
 
 declare const __DEV__: boolean;
-const isDevelopment = typeof __DEV__ !== 'undefined'
-  ? __DEV__
-  : (import.meta as ImportMeta & { readonly env?: { readonly DEV?: boolean } }).env?.DEV === true;
 
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
@@ -32,11 +29,17 @@ export class AuRoute implements ICustomElementViewModel {
     bindables: ['path'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
-      const pathExpression = node.getAttribute('path.bind')
-        ?? node.getAttribute('path.to-view')
-        ?? node.getAttribute(':path');
+      const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
+      const shorthandPathExpression = node.getAttribute(':path');
+      const pathExpression = boundPathExpression ?? shorthandPathExpression;
+      if (shorthandPathExpression != null) {
+        node.removeAttribute(':path');
+        if (boundPathExpression == null) {
+          node.setAttribute('path.bind', shorthandPathExpression);
+        }
+      }
       const hasBoundPath = pathExpression != null;
-      if (isDevelopment && !hasBoundPath && path?.includes('${') === true) {
+      if (__DEV__ && !hasBoundPath && path?.includes('${') === true) {
         console.warn(`[au-route] The path value "${path}" looks like an interpolation. Dynamic paths must use path.bind, path.to-view, or :path.`);
       }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
