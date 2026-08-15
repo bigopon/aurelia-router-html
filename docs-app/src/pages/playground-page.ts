@@ -24,8 +24,11 @@ export class PlaygroundPage {
     type: 'custom-element',
     name: 'playground-page',
     template,
+    bindables: ['exampleId', 'embedded'],
   } as const;
 
+  public exampleId: string | null = null;
+  public embedded = false;
   public readonly examples = playgroundExamples;
   public project = cloneExample(initialExample());
   public selectedFile = this.project.initialFile ?? Object.keys(this.project.files)[0];
@@ -41,6 +44,16 @@ export class PlaygroundPage {
   private requestId = 0;
   private iframe: HTMLIFrameElement | null = null;
   private runtimeSource: Promise<string> | null = null;
+
+  public binding(): void {
+    if (this.exampleId == null) {
+      return;
+    }
+    const example = this.examples.find(candidate => candidate.id === this.exampleId);
+    if (example != null) {
+      this.loadExample(example);
+    }
+  }
 
   public attached(): void {
     this.showEditor(this.selectedFile);

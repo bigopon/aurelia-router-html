@@ -6,8 +6,4 @@ export class FeatureSwapPage {
     name: 'feature-swap-page',
     template,
   } as const;
-
-  public readonly state = resolve(DocsState);
 }
-import { resolve } from 'aurelia';
-import { DocsState } from '../state/docs-state';

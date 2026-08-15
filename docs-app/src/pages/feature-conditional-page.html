@@ -8,48 +8,5 @@
     </div>
   </header>
 
-  <div class="page-grid">
-    <article class="demo-card route-stack">
-      <h3>Runnable demo</h3>
-      <div class="mini-nav">
-        <a class.bind="state.isRouteActive('/features/conditional/demo/public') ? 'route-link is-active' : 'route-link'" href="/features/conditional/demo/public">Public</a>
-        <a class.bind="state.isRouteActive('/features/conditional/demo/secret') ? 'route-link is-active' : 'route-link'" href="/features/conditional/demo/secret">Secret</a>
-        <button click.trigger="state.conditionalEnabled = !state.conditionalEnabled">
-          ${state.conditionalEnabled ? 'Disable' : 'Enable'} secret route
-        </button>
-        <button click.trigger="state.toggleSource()">${state.sourceVisible ? 'Hide' : 'Show'} source</button>
-      </div>
-
-      <div class="mini-stage">
-        <au-route path="/demo/public">
-          <div class="route-pill">Public branch is always available.</div>
-        </au-route>
-
-        <au-route if.bind="state.conditionalEnabled" path="/demo/secret">
-          <div class="route-pill">Secret branch activated after being added late.</div>
-        </au-route>
-        <div else class="route-pill">Secret branch is currently absent from the route tree.</div>
-      </div>
-
-      <pre if.bind="state.sourceVisible" class="code-block" syntax-html>&lt;article class="demo-card route-stack"&gt;
-  &lt;h3&gt;Runnable demo&lt;/h3&gt;
-  &lt;div class="mini-nav"&gt;
-    &lt;a href="/features/conditional/demo/public"&gt;Public&lt;/a&gt;
-    &lt;a href="/features/conditional/demo/secret"&gt;Secret&lt;/a&gt;
-    &lt;button&gt;Enable secret route&lt;/button&gt;
-    &lt;button&gt;Show source&lt;/button&gt;
-  &lt;/div&gt;
-  &lt;div class="mini-stage"&gt;
-    &lt;au-route path="/demo/public"&gt;
-      Public branch
-    &lt;/au-route&gt;
-
-    &lt;au-route if.bind="state.conditionalEnabled" path="/demo/secret"&gt;
-      Secret branch
-    &lt;/au-route&gt;
-    &lt;div else&gt;Secret branch is currently absent from the route tree.&lt;/div&gt;
-  &lt;/div&gt;
-&lt;/article&gt;</pre>
-    </article>
-  </div>
+  <playground-page example-id="conditional-routes" embedded.bind="true"></playground-page>
 </section>

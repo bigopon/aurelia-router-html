@@ -2,10 +2,10 @@
 
 - [x] `A0` The docs overview presents every feature as static syntax with a link to its focused example and no demo controls.
 - [x] `A0` Syntax highlighting gives valued and valueless HTML attributes the same attribute color.
-- [x] `A1` The kitchen-sink docs example composes VM and repeat scopes, `let` bindings, named slots, two-way bindings, and nested repeated routes.
-- [x] `A1` Kitchen-sink generated route links track the active URL across outer and inner repeated branches.
-- [x] `A1` Kitchen-sink source shows the complete slotted shell and declarative repeated route tree.
-- [x] `A1` Rapid swaps between repeated outer routes serialize view attachment and removal without DOM hierarchy errors or leftover layout nodes.
+- [x] `A1` The embedded kitchen-sink project composes VM and repeat scopes, `let` bindings, named slots, interaction, and repeated routes.
+- [x] `A1` Kitchen-sink generated links navigate between repeated route branches inside the isolated preview.
+- [x] `A1` Kitchen-sink editor tabs expose the complete slotted shell and declarative repeated route tree.
+- [x] `A1` Rapid swaps between repeated outer routes complete without DOM hierarchy or relayed runtime errors.
 - [x] `A1` Dynamic paths accept `path.bind`, `path.to-view`, and `:path`; interpolation-looking static paths warn in development.
 - [x] `A1` Route contexts generate parameter-aware descendant hrefs and list current registered paths from any subtree or root.
 - [x] `A1` Nested-route docs show template examples for `$route` links, match state, parameters, and tree traversal.
@@ -44,12 +44,13 @@
 - [x] `A2` A non-index child beneath `**` cannot match segments already consumed by the rest wildcard.
 - [x] `A2` A prefixed rest wildcard such as `/files/**` consumes its complete suffix.
 - [x] `A2` The docs app demonstrates exact, prefix, and fallback outcomes from one nested parent context.
-- [x] `A2` The matching demo source includes the complete parent route and appears above its rendered stage.
+- [x] `A2` The matching page uses its editable project source as the single input for the rendered preview.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
 - [x] CodeMirror highlights TypeScript, JavaScript, HTML, and CSS while preserving editor state across file tabs.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
+- [x] Every focused feature page embeds its matching playground project and has no separate show-source control.
 - [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.
 - [x] Virtual paths normalize Windows separators, dot segments, extensionless imports, and index imports.
 - [x] A conventional `main.ts`, `app.ts`, `app.html`, and `app.css` project compiles in the browser worker.

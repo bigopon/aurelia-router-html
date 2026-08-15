@@ -13,7 +13,6 @@ import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
 import { OverviewPage } from './overview-page';
-import { PlaygroundPage } from './playground-page';
 import template from './docs-app.html?raw';
 
 export class DocsApp {
@@ -33,7 +32,6 @@ export class DocsApp {
       FeatureAnimationPage,
       FeatureSharedStatePage,
       FeatureKitchenSinkPage,
-      PlaygroundPage,
     ],
   } as const;
 

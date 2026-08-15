@@ -151,161 +151,113 @@ test.describe('router HTML docs features', () => {
     expect(fallbackColor).toBe(pathColor);
   });
 
-  test('dynamic route docs show every supported binding syntax and the shorthand drives repeated routes', async ({ page }) => {
-    await page.goto('/features/repeated/demo/list');
+  test('feature pages embed the matching editable source and preview', async ({ page }) => {
+    await page.goto('/features/repeated');
 
     const syntax = page.locator('.feature-details pre');
     await expect(syntax).toContainText('<au-route path.bind="item.path">');
     await expect(syntax).toContainText('<au-route path.to-view="item.path">');
     await expect(syntax).toContainText('<au-route :path="item.path">');
-    await expect(page.getByText('Dynamic paths must use')).toContainText('path.bind');
-    await expect(page.getByText('Dynamic paths must use')).toContainText('path.to-view');
-    await expect(page.getByText('Dynamic paths must use')).toContainText(':path');
 
-    await page.getByRole('button', { name: 'Add repeated route' }).click();
-    await expect(page).toHaveURL(/\/features\/repeated\/demo\/generated-1$/);
-    await expect(page.locator('.mini-stage')).toContainText('Generated route 1');
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('repeat.for="tab of tabs"');
+    await expect(playground.getByRole('button', { name: /show source/i })).toHaveCount(0);
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await frame.getByRole('link', { name: 'Activity' }).click();
+    await expect(playground.getByRole('status')).toContainText('Preview URL: /activity');
+    await expect(frame.getByRole('heading', { name: 'Activity' })).toBeVisible();
+
+    await playground.getByRole('textbox', { name: 'Editing /src/app.html' }).fill(
+      '<au-route path="/overview"><h1>Edited embedded preview</h1></au-route>',
+    );
+    await playground.getByRole('button', { name: 'Run' }).click();
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(frame.getByRole('heading', { name: 'Edited embedded preview' })).toBeVisible();
   });
 
-  test('nested routes generate relative hrefs and list their registered subtree', async ({ page }) => {
-    await page.goto('/features/nested/demo/dashboard');
+  test('every focused feature uses its matching embedded project without a source toggle', async ({ page }) => {
+    const features = [
+      ['basic', 'path="/welcome"'],
+      ['nested', 'path="/account"'],
+      ['params', ':userId'],
+      ['conditional', 'if.bind="canEdit"'],
+      ['repeated', 'repeat.for="tab of tabs"'],
+      ['matching', 'fallback'],
+      ['swap', 'swap-order="parallel"'],
+      ['animation', 'animate'],
+      ['shared-state', 'state.totalQty'],
+      ['kitchen-sink', 'au-slot="title"'],
+    ];
+
+    for (const [path, source] of features) {
+      await page.goto(`/features/${path}`);
+      const playground = page.locator('.playground-page.is-embedded');
+      await expect(playground).toHaveCount(1);
+      await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText(source);
+      await expect(page.getByRole('button', { name: /show source/i })).toHaveCount(0);
+    }
+  });
+
+  test('nested route APIs sit beside their matching embedded project', async ({ page }) => {
+    await page.goto('/features/nested');
 
     const apiExamples = page.locator('[data-e2e="route-api-examples"]');
     await expect(apiExamples).toContainText("$route.href('.')");
     await expect(apiExamples).toContainText('$route.root.href(');
     await expect(apiExamples).toContainText('$route.fullPath');
-    await expect(apiExamples).toContainText('$route.$path');
-    await expect(apiExamples).toContainText('$route.residue');
-    await expect(apiExamples).toContainText('$route.$params.productId');
-    await expect(apiExamples).toContainText("$route.parent.href('/specs')");
     await expect(apiExamples).toContainText('$route.root.getPaths()');
 
-    const stage = page.locator('.mini-stage');
-    await expect(stage.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/features/nested/demo/dashboard');
-    await expect(stage.getByRole('link', { name: 'Logs' })).toHaveAttribute('href', '/features/nested/demo/logs');
-    await expect(page.locator('[data-e2e="nested-paths"]')).toContainText('/features/nested/demo/dashboard');
-    await expect(page.locator('[data-e2e="nested-paths"]')).toContainText('/features/nested/demo/logs');
-
-    await stage.getByRole('link', { name: 'Logs' }).click();
-    await expect(page).toHaveURL(/\/features\/nested\/demo\/logs$/);
-    await expect(stage).toContainText('Logs child route is active');
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('path="/account"');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Profile' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Security' }).click();
+    await expect(frame.getByRole('heading', { name: 'Security' })).toBeVisible();
   });
 
-  test('exact and fallback demo responds to parent residue', async ({ page }) => {
-    await page.goto('/features/matching/demo/exact');
+  test('exact, fallback, and parallel swap fixtures run inside their pages', async ({ page }) => {
+    await page.goto('/features/matching');
+    let playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    let frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Missing' }).click();
+    await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
 
-    await expect(page.locator('[data-e2e="matching-exact"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="matching-fallback"]')).toHaveCount(0);
-
-    await page.getByRole('link', { name: 'Extra residue' }).click();
-    await expect(page).toHaveURL(/\/features\/matching\/demo\/exact\/details$/);
-    await expect(page.locator('[data-e2e="matching-exact"]')).toHaveCount(0);
-    await expect(page.locator('[data-e2e="matching-fallback"]')).toBeVisible();
-
-    await page.getByRole('link', { name: 'Prefix match' }).click();
-    await expect(page.locator('[data-e2e="matching-prefix"]')).toBeVisible();
-    await expect(page.locator('[data-e2e="matching-fallback"]')).toHaveCount(0);
-
-    await page.getByRole('link', { name: 'Missing child' }).click();
-    await expect(page.locator('[data-e2e="matching-fallback"]')).toBeVisible();
+    await page.goto('/features/swap');
+    playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Specs' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Reviews' }).click();
+    await expect(frame.getByRole('heading', { name: 'Reviews' })).toBeVisible();
   });
 
-  test('matching source contains its complete parent route and appears above the stage', async ({ page }) => {
-    await page.goto('/features/matching/demo/exact');
-    await page.getByRole('button', { name: 'Show source' }).click();
+  test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {
+    await page.goto('/features/kitchen-sink');
 
-    const source = page.locator('[data-e2e="matching-source"]');
-    const stage = page.locator('[data-e2e="matching-stage"]');
-    await expect(source).toContainText('<au-route path="/demo">');
-    await expect(source).toContainText('<au-route path="*" fallback>');
+    const playground = page.locator('.playground-page.is-embedded');
+    const editor = playground.getByRole('textbox', { name: 'Editing /src/app.html' });
+    await expect(editor).toContainText('<let greeting.bind');
+    await expect(editor).toContainText('au-slot="title"');
+    await expect(editor).toContainText('repeat.for="room of rooms"');
+    await expect(page.getByRole('button', { name: /show source/i })).toHaveCount(0);
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
 
-    const sourceBox = await source.boundingBox();
-    const stageBox = await stage.boundingBox();
-    expect(sourceBox).not.toBeNull();
-    expect(stageBox).not.toBeNull();
-    expect(sourceBox.y).toBeLessThan(stageBox.y);
-  });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByText('Welcome to Sunny room')).toBeVisible();
+    await frame.getByRole('button', { name: 'Visits: 0' }).click();
+    await expect(frame.getByRole('button', { name: 'Visits: 1' })).toBeVisible();
 
-  test('parallel swap demo navigates between its nested sibling routes', async ({ page }) => {
-    await page.goto('/features/swap/demo/alpha');
-
-    await expect(page.locator('[data-e2e="parallel-alpha"]')).toBeVisible();
-    const overlapSeen = page.waitForFunction(() => {
-      const stage = document.querySelector('[data-e2e="parallel-stage"]');
-      return stage?.querySelector('[data-au-route-transition="leave"]') != null
-        && stage.querySelector('[data-au-route-transition="enter"]') != null;
-    });
-
-    await page.getByRole('link', { name: 'Beta', exact: true }).click();
-    await overlapSeen;
-    await expect(page).toHaveURL(/\/features\/swap\/demo\/beta$/);
-    await expect(page.locator('[data-e2e="parallel-beta"]')).toBeVisible();
-  });
-
-  test('kitchen sink composes VM scope, let bindings, slots, and nested repeated routes', async ({ page }) => {
-    await page.goto('/features/kitchen-sink/demo/sunny/toys');
-
-    await expect(page.locator('[data-e2e="kitchen-heading"]:visible')).toContainText('Sunny Room uses Router HTML');
-    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Sunny Room / Toys');
-    await expect(page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Toys', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('[data-e2e="kitchen-footer"]')).toContainText('2 pages - No room note yet');
-
-    await page.locator('[data-e2e="kitchen-note"]').fill('Nap after snacks');
-    await expect(page.locator('[data-e2e="kitchen-footer"]')).toContainText('2 pages - Nap after snacks');
-
-    await page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Snacks', exact: true }).click();
-    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/snacks$/);
-    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Sunny Room / Snacks');
-    await expect(page.getByLabel('Sunny Room pages').getByRole('link', { name: 'Snacks', exact: true })).toHaveAttribute('aria-current', 'page');
-
-    await page.getByRole('link', { name: 'Moon Room', exact: true }).last().click();
-    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/moon\/stories$/);
-    await expect(page.locator('[data-e2e="kitchen-heading"]')).toContainText('Moon Room uses Router HTML');
-    await expect(page.locator('[data-e2e="kitchen-section"]')).toContainText('Moon Room / Stories');
-
-    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toHaveCount(1);
-    await page.locator('[data-e2e="kitchen-source-toggle"]').click();
-    const source = page.locator('[data-e2e="kitchen-source"]');
-    await expect(source).toContainText('<let base.bind="\'/features/kitchen-sink/demo/\' + room.id">');
-    await expect(source).toContainText('<strong au-slot="heading">');
-    await expect(source).toContainText('<template repeat.for="page of room.pages">');
-    await expect(source).toContainText('<au-route :path="\'/\' + page.id" exact>');
-  });
-
-  test('rapid playroom swaps serialize routed view attachment and removal', async ({ page }) => {
-    const pageErrors = [];
-    page.on('pageerror', error => {
-      pageErrors.push(error.message);
-    });
-    await page.goto('/features/kitchen-sink/demo/sunny/toys');
-    await expect(page.locator('[data-e2e="kitchen-heading"]')).toContainText('Sunny Room uses Router HTML');
-    const demo = page.locator('[data-e2e="kitchen-demo"]');
-    const initialLayout = await demo.evaluate(element => ({
-      childElements: element.children.length,
-      height: element.getBoundingClientRect().height,
-      shells: element.querySelectorAll('kitchen-shell').length,
-    }));
-
-    for (let index = 0; index < 6; index++) {
-      await page.getByRole('link', { name: 'Moon Room', exact: true }).last().click();
-      await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/moon\/stories$/);
-      await page.waitForTimeout(50);
-      expect(pageErrors).toEqual([]);
-      await expect(page.locator('[data-e2e="kitchen-heading"]:visible')).toContainText('Moon Room uses Router HTML');
-      await page.getByRole('link', { name: 'Sunny Room', exact: true }).last().click();
-      await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/toys$/);
+    for (let index = 0; index < 4; index++) {
+      await frame.getByRole('link', { name: 'Moon room' }).click();
+      await expect(frame.getByText('Welcome to Moon room')).toBeVisible();
+      await frame.getByRole('link', { name: 'Sunny room' }).click();
+      await expect(frame.getByText('Welcome to Sunny room')).toBeVisible();
     }
-
-    await expect(page).toHaveURL(/\/features\/kitchen-sink\/demo\/sunny\/toys$/);
-    await expect(page.locator('[data-e2e="kitchen-section"]:visible')).toContainText('Sunny Room / Toys');
-    await page.waitForTimeout(100);
-    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toHaveCount(1);
-    await expect(page.locator('[data-e2e="kitchen-source-toggle"]')).toBeVisible();
-    await expect.poll(() => demo.evaluate(element => ({
-      childElements: element.children.length,
-      height: element.getBoundingClientRect().height,
-      shells: element.querySelectorAll('kitchen-shell').length,
-    }))).toEqual(initialLayout);
-    expect(pageErrors).toEqual([]);
+    await expect(playground.locator('.console-entry.error')).toHaveCount(0);
   });
 });

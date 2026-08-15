@@ -8,43 +8,5 @@
     </div>
   </header>
 
-  <div class="page-grid">
-    <article class="demo-card route-stack">
-      <h3>Runnable demo</h3>
-      <div class="mini-nav">
-        <a class.bind="state.isRouteActive('/features/basic/demo/welcome') ? 'route-link is-active' : 'route-link'" href="/features/basic/demo/welcome">Welcome</a>
-        <a class.bind="state.isRouteActive('/features/basic/demo/install') ? 'route-link is-active' : 'route-link'" href="/features/basic/demo/install">Install</a>
-        <a class.bind="state.isRouteActive('/features/basic/demo/faq') ? 'route-link is-active' : 'route-link'" href="/features/basic/demo/faq">FAQ</a>
-        <button click.trigger="state.toggleSource()">${state.sourceVisible ? 'Hide' : 'Show'} source</button>
-      </div>
-
-      <div class="mini-stage">
-        <au-route path="/demo/welcome">
-          <div class="route-pill">Matched <code>/demo/welcome</code>. Static branch rendering is enough for getting started pages and small docs apps.</div>
-        </au-route>
-        <au-route path="/demo/install">
-          <div class="route-pill">Matched <code>/demo/install</code>. The router intercepted the anchor and updated the URL without a full page reload.</div>
-        </au-route>
-        <au-route path="/demo/faq">
-          <div class="route-pill">Matched <code>/demo/faq</code>. Static sibling routes are the simplest entrypoint into the package.</div>
-        </au-route>
-      </div>
-
-      <pre if.bind="state.sourceVisible" class="code-block" syntax-html>&lt;article class="demo-card route-stack"&gt;
-  &lt;h3&gt;Runnable demo&lt;/h3&gt;
-  &lt;div class="mini-nav"&gt;
-  &lt;a href="/features/basic/demo/welcome"&gt;Welcome&lt;/a&gt;
-  &lt;a href="/features/basic/demo/install"&gt;Install&lt;/a&gt;
-  &lt;a href="/features/basic/demo/faq"&gt;FAQ&lt;/a&gt;
-  &lt;button&gt;Show source&lt;/button&gt;
-  &lt;/div&gt;
-
-  &lt;div class="mini-stage"&gt;
-    &lt;au-route path="/demo/welcome"&gt;Matched /demo/welcome&lt;/au-route&gt;
-    &lt;au-route path="/demo/install"&gt;Anchor intercepted without a reload&lt;/au-route&gt;
-    &lt;au-route path="/demo/faq"&gt;Static sibling route matched&lt;/au-route&gt;
-  &lt;/div&gt;
-&lt;/article&gt;</pre>
-    </article>
-  </div>
+  <playground-page example-id="basic-routes" embedded.bind="true"></playground-page>
 </section>

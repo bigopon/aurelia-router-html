@@ -167,6 +167,7 @@ const featureExamples: PlaygroundExample[] = [
     appHtml: `<nav>
   <a href="/products">Products</a>
   <a href="/products/camera">Camera</a>
+  <a href="/known/details">Known details</a>
   <a href="/missing">Missing</a>
 </nav>
 <au-route path="/products" exact>
@@ -174,6 +175,10 @@ const featureExamples: PlaygroundExample[] = [
 </au-route>
 <au-route path="/products/:productId" exact>
   <h1>Product: \${$params.productId}</h1>
+</au-route>
+<au-route path="/known">
+  <h1>Known prefix matched</h1>
+  <p>The remaining <code>/details</code> residue can be handled by a nested route.</p>
 </au-route>
 <au-route path="*" fallback>
   <h1>Nothing matched this URL</h1>
@@ -188,16 +193,25 @@ const featureExamples: PlaygroundExample[] = [
   <h1>Camera</h1>
   <nav><a href="/products/camera/specs">Specs</a><a href="/products/camera/reviews">Reviews</a></nav>
   <div class="stage">
-    <au-route path="/specs">
+    <au-route path="/specs" animate>
       <h2>Specs</h2>
       <p>24 MP · 4K video · 410 g</p>
     </au-route>
-    <au-route path="/reviews">
+    <au-route path="/reviews" animate>
       <h2>Reviews</h2>
       <p>Customers rate this camera 4.8/5.</p>
     </au-route>
   </div>
 </au-route>`,
+    appCss: `.stage > .au-route-enter-active,
+.stage > .au-route-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.stage > .au-route-enter-from,
+.stage > .au-route-leave-active {
+  opacity: 0;
+}`,
   }),
   routerExample({
     id: 'route-animations',
