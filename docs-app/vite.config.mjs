@@ -5,7 +5,10 @@ import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  define: {
+    __DEV__: JSON.stringify(command === 'serve'),
+  },
   server: {
     port: Number(process.env.APP_PORT ?? 9027),
     fs: {
@@ -25,4 +28,4 @@ export default defineConfig({
   plugins: [
     aurelia({ enableConventions: true, hmr: true }),
   ],
-});
+}));

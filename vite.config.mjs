@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 import aurelia from '@aurelia/vite-plugin';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  define: {
+    __DEV__: JSON.stringify(command === 'serve'),
+  },
   server: {
     port: Number(process.env.APP_PORT ?? 5173),
   },
@@ -15,4 +18,4 @@ export default defineConfig({
   plugins: [
     aurelia({ enableConventions: true, hmr: true }),
   ],
-});
+}));
