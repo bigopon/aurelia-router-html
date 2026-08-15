@@ -8,6 +8,7 @@
 - [x] `A1` Rapid swaps between repeated outer routes serialize view attachment and removal without DOM hierarchy errors or leftover layout nodes.
 - [x] `A1` Dynamic paths accept `path.bind`, `path.to-view`, and `:path`; interpolation-looking static paths warn in development.
 - [x] `A1` Route contexts generate parameter-aware descendant hrefs and list current registered paths from any subtree or root.
+- [x] `A1` Nested-route docs show template examples for `$route` links, match state, parameters, and tree traversal.
 - [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
 - [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
 - [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.

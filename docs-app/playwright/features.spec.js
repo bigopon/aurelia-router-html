@@ -56,6 +56,16 @@ test.describe('router HTML docs features', () => {
   test('nested routes generate relative hrefs and list their registered subtree', async ({ page }) => {
     await page.goto('/features/nested/demo/dashboard');
 
+    const apiExamples = page.locator('[data-e2e="route-api-examples"]');
+    await expect(apiExamples).toContainText("$route.href('.')");
+    await expect(apiExamples).toContainText('$route.root.href(');
+    await expect(apiExamples).toContainText('$route.fullPath');
+    await expect(apiExamples).toContainText('$route.$path');
+    await expect(apiExamples).toContainText('$route.residue');
+    await expect(apiExamples).toContainText('$route.$params.productId');
+    await expect(apiExamples).toContainText("$route.parent.href('/specs')");
+    await expect(apiExamples).toContainText('$route.root.getPaths()');
+
     const stage = page.locator('.mini-stage');
     await expect(stage.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/features/nested/demo/dashboard');
     await expect(stage.getByRole('link', { name: 'Logs' })).toHaveAttribute('href', '/features/nested/demo/logs');

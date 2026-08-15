@@ -11,16 +11,58 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;a href.bind="$route.href('/logs')"&gt;Logs&lt;/a&gt;
-&lt;span repeat.for="path of $route.getPaths(false)"&gt;$<span>{path}</span>&lt;/span&gt;</pre>
+      <pre class="code-block" syntax-html>&lt;au-route path="/products/:productId"&gt;
+  &lt;a href.bind="$route.href('.')"&gt;Overview&lt;/a&gt;
+  &lt;a href.bind="$route.href('/reviews')"&gt;Reviews&lt;/a&gt;
+
+  &lt;au-route path="."&gt;Product overview&lt;/au-route&gt;
+  &lt;au-route path="/reviews"&gt;Product reviews&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
     </section>
     <section>
       <h3>Meaning</h3>
-      <p><code>$route.href('/logs')</code> finds the registered descendant pattern and adds the current context's complete parent path. Active parameters are reused automatically. Pass a parameter object as the second argument when values come from application data, or pass <code>$params</code> when links must react to parameter changes without remounting the parent view.</p>
+      <p><code>$route</code> is the context of the nearest active <code>au-route</code>. It knows that route's local pattern, complete registered path, parameters, remaining URL, parent, children, and root context.</p>
     </section>
     <section>
       <h3>Apply it</h3>
-      <p>Call <code>getPaths()</code> on any route context for its current registered subtree, or use <code>$route.root.getPaths()</code> for the complete registry. Pass <code>false</code> to omit the context itself.</p>
+      <p>Build links from registered route contexts instead of repeating full URLs. Active parameters are reused automatically, while an explicit parameter object can generate links for application data that is not currently active.</p>
+    </section>
+  </div>
+
+  <div class="feature-details" data-e2e="route-api-examples">
+    <section>
+      <h3>Build local and index links</h3>
+      <pre class="code-block" syntax-html>&lt;a href.bind="$route.href('.')"&gt;Current section&lt;/a&gt;
+&lt;a href.bind="$route.href('/reviews')"&gt;Reviews&lt;/a&gt;
+&lt;a href.bind="$route.href('/reviews', $params)"&gt;Reviews for this product&lt;/a&gt;</pre>
+      <p><code>href('.')</code> targets the current section's index route. A descendant pattern such as <code>/reviews</code> is resolved below the current context and inherits active ancestor parameters.</p>
+    </section>
+
+    <section>
+      <h3>Build a link from anywhere</h3>
+      <pre class="code-block" syntax-html>&lt;a href.bind="$route.root.href(
+  '/products/:productId/reviews',
+  { productId: product.id }
+)"&gt;Read reviews&lt;/a&gt;</pre>
+      <p>Start from <code>$route.root</code> when the target is outside the current subtree. Supply values for route parameters that are not available from the active context.</p>
+    </section>
+
+    <section>
+      <h3>Read the current match</h3>
+      <pre class="code-block" syntax-html>&lt;p&gt;Local pattern: $<span>{$route.pattern}</span>&lt;/p&gt;
+&lt;p&gt;Complete pattern: $<span>{$route.fullPath}</span>&lt;/p&gt;
+&lt;p&gt;Path at this level: $<span>{$route.$path}</span>&lt;/p&gt;
+&lt;p&gt;Remaining path: $<span>{$route.residue}</span>&lt;/p&gt;
+&lt;p&gt;Product: $<span>{$route.$params.productId}</span>&lt;/p&gt;</pre>
+      <p><code>pattern</code> is local to the route, while <code>fullPath</code> combines its ancestors. <code>$path</code> is the URL portion presented at this level, and <code>residue</code> is the portion left for child routes.</p>
+    </section>
+
+    <section>
+      <h3>Move through the route tree</h3>
+      <pre class="code-block" syntax-html>&lt;a href.bind="$route.parent.href('/specs')"&gt;Sibling specs&lt;/a&gt;
+&lt;span repeat.for="path of $route.getPaths(false)"&gt;$<span>{path}</span>&lt;/span&gt;
+&lt;span repeat.for="path of $route.root.getPaths()"&gt;$<span>{path}</span>&lt;/span&gt;</pre>
+      <p>Use <code>parent</code> to resolve a sibling from a nested view. <code>getPaths()</code> returns the registered subtree; pass <code>false</code> to omit the current context, or start at <code>root</code> to inspect the complete route registry.</p>
     </section>
   </div>
 
