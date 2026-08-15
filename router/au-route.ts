@@ -1,5 +1,5 @@
-import { isPromise, onResolve, resolve, IContainer, Registration } from '@aurelia/kernel';
-import { astEvaluate, Scope } from '@aurelia/runtime';
+import { isPromise, onResolve, resolve, IContainer, IPlatform, Registration } from '@aurelia/kernel';
+import { astEvaluate, queueAsyncTask, Scope } from '@aurelia/runtime';
 import { IExpressionParser } from 'aurelia';
 import {
   CustomElementStaticAuDefinition,
@@ -19,6 +19,10 @@ import { IRouteAnimationOptions } from './animation';
 import { IRouteContext, type SwapOrder } from './route-context';
 
 declare const __DEV__: boolean;
+
+type AnimationPlatform = IPlatform & {
+  readonly requestAnimationFrame: typeof requestAnimationFrame;
+};
 
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
@@ -60,6 +64,7 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly animationOptions = resolve(IRouteAnimationOptions);
   private readonly animationsEnabled: boolean;
   private readonly expressionParser = resolve(IExpressionParser);
+  private readonly platform = resolve(IPlatform) as AnimationPlatform;
   private readonly pathExpression: string | null;
   private readonly unsubscribe: () => void;
   private viewActive: boolean = false;
@@ -264,7 +269,7 @@ export class AuRoute implements ICustomElementViewModel {
       element.dataset.auRouteTransition = direction;
     }
 
-    await nextFrame();
+    await this.nextFrame();
     if (runId !== this.animationRunId) {
       this.clearAnimationClasses(elements);
       return;
@@ -277,11 +282,11 @@ export class AuRoute implements ICustomElementViewModel {
 
     const duration = Math.max(
       this.animationOptions.fallbackMs,
-      ...elements.map(getElementAnimationDuration),
+      ...elements.map(element => this.getElementAnimationDuration(element)),
     );
 
     if (duration > 0) {
-      await wait(duration + 34);
+      await queueAsyncTask(() => {}, { delay: duration + 34 });
     }
 
     if (runId !== this.animationRunId) {
@@ -294,7 +299,28 @@ export class AuRoute implements ICustomElementViewModel {
 
   private getAnimationElements(): HTMLElement[] {
     const nodes = Array.from(this.view?.nodes.childNodes ?? []);
-    return nodes.filter((node): node is HTMLElement => node instanceof HTMLElement);
+    return nodes.filter((node): node is HTMLElement => node instanceof this.platform.globalThis.HTMLElement);
+  }
+
+  private getElementAnimationDuration(element: HTMLElement): number {
+    const style = this.platform.globalThis.getComputedStyle(element);
+    const transitionDurations = parseTimeList(style.transitionDuration);
+    const transitionDelays = parseTimeList(style.transitionDelay);
+    const animationDurations = parseTimeList(style.animationDuration);
+    const animationDelays = parseTimeList(style.animationDelay);
+
+    const transitionTotal = transitionDurations.reduce((max, duration, index) => Math.max(max, duration + (transitionDelays[index] ?? transitionDelays[0] ?? 0)), 0);
+    const animationTotal = animationDurations.reduce((max, duration, index) => Math.max(max, duration + (animationDelays[index] ?? animationDelays[0] ?? 0)), 0);
+
+    return Math.max(transitionTotal, animationTotal, 0);
+  }
+
+  private nextFrame(): Promise<void> {
+    return new Promise(resolve => {
+      this.platform.requestAnimationFrame(() => {
+        this.platform.requestAnimationFrame(() => resolve());
+      });
+    });
   }
 
   private clearAnimationClasses(elements: HTMLElement[]): void {
@@ -324,32 +350,5 @@ function parseTimeList(value: string): number[] {
       return (Number.parseFloat(trimmed.slice(0, -1)) || 0) * 1000;
     }
     return 0;
-  });
-}
-
-function getElementAnimationDuration(element: HTMLElement): number {
-  const style = window.getComputedStyle(element);
-  const transitionDurations = parseTimeList(style.transitionDuration);
-  const transitionDelays = parseTimeList(style.transitionDelay);
-  const animationDurations = parseTimeList(style.animationDuration);
-  const animationDelays = parseTimeList(style.animationDelay);
-
-  const transitionTotal = transitionDurations.reduce((max, duration, index) => Math.max(max, duration + (transitionDelays[index] ?? transitionDelays[0] ?? 0)), 0);
-  const animationTotal = animationDurations.reduce((max, duration, index) => Math.max(max, duration + (animationDelays[index] ?? animationDelays[0] ?? 0)), 0);
-
-  return Math.max(transitionTotal, animationTotal, 0);
-}
-
-function nextFrame(): Promise<void> {
-  return new Promise(resolve => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
-    });
-  });
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms);
   });
 }

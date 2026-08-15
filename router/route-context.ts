@@ -9,6 +9,7 @@ export interface RouteState {
 
 export type RouteContextCallback = (state: RouteState) => void;
 export type SwapOrder = 'attach-next-detach-current' | 'detach-current-attach-next' | 'parallel';
+export type RouteParams = Readonly<Record<string, string | number>>;
 
 export interface RouteContextOptions {
   exact?: boolean;
@@ -18,13 +19,17 @@ export interface RouteContextOptions {
 
 export interface IRouteContext {
   readonly parent: IRouteContext | null;
+  readonly root: IRouteContext;
   readonly children: readonly IRouteContext[];
   readonly active: boolean;
   readonly residue: string;
   readonly $path: string;
   readonly $params: Readonly<Record<string, string>>;
   readonly pattern: string;
+  readonly fullPath: string;
 
+  href(target?: string | IRouteContext, params?: RouteParams): string;
+  getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
   apply(path: string): void;
   refresh(): void;
@@ -42,6 +47,30 @@ export class RouteContext implements IRouteContext {
   public $path: string = '/';
   public $params: Readonly<Record<string, string>> = Object.freeze({});
   public pattern: string = '*';
+
+  public get root(): IRouteContext {
+    let context: IRouteContext = this;
+    while (context.parent != null) {
+      context = context.parent;
+    }
+    return context;
+  }
+
+  public get fullPath(): string {
+    if (this.parent == null) {
+      return '/';
+    }
+
+    const patterns: string[] = [];
+    let context: IRouteContext | null = this;
+    while (context?.parent != null) {
+      if (context.pattern !== '/') {
+        patterns.unshift(context.pattern.replace(/^\//, ''));
+      }
+      context = context.parent;
+    }
+    return normalizePath(patterns.join('/'));
+  }
 
   private _matcher: RegExp = /^(?<rest__>\/.*|\/)?$/;
   private readonly _subscriptions = new Set<RouteContextCallback>();
@@ -63,6 +92,39 @@ export class RouteContext implements IRouteContext {
         : 'attach-next-detach-current'
     );
     this.usePattern(pattern);
+  }
+
+  public href(target: string | IRouteContext = this, params: RouteParams = {}): string {
+    const targetContext = typeof target === 'string'
+      ? this._findContext(target)
+      : target;
+    if (targetContext == null) {
+      throw new Error(`No route matching "${target}" is registered below "${this.fullPath}".`);
+    }
+
+    const resolvedParams: Record<string, string | number> = Object.create(null);
+    const ancestry: IRouteContext[] = [];
+    let context: IRouteContext | null = this;
+    while (context != null) {
+      ancestry.unshift(context);
+      context = context.parent;
+    }
+    for (const ancestor of ancestry) {
+      Object.assign(resolvedParams, ancestor.$params);
+    }
+    Object.assign(resolvedParams, params);
+    return generateHref(targetContext.fullPath, resolvedParams);
+  }
+
+  public getPaths(includeSelf: boolean = true): readonly string[] {
+    const paths: string[] = [];
+    if (includeSelf && this.parent != null) {
+      paths.push(this.fullPath);
+    }
+    for (const child of this.children) {
+      paths.push(...child.getPaths(true));
+    }
+    return paths;
   }
 
   public usePattern(pattern: string): void {
@@ -229,6 +291,23 @@ export class RouteContext implements IRouteContext {
     };
   }
 
+  private _findContext(path: string): IRouteContext | null {
+    const normalizedPattern = normalizePattern(path);
+    const normalizedPath = normalizePath(path);
+    const contexts = this._getContexts();
+    return contexts.find(context => context.fullPath === normalizedPath)
+      ?? contexts.find(context => context.pattern === normalizedPattern)
+      ?? null;
+  }
+
+  private _getContexts(): IRouteContext[] {
+    const contexts: IRouteContext[] = [this];
+    for (let index = 0; index < contexts.length; index++) {
+      contexts.push(...contexts[index].children);
+    }
+    return contexts;
+  }
+
   private _notify(): void {
     const state = this._currentState();
     for (const callback of this._subscriptions) {
@@ -308,6 +387,9 @@ function normalizePattern(pattern: string): string {
   if (trimmed === '') {
     return '/';
   }
+  if (trimmed === '.' || trimmed === './') {
+    return '/';
+  }
   if (trimmed === '*' || trimmed === '/*' || trimmed === '**' || trimmed === '/**') {
     return trimmed.endsWith('**') ? '**' : '*';
   }
@@ -344,6 +426,33 @@ function normalizeResidue(value: string | undefined): string {
     return '/';
   }
   return normalizePath(value);
+}
+
+function generateHref(pattern: string, params: RouteParams): string {
+  const segments = pattern.split('/').filter(Boolean).map(segment => {
+    if (segment.startsWith(':')) {
+      return encodeRouteParam(segment.slice(1), params, false);
+    }
+    if (segment === '*') {
+      return encodeRouteParam('*', params, false);
+    }
+    if (segment === '**') {
+      return encodeRouteParam('**', params, true);
+    }
+    return segment;
+  });
+  return normalizePath(segments.join('/'));
+}
+
+function encodeRouteParam(name: string, params: RouteParams, rest: boolean): string {
+  const value = params[name];
+  if (value == null) {
+    throw new Error(`Route parameter "${name}" is required to generate this href.`);
+  }
+  const stringValue = String(value);
+  return rest
+    ? stringValue.split('/').filter(Boolean).map(encodeURIComponent).join('/')
+    : encodeURIComponent(stringValue);
 }
 
 function shallowEqual(a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>): boolean {

@@ -7,6 +7,7 @@
 - [x] `A1` Kitchen-sink source shows the complete slotted shell and declarative repeated route tree.
 - [x] `A1` Rapid swaps between repeated outer routes serialize view attachment and removal without DOM hierarchy errors or leftover layout nodes.
 - [x] `A1` Dynamic paths accept `path.bind`, `path.to-view`, and `:path`; interpolation-looking static paths warn in development.
+- [x] `A1` Route contexts generate parameter-aware descendant hrefs and list current registered paths from any subtree or root.
 - [x] `A0` Initial load at `/products` renders the catalog route and nested index route.
 - [x] `A0` Deep-linking to `/products/:productId/promo` waits for async detail data, then activates the promo branch.
 - [x] `A0` Sibling navigation between `/overview`, `/reviews`, and `/specs` keeps the parent product shell mounted.
@@ -25,6 +26,7 @@
 - [x] `A1` `RouteContext` parameter match extracts params and forwards remaining residue.
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.
 - [x] `A1` Child contexts update when the parent residue changes across successive `apply()` calls.
+- [x] `A1` `.` and `./` both match only the current parent index in matcher and node-based Aurelia tests.
 - [x] `A1` An `au-route` introduced later via `if/else` becomes active immediately when the current residue already matches it.
 - [x] `A1` Removing an active conditional `au-route` tears down its branch cleanly and restores the `else` branch.
 - [x] `A1` Removing a repeated-template `au-route` tears down its active branch cleanly.

@@ -46,6 +46,23 @@ run('A1 child contexts react to parent residue changes', () => {
   assert.equal(detail.residue, '/order');
 });
 
+for (const pattern of ['.', './']) {
+  run(`A1 ${pattern} matches the current context index like /`, () => {
+    const root = new RouteContext(null, '*');
+    const products = root.createChild('/products') as RouteContext;
+    const index = products.createChild(pattern) as RouteContext;
+
+    root.apply('/products');
+    assert.equal(index.pattern, '/');
+    assert.equal(index.fullPath, '/products');
+    assert.equal(index.active, true);
+    assert.equal(products.href(pattern), '/products');
+
+    root.apply('/products/details');
+    assert.equal(index.active, false);
+  });
+}
+
 run('A2 trailing slash normalizes to same state', () => {
   const route = new RouteContext(null, '/store/:storeId');
   route.apply('/store/123/');
@@ -79,6 +96,56 @@ run('A2 disposed children stop receiving updates', () => {
   root.apply('/store/456');
 
   assert.equal(store.children.length, 0);
+});
+
+run('A2 registered paths can be listed from root or a nested context', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  products.createChild('/reviews');
+  const specs = products.createChild('/specs') as RouteContext;
+  root.createChild('/account');
+
+  assert.deepEqual(root.getPaths(), [
+    '/products/:productId',
+    '/products/:productId/reviews',
+    '/products/:productId/specs',
+    '/account',
+  ]);
+  assert.deepEqual(products.getPaths(false), [
+    '/products/:productId/reviews',
+    '/products/:productId/specs',
+  ]);
+
+  specs.usePattern('/details');
+  assert.deepEqual(products.getPaths(false), [
+    '/products/:productId/reviews',
+    '/products/:productId/details',
+  ]);
+  specs.dispose();
+  assert.deepEqual(products.getPaths(false), ['/products/:productId/reviews']);
+});
+
+run('A2 href generation resolves descendants and active route parameters', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  products.createChild('/reviews');
+  products.createChild('/specs');
+
+  assert.equal(
+    root.href('/products/:productId/reviews', { productId: 'blue sky' }),
+    '/products/blue%20sky/reviews',
+  );
+
+  root.apply('/products/aster-pack/reviews');
+  assert.equal(products.href('/specs'), '/products/aster-pack/specs');
+  assert.throws(
+    () => root.href('/products/:productId/specs'),
+    /Route parameter "productId" is required/,
+  );
+  assert.throws(
+    () => products.href('/missing'),
+    /No route matching "\/missing" is registered/,
+  );
 });
 
 run('A2 newly added non-matching route leaves the active sibling unchanged', () => {

@@ -5,6 +5,6 @@ export { RouteCoordinator, IRouteCoordinator } from './coordinator';
 export type { LoadOptions } from './coordinator';
 export { Routing } from './configuration';
 export { RouteContext, IRouteContext } from './route-context';
-export type { RouteState, SwapOrder } from './route-context';
+export type { RouteParams, RouteState, SwapOrder } from './route-context';
 export { IRouteAnimationOptions } from './animation';
 export type { RouteAnimationOptions, RouteAnimationInput } from './animation';

@@ -53,6 +53,20 @@ test.describe('router HTML docs features', () => {
     await expect(page.locator('.mini-stage')).toContainText('Generated route 1');
   });
 
+  test('nested routes generate relative hrefs and list their registered subtree', async ({ page }) => {
+    await page.goto('/features/nested/demo/dashboard');
+
+    const stage = page.locator('.mini-stage');
+    await expect(stage.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/features/nested/demo/dashboard');
+    await expect(stage.getByRole('link', { name: 'Logs' })).toHaveAttribute('href', '/features/nested/demo/logs');
+    await expect(page.locator('[data-e2e="nested-paths"]')).toContainText('/features/nested/demo/dashboard');
+    await expect(page.locator('[data-e2e="nested-paths"]')).toContainText('/features/nested/demo/logs');
+
+    await stage.getByRole('link', { name: 'Logs' }).click();
+    await expect(page).toHaveURL(/\/features\/nested\/demo\/logs$/);
+    await expect(stage).toContainText('Logs child route is active');
+  });
+
   test('exact and fallback demo responds to parent residue', async ({ page }) => {
     await page.goto('/features/matching/demo/exact');
 

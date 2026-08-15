@@ -8,6 +8,22 @@
     </div>
   </header>
 
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;a href.bind="$route.href('/logs')"&gt;Logs&lt;/a&gt;
+&lt;span repeat.for="path of $route.getPaths(false)"&gt;$<span>{path}</span>&lt;/span&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p><code>$route.href('/logs')</code> finds the registered descendant pattern and adds the current context's complete parent path. Active parameters are reused automatically. Pass a parameter object as the second argument when values come from application data, or pass <code>$params</code> when links must react to parameter changes without remounting the parent view.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <p>Call <code>getPaths()</code> on any route context for its current registered subtree, or use <code>$route.root.getPaths()</code> for the complete registry. Pass <code>false</code> to omit the context itself.</p>
+    </section>
+  </div>
+
   <div class="page-grid">
     <article class="demo-card route-stack">
       <h3>Runnable demo</h3>
@@ -25,9 +41,10 @@
         <div class="mini-stage">
           <div class="route-pill">This top band stays mounted for every child branch under <code>/demo</code>.</div>
           <div class="mini-nav">
-            <a class.bind="state.isRouteActive('/features/nested/demo/dashboard') ? 'route-link is-active' : 'route-link'" href="/features/nested/demo/dashboard">Dashboard</a>
-            <a class.bind="state.isRouteActive('/features/nested/demo/logs') ? 'route-link is-active' : 'route-link'" href="/features/nested/demo/logs">Logs</a>
+            <a class.bind="state.isRouteActive('/features/nested/demo/dashboard') ? 'route-link is-active' : 'route-link'" href.bind="$route.href('/dashboard')">Dashboard</a>
+            <a class.bind="state.isRouteActive('/features/nested/demo/logs') ? 'route-link is-active' : 'route-link'" href.bind="$route.href('/logs')">Logs</a>
           </div>
+          <div class="muted" data-e2e="nested-paths">Registered here: ${$route.getPaths(false).join(', ')}</div>
 
           <au-route path="/dashboard">
             <div class="route-pill">Dashboard child route is active.</div>
@@ -51,9 +68,10 @@
     &lt;div class="mini-stage"&gt;
       &lt;div class="route-pill"&gt;This top band stays mounted for every child branch.&lt;/div&gt;
       &lt;div class="mini-nav"&gt;
-        &lt;a href="/features/nested/demo/dashboard"&gt;Dashboard&lt;/a&gt;
-        &lt;a href="/features/nested/demo/logs"&gt;Logs&lt;/a&gt;
+        &lt;a href.bind="$route.href('/dashboard')"&gt;Dashboard&lt;/a&gt;
+        &lt;a href.bind="$route.href('/logs')"&gt;Logs&lt;/a&gt;
       &lt;/div&gt;
+      &lt;div&gt;Registered here: $<span>{$route.getPaths(false).join(', ')}</span>&lt;/div&gt;
       &lt;au-route path="/dashboard"&gt;Dashboard child route is active.&lt;/au-route&gt;
       &lt;au-route path="/logs"&gt;Logs child route is active.&lt;/au-route&gt;
     &lt;/div&gt;
