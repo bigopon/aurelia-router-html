@@ -51,6 +51,9 @@
 
 - [x] CodeMirror highlights TypeScript, JavaScript, HTML, and CSS while preserving editor state across file tabs.
 - [x] The params example demonstrates local parent and child `$params` scopes plus explicit ancestor access through `$route.parent`.
+- [x] Query and hash state update independently of pathname matching and remain available through `$query`, `$hash`, and `$route`.
+- [x] Browser URL adapters format pathname, hash-only, and configurable query-key routes.
+- [x] Production pathname, hash-only, and configurable query-key adapters load direct URLs, intercept generated links, and restore routed views through browser Back and Forward.
 - [x] Editing source queues an automatic run with a visible countdown while the explicit Run action remains available.
 - [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.

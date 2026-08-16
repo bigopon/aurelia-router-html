@@ -1,10 +1,13 @@
 import { DI } from '@aurelia/kernel';
+import { createRouteHref, emptyRouteQuery, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 
 export interface RouteState {
   readonly active: boolean;
   readonly params: Readonly<Record<string, string>>;
   readonly residue: string;
   readonly path: string;
+  readonly query: RouteQuery;
+  readonly hash: string;
 }
 
 export type RouteContextCallback = (state: RouteState) => void;
@@ -15,6 +18,7 @@ export interface RouteContextOptions {
   exact?: boolean;
   fallback?: boolean;
   swapOrder?: SwapOrder;
+  hrefFormatter?: (path: string) => string;
 }
 
 export interface IRouteContext {
@@ -25,13 +29,15 @@ export interface IRouteContext {
   readonly residue: string;
   readonly $path: string;
   readonly $params: Readonly<Record<string, string>>;
+  readonly $query: RouteQuery;
+  readonly $hash: string;
   readonly pattern: string;
   readonly fullPath: string;
 
-  href(target?: string | IRouteContext, params?: RouteParams): string;
+  href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
   getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
-  apply(path: string): void;
+  apply(path: string, location?: Pick<RouteLocation, 'query' | 'hash'>): void;
   refresh(): void;
   createChild(pattern?: string, options?: RouteContextOptions): IRouteContext;
   subscribe(callback: RouteContextCallback): () => void;
@@ -46,6 +52,8 @@ export class RouteContext implements IRouteContext {
   public residue: string = '/';
   public $path: string = '/';
   public $params: Readonly<Record<string, string>> = Object.freeze({});
+  public $query: RouteQuery = emptyRouteQuery;
+  public $hash: string = '';
   public pattern: string = '*';
 
   public get root(): IRouteContext {
@@ -78,6 +86,7 @@ export class RouteContext implements IRouteContext {
   private readonly _exact: boolean;
   private readonly _fallback: boolean;
   private readonly _swapOrder: SwapOrder;
+  private readonly _hrefFormatter: (path: string) => string;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -91,10 +100,13 @@ export class RouteContext implements IRouteContext {
         ? parent._swapOrder
         : 'attach-next-detach-current'
     );
+    this._hrefFormatter = options.hrefFormatter ?? (
+      parent instanceof RouteContext ? parent._hrefFormatter : path => path
+    );
     this.usePattern(pattern);
   }
 
-  public href(target: string | IRouteContext = this, params: RouteParams = {}): string {
+  public href(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteHrefOptions = {}): string {
     const targetContext = typeof target === 'string'
       ? this._findContext(target)
       : target;
@@ -113,7 +125,8 @@ export class RouteContext implements IRouteContext {
       Object.assign(resolvedParams, ancestor.$params);
     }
     Object.assign(resolvedParams, params);
-    return generateHref(targetContext.fullPath, resolvedParams);
+    const pathname = generateHref(targetContext.fullPath, resolvedParams);
+    return this._hrefFormatter(createRouteHref(pathname, this.$query, this.$hash, options));
   }
 
   public getPaths(includeSelf: boolean = true): readonly string[] {
@@ -132,18 +145,17 @@ export class RouteContext implements IRouteContext {
     this._matcher = compilePattern(this.pattern, this._exact, this.parent === null);
   }
 
-  public apply(path: string): void {
+  public apply(path: string, location: Pick<RouteLocation, 'query' | 'hash'> = { query: emptyRouteQuery, hash: '' }): void {
     if (this._disposed) {
       return;
     }
 
     const normalizedPath = normalizePath(path);
-    this.$path = normalizedPath;
     this._matcher.lastIndex = 0;
     const match = this._matcher.exec(normalizedPath);
 
     if (match === null) {
-      this._deactivateBranch(normalizedPath);
+      this._deactivateBranch(normalizedPath, location.query, location.hash);
       return;
     }
 
@@ -154,11 +166,16 @@ export class RouteContext implements IRouteContext {
       !this.active
       || this.residue !== nextResidue
       || !shallowEqual(this.$params, nextParams)
-      || this.$path !== normalizedPath;
+      || this.$path !== normalizedPath
+      || this.$query.toString() !== location.query.toString()
+      || this.$hash !== location.hash;
 
     this.active = true;
     this.residue = nextResidue;
     this.$params = nextParams;
+    this.$path = normalizedPath;
+    this.$query = location.query;
+    this.$hash = location.hash;
 
     if (stateChanged) {
       this._notify();
@@ -173,6 +190,7 @@ export class RouteContext implements IRouteContext {
     }
 
     const nextResidue = this.residue;
+    const location = { query: this.$query, hash: this.$hash };
     const matchingChildren: RouteContext[] = [];
     for (const child of this.children) {
       if (child._match(nextResidue) !== null) {
@@ -190,27 +208,27 @@ export class RouteContext implements IRouteContext {
     switch (this._swapOrder) {
       case 'detach-current-attach-next':
         for (const child of misses) {
-          child._deactivateBranch('/__inactive__');
+          child._deactivateBranch('/__inactive__', this.$query, this.$hash);
         }
         for (const child of matches) {
-          child.apply(nextResidue);
+          child.apply(nextResidue, location);
         }
         break;
       case 'attach-next-detach-current':
       default:
         for (const child of matches) {
-          child.apply(nextResidue);
+          child.apply(nextResidue, location);
         }
         for (const child of misses) {
-          child._deactivateBranch('/__inactive__');
+          child._deactivateBranch('/__inactive__', this.$query, this.$hash);
         }
         break;
       case 'parallel':
         for (const child of this.children) {
           if (matchSet.has(child)) {
-            child.apply(nextResidue);
+            child.apply(nextResidue, location);
           } else {
-            child._deactivateBranch('/__inactive__');
+            child._deactivateBranch('/__inactive__', this.$query, this.$hash);
           }
         }
         break;
@@ -222,12 +240,13 @@ export class RouteContext implements IRouteContext {
       exact: options.exact,
       fallback: options.fallback,
       swapOrder: options.swapOrder ?? this._swapOrder,
+      hrefFormatter: this._hrefFormatter,
     });
     this.children.push(child);
     if (this.active) {
       this.refresh();
     } else {
-      child.apply('/__inactive__');
+      child.apply('/__inactive__', { query: this.$query, hash: this.$hash });
     }
     return child;
   }
@@ -260,20 +279,27 @@ export class RouteContext implements IRouteContext {
     }
   }
 
-  private _deactivateBranch(path: string): void {
-    const stateChanged = this.active || this.residue !== '/' || Object.keys(this.$params).length > 0 || this.$path !== path;
+  private _deactivateBranch(path: string, query: RouteQuery = this.$query, hash: string = this.$hash): void {
+    const stateChanged = this.active
+      || this.residue !== '/'
+      || Object.keys(this.$params).length > 0
+      || this.$path !== path
+      || this.$query.toString() !== query.toString()
+      || this.$hash !== hash;
 
     this.active = false;
     this.$path = path;
     this.residue = '/';
     this.$params = Object.freeze({});
+    this.$query = query;
+    this.$hash = hash;
 
     if (stateChanged) {
       this._notify();
     }
 
     for (const child of this.children) {
-      child._deactivateBranch('/__inactive__');
+      child._deactivateBranch('/__inactive__', query, hash);
     }
   }
 
@@ -321,6 +347,8 @@ export class RouteContext implements IRouteContext {
       params: this.$params,
       residue: this.residue,
       path: this.$path,
+      query: this.$query,
+      hash: this.$hash,
     };
   }
 }

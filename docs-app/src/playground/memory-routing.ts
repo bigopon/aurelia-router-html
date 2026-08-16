@@ -5,21 +5,51 @@ import { AuRoute } from '../../../router/au-route';
 import { IRouteCoordinator, RouteCoordinator } from '../../../router/coordinator';
 import type { PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
+import type { BrowserRoutingMode } from '../../../router/browser-path-adapter';
+import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from '../../../router/route-location';
 
 interface PlaygroundRoutingOptions {
   swapOrder?: SwapOrder;
   animations?: RouteAnimationInput;
   interceptLinks?: boolean;
+  routingMode?: BrowserRoutingMode;
+  routeQueryKey?: string;
 }
 
 class MemoryPathAdapter implements PathAdapter {
-  private path = normalizeRoutePath(globalThis.__PLAYGROUND_INITIAL_PATH__ ?? '/');
+  private path: string;
   private callback: ((path: string) => void) | null = null;
+  private readonly routingMode: BrowserRoutingMode;
+  private readonly routeQueryKey: string;
 
-  public constructor(private readonly interceptLinks: boolean) {}
+  public constructor(private readonly options: PlaygroundRoutingOptions) {
+    this.routingMode = options.routingMode ?? 'path';
+    this.routeQueryKey = options.routeQueryKey?.trim() || 'app';
+    this.path = this.routeFromHref(globalThis.__PLAYGROUND_INITIAL_PATH__ ?? '/') ?? '/';
+  }
 
   public getCurrentPath(): string {
     return this.path;
+  }
+
+  public formatHref(path: string): string {
+    const location = parseRouteLocation(path);
+    switch (this.routingMode) {
+      case 'hash':
+        return `#${stringifyRouteLocation(location).replace(/^\//, '')}`;
+      case 'query': {
+        const routeValue = location.pathname
+          .replace(/^\//, '')
+          .split('/')
+          .map(encodeURIComponent)
+          .join('/');
+        const query = location.query.toString();
+        return `?${encodeURIComponent(this.routeQueryKey)}=${routeValue}${query === '' ? '' : `&${query}`}${location.hash === '' ? '' : `#${location.hash}`}`;
+      }
+      case 'path':
+      default:
+        return stringifyRouteLocation(location);
+    }
   }
 
   public push(path: string): void {
@@ -40,7 +70,7 @@ class MemoryPathAdapter implements PathAdapter {
   }
 
   private readonly onClick = (event: MouseEvent): void => {
-    if (!this.interceptLinks || event.defaultPrevented || event.button !== 0) {
+    if (!this.options.interceptLinks || event.defaultPrevented || event.button !== 0) {
       return;
     }
     const target = event.target;
@@ -49,29 +79,66 @@ class MemoryPathAdapter implements PathAdapter {
       return;
     }
     const href = anchor.getAttribute('href');
-    if (href == null || href.startsWith('#') || /^[a-z]+:/i.test(href)) {
+    if (href == null || /^[a-z]+:/i.test(href)) {
+      return;
+    }
+    const next = this.routeFromHref(href);
+    if (next == null) {
       return;
     }
     event.preventDefault();
-    const next = new URL(href, `https://playground.invalid${this.path}`).pathname;
     this.setPath(next);
   };
 
   private setPath(path: string): void {
-    this.path = normalizeRoutePath(path);
+    this.path = stringifyRouteLocation(parseRouteLocation(path));
     this.callback?.(this.path);
     window.parent.postMessage({
       channel: 'router-html-playground',
       type: 'navigation',
-      path: this.path,
+      path: this.formatHref(this.path),
     }, '*');
+  }
+
+  private routeFromHref(href: string): string | null {
+    const url = new URL(href, 'https://playground.invalid/');
+    switch (this.routingMode) {
+      case 'hash':
+        return url.hash === ''
+          ? null
+          : stringifyRouteLocation(parseRouteLocation(normalizeRoutePath(url.hash.slice(1))));
+      case 'query': {
+        if (!url.searchParams.has(this.routeQueryKey)) {
+          return null;
+        }
+        const query = new URLSearchParams(url.search);
+        const pathname = normalizeRoutePath(query.get(this.routeQueryKey) ?? '/');
+        query.delete(this.routeQueryKey);
+        return stringifyRouteLocation({
+          pathname,
+          query: createRouteQuery(query),
+          hash: url.hash.slice(1),
+        });
+      }
+      case 'path':
+      default:
+        return stringifyRouteLocation({
+          pathname: normalizeRoutePath(url.pathname),
+          query: createRouteQuery(url.search),
+          hash: url.hash.slice(1),
+        });
+    }
   }
 }
 
 export function createPlaygroundRouting() {
   const register = (options: PlaygroundRoutingOptions = {}) => (container: IContainer) => {
-    const root = new RouteContext(null, '*', { swapOrder: options.swapOrder });
-    const coordinator = new RouteCoordinator(root, new MemoryPathAdapter(options.interceptLinks ?? true));
+    const adapter = new MemoryPathAdapter({ ...options, interceptLinks: options.interceptLinks ?? true });
+    const root = new RouteContext(null, '*', {
+      swapOrder: options.swapOrder,
+      hrefFormatter: path => adapter.formatHref(path),
+    });
+    const coordinator = new RouteCoordinator(root, adapter);
     container.register(
       AuRoute,
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
@@ -85,11 +152,6 @@ export function createPlaygroundRouting() {
     register: register({}),
     customize: (options: PlaygroundRoutingOptions) => ({ register: register(options) }),
   };
-}
-
-function normalizeRoutePath(path: string): string {
-  const trimmed = path.trim();
-  return trimmed === '' ? '/' : trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
 declare global {

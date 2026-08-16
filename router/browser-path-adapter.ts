@@ -1,25 +1,57 @@
 import type { PathAdapter } from './path-adapter';
+import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
+
+export type BrowserRoutingMode = 'path' | 'hash' | 'query';
 
 export interface BrowserAdapterOptions {
   interceptLinks?: boolean;
+  routingMode?: BrowserRoutingMode;
+  routeQueryKey?: string;
 }
 
 export class BrowserPathAdapter implements PathAdapter {
+  protected readonly routingMode: BrowserRoutingMode;
+  protected readonly routeQueryKey: string;
+
   public constructor(
-    private readonly window: Window,
-    private readonly options: BrowserAdapterOptions = {},
-  ) {}
+    protected readonly window: Window,
+    protected readonly options: BrowserAdapterOptions = {},
+  ) {
+    this.routingMode = options.routingMode ?? 'path';
+    this.routeQueryKey = options.routeQueryKey?.trim() || 'app';
+  }
 
   public getCurrentPath(): string {
-    return this.window.location.pathname || '/';
+    return this.routeFromUrl(new URL(this.window.location.href)) ?? '/';
+  }
+
+  public formatHref(path: string): string {
+    const location = parseRouteLocation(path);
+    switch (this.routingMode) {
+      case 'hash':
+        return `#${stringifyRouteLocation(location).replace(/^\//, '') || '/'}`;
+      case 'query': {
+        const routeValue = location.pathname
+          .replace(/^\//, '')
+          .split('/')
+          .map(encodeURIComponent)
+          .join('/');
+        const query = location.query.toString();
+        const routeEntry = `${encodeURIComponent(this.routeQueryKey)}=${routeValue}`;
+        return `?${routeEntry}${query === '' ? '' : `&${query}`}${location.hash === '' ? '' : `#${location.hash}`}`;
+      }
+      case 'path':
+      default:
+        return stringifyRouteLocation(location);
+    }
   }
 
   public push(path: string): void {
-    this.window.history.pushState(null, '', path);
+    this.window.history.pushState(null, '', this.formatHref(path));
   }
 
   public replace(path: string): void {
-    this.window.history.replaceState(null, '', path);
+    this.window.history.replaceState(null, '', this.formatHref(path));
   }
 
   public subscribe(callback: (path: string) => void): () => void {
@@ -59,8 +91,12 @@ export class BrowserPathAdapter implements PathAdapter {
         return;
       }
 
+      const nextPath = this.routeFromUrl(url);
+      if (nextPath == null) {
+        return;
+      }
+
       event.preventDefault();
-      const nextPath = url.pathname || '/';
       this.push(nextPath);
       callback(nextPath);
     };
@@ -76,5 +112,48 @@ export class BrowserPathAdapter implements PathAdapter {
         this.window.document.removeEventListener('click', onClick);
       }
     };
+  }
+
+  protected routeFromUrl(url: URL): string | null {
+    switch (this.routingMode) {
+      case 'hash': {
+        if (url.hash === '') {
+          return '/';
+        }
+        return stringifyRouteLocation(parseRouteLocation(normalizeRoutePath(url.hash.slice(1))));
+      }
+      case 'query': {
+        if (!url.searchParams.has(this.routeQueryKey)) {
+          return null;
+        }
+        const pathname = normalizeRoutePath(url.searchParams.get(this.routeQueryKey) ?? '/');
+        const query = new URLSearchParams(url.search);
+        query.delete(this.routeQueryKey);
+        return stringifyRouteLocation({
+          pathname,
+          query: createRouteQuery(query),
+          hash: url.hash.slice(1),
+        });
+      }
+      case 'path':
+      default:
+        return stringifyRouteLocation({
+          pathname: normalizeRoutePath(url.pathname),
+          query: createRouteQuery(url.search),
+          hash: url.hash.slice(1),
+        });
+    }
+  }
+}
+
+export class BrowserHashAdapter extends BrowserPathAdapter {
+  public constructor(window: Window, options: Omit<BrowserAdapterOptions, 'routingMode'> = {}) {
+    super(window, { ...options, routingMode: 'hash' });
+  }
+}
+
+export class BrowserQueryAdapter extends BrowserPathAdapter {
+  public constructor(window: Window, options: Omit<BrowserAdapterOptions, 'routingMode'> = {}) {
+    super(window, { ...options, routingMode: 'query' });
   }
 }

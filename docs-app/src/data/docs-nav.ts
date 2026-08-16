@@ -36,6 +36,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'url-state',
+    title: 'Query, Hash & URL Modes',
+    path: '/features/url-state',
+    summary: 'Query and fragment state with pathname, hash-only, or query-key browser URLs.',
+    badge: 'A3',
+  },
+  {
     id: 'conditional',
     title: 'Conditional',
     path: '/features/conditional',

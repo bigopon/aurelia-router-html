@@ -1,0 +1,8 @@
+<au-route path.bind="reviewsPath" exact>
+  <h1>Adapter reviews</h1>
+</au-route>
+
+<au-route path.bind="productsPath" exact>
+  <h1>Adapter products</h1>
+  <a data-e2e="reviews-link" href.bind="$route.root.href(reviewsPath)">Reviews</a>
+</au-route>

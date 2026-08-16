@@ -41,6 +41,17 @@ export default defineConfig(({ command }) => ({
     format: 'es',
   },
   plugins: [
+    {
+      name: 'url-adapter-test-harness',
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (request.url?.startsWith('/__adapter-test__')) {
+            request.url = '/url-adapter.html';
+          }
+          next();
+        });
+      },
+    },
     aurelia({ enableConventions: true, hmr: true }),
   ],
 }));

@@ -1,0 +1,69 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Query, Hash &amp; URL Modes</h2>
+      <p class="page-copy">
+        Keep route matching focused on the pathname while query, fragment, and browser URL strategy remain explicit.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;p&gt;Sort: $<span>{$query.get('sort')}</span>&lt;/p&gt;
+&lt;p&gt;Section: $<span>{$hash}</span>&lt;/p&gt;
+&lt;a href.bind="$route.href($route, {}, {
+  query: { sort: 'price' },
+  hash: 'reviews'
+})"&gt;Price reviews&lt;/a&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p>The pathname selects the route tree. Query values and the hash are exposed as <code>$query</code> and <code>$hash</code> without changing which route matches. The same values are available from <code>$route.$query</code> and <code>$route.$hash</code>.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <p>Use path mode for normal server URLs, hash mode for static hosting, or query mode when the route must live under a reserved query key.</p>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'path'
+});
+// example.com/products/ice-cream/reviews
+
+Routing.customize({
+  routingMode: 'hash'
+});
+// example.com#products/ice-cream/reviews
+
+Routing.customize({
+  routingMode: 'query',
+  routeQueryKey: 'app'
+});
+// example.com?app=products/ice-cream/reviews</pre>
+    </section>
+  </div>
+
+  <section class="route-stack">
+    <header>
+      <h3>Path mode with query and hash state</h3>
+      <p>The pathname selects the product while query and hash values carry view state.</p>
+    </header>
+    <playground-page example-id="url-state" embedded.bind="true"></playground-page>
+  </section>
+
+  <section class="route-stack">
+    <header>
+      <h3>Hash-only routing</h3>
+      <p>Generated links keep the complete route after <code>#</code>, making the example suitable for static hosts without rewrite rules.</p>
+    </header>
+    <playground-page example-id="hash-routing" embedded.bind="true"></playground-page>
+  </section>
+
+  <section class="route-stack">
+    <header>
+      <h3>Query-key routing</h3>
+      <p>Generated links place the complete route under the configured <code>app</code> query key.</p>
+    </header>
+    <playground-page example-id="query-routing" embedded.bind="true"></playground-page>
+  </section>
+</section>

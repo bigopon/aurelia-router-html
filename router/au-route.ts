@@ -92,11 +92,15 @@ export class AuRoute implements ICustomElementViewModel {
     this.animationsEnabled = this.animationOptions.enabled || animate;
     this.overrideContext.$pattern = path;
     this.overrideContext.$params = this.context.$params;
+    this.overrideContext.$query = this.context.$query;
+    this.overrideContext.$hash = this.context.$hash;
     this.overrideContext.$route = this.context;
     this.isActive = this.context.active;
     this.unsubscribe = this.context.subscribe(state => {
       this.isActive = state.active;
       this.overrideContext.$params = state.params;
+      this.overrideContext.$query = state.query;
+      this.overrideContext.$hash = state.hash;
     });
     childContainer.register(Registration.instance(IRouteContext, this.context));
   }

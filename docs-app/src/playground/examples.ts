@@ -17,6 +17,8 @@ interface RouterExampleOptions {
   appTs?: string;
   appCss?: string;
   extraFiles?: Record<string, string>;
+  routingMode?: 'path' | 'hash' | 'query';
+  routeQueryKey?: string;
 }
 
 const baseCss = `:root {
@@ -130,6 +132,67 @@ const featureExamples: PlaygroundExample[] = [
     <h2>Child post: \${$params.postId}</h2>
     <p>This view owns <code>$params.postId</code>.</p>
     <p>Parent user from child: \${$route.parent.$params.userId}</p>
+  </au-route>
+</au-route>`,
+  }),
+  routerExample({
+    id: 'url-state',
+    title: 'Path mode with URL state',
+    description: 'Change query and fragment state without changing the matched product route.',
+    initialPath: '/products/ice-cream?sort=popular#reviews',
+    appHtml: `<au-route path="/products/:productId" exact>
+  <nav>
+    <a href.bind="$route.href($route, $params, { query: { sort: 'popular' }, hash: 'reviews' })">
+      Popular reviews
+    </a>
+    <a href.bind="$route.href($route, $params, { query: { sort: 'price' }, hash: 'details' })">
+      Price details
+    </a>
+  </nav>
+  <h1>Product: \${$params.productId}</h1>
+  <p>Sort: <strong>\${$query.get('sort')}</strong></p>
+  <p>Section: <strong>\${$hash}</strong></p>
+  <p>The same route remains active while URL state changes.</p>
+</au-route>`,
+  }),
+  routerExample({
+    id: 'hash-routing',
+    title: 'Hash-only routing',
+    description: 'Keep the complete application route after the browser hash for static hosting.',
+    initialPath: '#products/ice-cream/overview',
+    routingMode: 'hash',
+    appHtml: `<au-route path="/products/:productId">
+  <h1>Product: \${$params.productId}</h1>
+  <nav>
+    <a href.bind="$route.href('/overview')">Overview</a>
+    <a href.bind="$route.href('/reviews')">Reviews</a>
+  </nav>
+  <au-route path="/overview" exact>
+    <p>Ice cream overview</p>
+  </au-route>
+  <au-route path="/reviews" exact>
+    <p>Ice cream reviews</p>
+  </au-route>
+</au-route>`,
+  }),
+  routerExample({
+    id: 'query-routing',
+    title: 'Query-key routing',
+    description: 'Store the complete application route under a configurable query-string key.',
+    initialPath: '?app=products/ice-cream/overview',
+    routingMode: 'query',
+    routeQueryKey: 'app',
+    appHtml: `<au-route path="/products/:productId">
+  <h1>Product: \${$params.productId}</h1>
+  <nav>
+    <a href.bind="$route.href('/overview')">Overview</a>
+    <a href.bind="$route.href('/reviews')">Reviews</a>
+  </nav>
+  <au-route path="/overview" exact>
+    <p>Ice cream overview</p>
+  </au-route>
+  <au-route path="/reviews" exact>
+    <p>Ice cream reviews</p>
   </au-route>
 </au-route>`,
   }),
@@ -371,14 +434,7 @@ export const playgroundExamples: PlaygroundExample[] = [
     entry: '/src/main.ts',
     initialPath: '/',
     files: {
-      '/src/main.ts': `import Aurelia from 'aurelia';
-import { Routing } from 'aurelia-v2-router-html';
-import { App } from './app';
-
-void Aurelia
-  .register(Routing.customize({ interceptLinks: true, animations: false }))
-  .app({ host: document.querySelector('#app')!, component: App })
-  .start();`,
+      '/src/main.ts': createMainSource(),
       '/src/app.ts': `export class App {
   public products = [
     { id: 'camera', name: 'Camera' },
@@ -589,18 +645,28 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
     initialFile: '/src/app.html',
     initialPath: options.initialPath,
     files: {
-      '/src/main.ts': `import Aurelia from 'aurelia';
-import { Routing } from 'aurelia-v2-router-html';
-import { App } from './app';
-
-void Aurelia
-  .register(Routing.customize({ interceptLinks: true, animations: false }))
-  .app({ host: document.querySelector('#app')!, component: App })
-  .start();`,
+      '/src/main.ts': createMainSource(options.routingMode, options.routeQueryKey),
       '/src/app.ts': options.appTs ?? 'export class App {}',
       '/src/app.html': options.appHtml,
       '/src/app.css': `${baseCss}\n${options.appCss ?? ''}`,
       ...options.extraFiles,
     },
   };
+}
+
+function createMainSource(routingMode: 'path' | 'hash' | 'query' = 'path', routeQueryKey?: string): string {
+  const modeLines = routingMode === 'path'
+    ? ''
+    : `,\n    routingMode: '${routingMode}'${routeQueryKey == null ? '' : `,\n    routeQueryKey: '${routeQueryKey}'`}`;
+  return `import Aurelia from 'aurelia';
+import { Routing } from 'aurelia-v2-router-html';
+import { App } from './app';
+
+void Aurelia
+  .register(Routing.customize({
+    interceptLinks: true,
+    animations: false${modeLines}
+  }))
+  .app({ host: document.querySelector('#app')!, component: App })
+  .start();`;
 }

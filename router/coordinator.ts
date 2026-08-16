@@ -1,6 +1,7 @@
 import { DI } from '@aurelia/kernel';
 import type { PathAdapter } from './path-adapter';
 import type { IRouteContext } from './route-context';
+import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
 
 export interface LoadOptions {
   replace?: boolean;
@@ -9,6 +10,7 @@ export interface LoadOptions {
 export interface IRouteCoordinator {
   readonly root: IRouteContext;
   readonly currentPath: string;
+  readonly currentLocation: RouteLocation;
 
   start(): void;
   stop(): void;
@@ -20,6 +22,7 @@ export const IRouteCoordinator = DI.createInterface<IRouteCoordinator>('IRouteCo
 
 export class RouteCoordinator implements IRouteCoordinator {
   public currentPath: string = '/';
+  public currentLocation: RouteLocation = parseRouteLocation('/');
   private readonly subscribers = new Set<(path: string) => void>();
   private readonly stopListening: () => void;
   private started: boolean = false;
@@ -29,8 +32,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     private readonly adapter: PathAdapter,
   ) {
     this.stopListening = this.adapter.subscribe(path => {
-      this.currentPath = normalizePath(path);
-      this.root.apply(this.currentPath);
+      this.applyLocation(path);
       this.notify();
     });
   }
@@ -41,8 +43,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
 
     this.started = true;
-    this.currentPath = normalizePath(this.adapter.getCurrentPath());
-    this.root.apply(this.currentPath);
+    this.applyLocation(this.adapter.getCurrentPath());
     this.notify();
   }
 
@@ -52,15 +53,17 @@ export class RouteCoordinator implements IRouteCoordinator {
   }
 
   public load(path: string, options: LoadOptions = {}): void {
-    const normalizedPath = normalizePath(path);
+    const location = parseRouteLocation(path);
+    const normalizedPath = stringifyRouteLocation(location);
     if (options.replace === true) {
       this.adapter.replace(normalizedPath);
     } else {
       this.adapter.push(normalizedPath);
     }
 
-    this.currentPath = normalizedPath;
-    this.root.apply(normalizedPath);
+    this.currentLocation = location;
+    this.currentPath = location.pathname;
+    this.root.apply(location.pathname, location);
     this.notify();
   }
 
@@ -77,12 +80,10 @@ export class RouteCoordinator implements IRouteCoordinator {
       subscriber(this.currentPath);
     }
   }
-}
 
-function normalizePath(path: string): string {
-  const trimmed = path.trim();
-  if (trimmed === '') {
-    return '/';
+  private applyLocation(path: string): void {
+    this.currentLocation = parseRouteLocation(path);
+    this.currentPath = this.currentLocation.pathname;
+    this.root.apply(this.currentPath, this.currentLocation);
   }
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }

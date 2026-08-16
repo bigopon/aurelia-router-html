@@ -3,6 +3,7 @@ import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator } from '../router/coordinator';
+import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [
@@ -138,6 +139,58 @@ describe('au-route terminal path capture', function () {
     } finally {
       await fixture.tearDown();
     }
+  });
+});
+
+describe('route URL state', function () {
+  it('exposes query and hash state without changing pathname matching', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/products" exact>
+        <span data-query>\${$query.get('sort')}</span>
+        <span data-tags>\${$route.$query.getAll('tag').join('|')}</span>
+        <span data-hash>\${$hash}</span>
+        <a data-location-link href.bind="$route.href($route, {}, { query: { sort: 'rating' }, hash: 'details' })">Rating details</a>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products?sort=price&tag=cold&tag=sale#reviews');
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-query]')?.textContent, 'price');
+      assert.strictEqual(fixture.appHost.querySelector('[data-tags]')?.textContent, 'cold|sale');
+      assert.strictEqual(fixture.appHost.querySelector('[data-hash]')?.textContent, 'reviews');
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-location-link]')?.getAttribute('href'),
+        '/products?sort=rating#details',
+      );
+
+      router.load('/products?sort=rating#details');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-query]')?.textContent, 'rating');
+      assert.strictEqual(fixture.appHost.querySelector('[data-hash]')?.textContent, 'details');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('formats and reads pathname, hash, and query-key route URLs', function () {
+    const pathWindow = { location: { href: 'https://abc.com/products/ice-cream/reviews?sort=recent#comments' } } as Window;
+    const hashWindow = { location: { href: 'https://abc.com/#products/ice-cream/reviews?sort=recent#comments' } } as Window;
+    const queryWindow = { location: { href: 'https://abc.com/?app=products/ice-cream/reviews&sort=recent#comments' } } as Window;
+
+    const path = new BrowserPathAdapter(pathWindow);
+    const hash = new BrowserHashAdapter(hashWindow);
+    const query = new BrowserQueryAdapter(queryWindow, { routeQueryKey: 'app' });
+
+    assert.strictEqual(path.getCurrentPath(), '/products/ice-cream/reviews?sort=recent#comments');
+    assert.strictEqual(hash.getCurrentPath(), '/products/ice-cream/reviews?sort=recent#comments');
+    assert.strictEqual(query.getCurrentPath(), '/products/ice-cream/reviews?sort=recent#comments');
+    assert.strictEqual(hash.formatHref('/products/ice-cream/reviews'), '#products/ice-cream/reviews');
+    assert.strictEqual(query.formatHref('/products/ice-cream/reviews'), '?app=products/ice-cream/reviews');
   });
 });
 

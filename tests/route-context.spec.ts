@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { RouteContext } from '../router/route-context';
+import { createRouteHref, createRouteQuery, parseRouteLocation, stringifyRouteLocation } from '../router/route-location';
 
 run('A1 static full match leaves root residue', () => {
   const route = new RouteContext(null, '/store');
@@ -82,6 +83,54 @@ run('A2 repeated apply keeps stable state', () => {
   assert.deepEqual(route.$params, firstParams);
   assert.equal(route.residue, firstResidue);
   assert.equal(route.active, true);
+});
+
+run('A3 query and hash state propagate without participating in path matching', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products', { exact: true }) as RouteContext;
+  const query = createRouteQuery('sort=price&tag=cold&tag=sale');
+
+  root.apply('/products', { query, hash: 'reviews' });
+
+  assert.equal(products.active, true);
+  assert.equal(products.$query.get('sort'), 'price');
+  assert.deepEqual(products.$query.getAll('tag'), ['cold', 'sale']);
+  assert.equal(products.$hash, 'reviews');
+});
+
+run('A3 href generation adds and preserves query and hash state before adapter formatting', () => {
+  const root = new RouteContext(null, '*', { hrefFormatter: href => `route:${href}` });
+  const products = root.createChild('/products/:productId') as RouteContext;
+  products.createChild('/reviews');
+  root.apply('/products/ice-cream/reviews', {
+    query: createRouteQuery('sort=recent'),
+    hash: 'comments',
+  });
+
+  assert.equal(
+    products.href('/reviews', {}, { query: { page: 2, tag: ['cold', 'sale'] }, hash: 'top' }),
+    'route:/products/ice-cream/reviews?page=2&tag=cold&tag=sale#top',
+  );
+  assert.equal(
+    products.href('/reviews', {}, { preserveQuery: true, preserveHash: true }),
+    'route:/products/ice-cream/reviews?sort=recent#comments',
+  );
+});
+
+run('A3 route locations round-trip repeated and encoded URL state', () => {
+  const location = parseRouteLocation('/search?tag=ice%20cream&tag=caf%C3%A9#customer%20reviews');
+
+  assert.equal(location.pathname, '/search');
+  assert.deepEqual(location.query.getAll('tag'), ['ice cream', 'café']);
+  assert.equal(location.hash, 'customer%20reviews');
+  assert.equal(stringifyRouteLocation(location), '/search?tag=ice+cream&tag=caf%C3%A9#customer%20reviews');
+});
+
+run('A3 href options can clear or selectively preserve URL state', () => {
+  const query = createRouteQuery('sort=popular&tag=cold');
+
+  assert.equal(createRouteHref('/products', query, 'reviews', { query: null, preserveHash: true }), '/products#reviews');
+  assert.equal(createRouteHref('/products', query, 'reviews', { preserveQuery: true, hash: null }), '/products?sort=popular&tag=cold');
 });
 
 run('A2 disposed children stop receiving updates', () => {

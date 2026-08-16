@@ -5,6 +5,7 @@ import { DocsApp } from './pages/docs-app';
 import { PlaygroundPage } from './pages/playground-page';
 import { DocsState } from './state/docs-state';
 import { SyntaxHtml } from './resources/syntax-html';
+import { SyntaxTypeScript } from './resources/syntax-typescript';
 import './main.css';
 
 void Aurelia
@@ -14,6 +15,7 @@ void Aurelia
       animations: false,
     }),
     SyntaxHtml,
+    SyntaxTypeScript,
     PlaygroundPage,
     Registration.singleton(DocsState, DocsState),
   )

@@ -12,6 +12,7 @@ import { FeatureParamsPage } from './feature-params-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
+import { FeatureUrlStatePage } from './feature-url-state-page';
 import { OverviewPage } from './overview-page';
 import template from './docs-app.html?raw';
 
@@ -25,6 +26,7 @@ export class DocsApp {
       FeatureBasicPage,
       FeatureNestedPage,
       FeatureParamsPage,
+      FeatureUrlStatePage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,

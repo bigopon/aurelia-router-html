@@ -76,7 +76,7 @@ input {
   top: 26px;
   height: calc(100vh - 52px);
   align-self: start;
-  padding: 22px;
+  padding: 16px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 22px;
@@ -106,9 +106,9 @@ input {
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
+  width: 88px;
+  height: 88px;
+  flex: 0 0 88px;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -398,6 +398,18 @@ button.primary,
 
 .syntax-string {
   color: #b8e698;
+}
+
+.syntax-keyword {
+  color: #c7a0ff;
+}
+
+.syntax-comment {
+  color: #8291a7;
+}
+
+.syntax-number {
+  color: #f3c989;
 }
 
 .inline-grid {

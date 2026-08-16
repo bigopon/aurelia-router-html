@@ -1,5 +1,7 @@
 # HTML Router Design
 
+See [Router HTML Features and Roadmap](./FEATURES-AND-ROADMAP.md) for the complete implemented feature inventory and the design of the next six features.
+
 ## Goal
 
 Build a new router package where HTML is the primary way to author routes.

@@ -123,7 +123,7 @@ test.describe('router HTML docs features', () => {
     await page.goto('/');
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(10);
+    await expect(features).toHaveCount(11);
     const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="/products" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="/files/**">');
@@ -136,13 +136,16 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('swap-order="parallel"');
     await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
     await expect(swapSyntax).toContainText('<au-route path="/reviews">Reviews</au-route>');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(10);
+    const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
+    await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(11);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(10);
+    await expect(editLinks).toHaveCount(11);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
+      '/playground/url-state',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
       '/playground/exact-fallback',
@@ -252,6 +255,7 @@ test.describe('router HTML docs features', () => {
       ['basic', 'path="/welcome"'],
       ['nested', 'path="/account"'],
       ['params', ':userId'],
+      ['url-state', "$query.get('sort')"],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
       ['matching', 'path="/files/**"'],
@@ -264,8 +268,8 @@ test.describe('router HTML docs features', () => {
     for (const [path, source] of features) {
       await page.goto(`/features/${path}`);
       const playground = page.locator('.playground-page.is-embedded');
-      await expect(playground).toHaveCount(1);
-      await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText(source);
+      await expect(playground).toHaveCount(path === 'url-state' ? 3 : 1);
+      await expect(playground.first().getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText(source);
       await expect(page.getByRole('button', { name: /show source/i })).toHaveCount(0);
     }
   });
@@ -306,6 +310,49 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Parent user: grace' })).toBeVisible();
     await expect(frame.getByRole('heading', { name: 'Child post: compiler-design' })).toBeVisible();
     await expect(frame.getByText('Parent user from child: grace')).toBeVisible();
+  });
+
+  test('query and hash state change without changing the matched route', async ({ page }) => {
+    await page.goto('/features/url-state');
+
+    const details = page.locator('.feature-details');
+    await expect(details).toContainText("routingMode: 'hash'");
+    await expect(details).toContainText("routeQueryKey: 'app'");
+
+    const playgrounds = page.locator('.playground-page.is-embedded');
+    await expect(playgrounds).toHaveCount(3);
+
+    const playground = playgrounds.nth(0);
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Product: ice-cream' })).toBeVisible();
+    await expect(frame.getByText('Sort: popular')).toBeVisible();
+    await expect(frame.getByText('Section: reviews')).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Price details' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/ice-cream?sort=price#details');
+    await expect(frame.getByText('Sort: price')).toBeVisible();
+    await expect(frame.getByText('Section: details')).toBeVisible();
+
+    const hashPlayground = playgrounds.nth(1);
+    await expect(hashPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const hashFrame = hashPlayground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(hashPlayground.locator('.preview-label code')).toHaveText('#products/ice-cream/overview');
+    await hashFrame.getByRole('link', { name: 'Reviews' }).click();
+    await expect(hashPlayground.locator('.preview-label code')).toHaveText('#products/ice-cream/reviews');
+    await expect(hashFrame.getByText('Ice cream reviews')).toBeVisible();
+
+    const queryPlayground = playgrounds.nth(2);
+    await expect(queryPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const queryFrame = queryPlayground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(queryPlayground.locator('.preview-label code')).toHaveText('?app=products/ice-cream/overview');
+    await queryFrame.getByRole('link', { name: 'Reviews' }).click();
+    await expect(queryPlayground.locator('.preview-label code')).toHaveText('?app=products/ice-cream/reviews');
+    await expect(queryFrame.getByText('Ice cream reviews')).toBeVisible();
+
+    const configurationSource = details.locator('pre').nth(1);
+    await expect(configurationSource.locator('.syntax-string')).not.toHaveCount(0);
+    await expect(configurationSource.locator('.syntax-comment')).not.toHaveCount(0);
   });
 
   test('exact, fallback, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {

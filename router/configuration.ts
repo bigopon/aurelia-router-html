@@ -15,10 +15,12 @@ export interface RoutingOptions extends BrowserAdapterOptions {
 const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
   const window = c.get(IWindow);
   const animationOptions = normalizeRouteAnimationOptions(options.animations);
+  const adapter = new BrowserPathAdapter(window, options);
   const rootContext = new RouteContext(null, '*', {
     swapOrder: options.swapOrder,
+    hrefFormatter: path => adapter.formatHref(path),
   });
-  const coordinator = new RouteCoordinator(rootContext, new BrowserPathAdapter(window, options));
+  const coordinator = new RouteCoordinator(rootContext, adapter);
 
   c.register(
     AuRoute,

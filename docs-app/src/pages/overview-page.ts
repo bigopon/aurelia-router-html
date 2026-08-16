@@ -38,6 +38,13 @@ export class OverviewPage {
       syntax: '<au-route path="/users/:userId">\n  User: ${$params.userId}\n  <au-route path="/posts/:postId">\n    Post: ${$params.postId}\n    User: ${$route.parent.$params.userId}\n  </au-route>\n</au-route>',
     },
     {
+      title: 'Query, Hash & URL Modes',
+      summary: 'Carry URL state separately from matching and choose how routes appear in the browser address bar.',
+      path: '/features/url-state',
+      playgroundId: 'url-state',
+      syntax: '<au-route path="/products/:productId">\n  Sort: ${$query.get(\'sort\')}\n  Section: ${$hash}\n</au-route>',
+    },
+    {
       title: 'Conditional Routes',
       summary: 'Add and remove routes with Aurelia template controllers.',
       path: '/features/conditional',
