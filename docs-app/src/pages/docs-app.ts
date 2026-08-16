@@ -10,6 +10,7 @@ import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureProgrammaticPage } from './feature-programmatic-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
+import { FeatureRedirectsPage } from './feature-redirects-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
@@ -31,6 +32,7 @@ export class DocsApp {
       FeatureUrlStatePage,
       FeatureActiveLinksPage,
       FeatureProgrammaticPage,
+      FeatureRedirectsPage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,

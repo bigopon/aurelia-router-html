@@ -24,6 +24,11 @@ export interface RouteLoadOptions extends RouteHrefOptions {
   replace?: boolean;
 }
 
+interface RouteNavigationOptions {
+  replace?: boolean;
+  redirect?: boolean;
+}
+
 export interface RouteContextOptions {
   exact?: boolean;
   fallback?: boolean;
@@ -100,7 +105,8 @@ export class RouteContext implements IRouteContext {
   private readonly _fallback: boolean;
   private readonly _swapOrder: SwapOrder;
   private readonly _hrefFormatter: (path: string) => string;
-  private _navigator: ((path: string, options: Pick<RouteLoadOptions, 'replace'>) => void) | null = null;
+  private _navigator: ((path: string, options: RouteNavigationOptions) => void) | null = null;
+  private _navigationVersion: number = 0;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -126,16 +132,25 @@ export class RouteContext implements IRouteContext {
 
   public load(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteLoadOptions = {}): void {
     const { replace, ...hrefOptions } = options;
+    this._navigate(target, params, hrefOptions, { replace });
+  }
+
+  /** @internal */
+  public _redirect(target: string, params: RouteParams, replace: boolean): void {
+    this._navigate(target, params, {}, { replace, redirect: true });
+  }
+
+  /** @internal */
+  public _setNavigator(navigator: (path: string, options: RouteNavigationOptions) => void): void {
+    this._navigator = navigator;
+  }
+
+  private _navigate(target: string | IRouteContext, params: RouteParams, hrefOptions: RouteHrefOptions, navigationOptions: RouteNavigationOptions): void {
     const root = this.root as RouteContext;
     if (root._navigator == null) {
       throw new Error('The route context is not connected to a navigation adapter.');
     }
-    root._navigator(this._createHref(target, params, hrefOptions), { replace });
-  }
-
-  /** @internal */
-  public _setNavigator(navigator: (path: string, options: Pick<RouteLoadOptions, 'replace'>) => void): void {
-    this._navigator = navigator;
+    root._navigator(this._createHref(target, params, hrefOptions), navigationOptions);
   }
 
   public isActive(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteActiveOptions = {}): boolean {
@@ -222,6 +237,11 @@ export class RouteContext implements IRouteContext {
       return;
     }
 
+    const root = this.root as RouteContext;
+    if (this.parent == null) {
+      this._navigationVersion++;
+    }
+    const navigationVersion = root._navigationVersion;
     const normalizedPath = normalizePath(path);
     this._matcher.lastIndex = 0;
     const match = this._matcher.exec(normalizedPath);
@@ -253,6 +273,9 @@ export class RouteContext implements IRouteContext {
       this._notify();
     }
 
+    if (root._navigationVersion !== navigationVersion) {
+      return;
+    }
     this.refresh();
   }
 
@@ -262,6 +285,8 @@ export class RouteContext implements IRouteContext {
     }
 
     const nextResidue = this.residue;
+    const root = this.root as RouteContext;
+    const navigationVersion = root._navigationVersion;
     const location = { query: this.$query, hash: this.$hash };
     const matchingChildren: RouteContext[] = [];
     for (const child of this.children) {
@@ -281,18 +306,22 @@ export class RouteContext implements IRouteContext {
       case 'detach-current-attach-next':
         for (const child of misses) {
           child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          if (root._navigationVersion !== navigationVersion) return;
         }
         for (const child of matches) {
           child.apply(nextResidue, location);
+          if (root._navigationVersion !== navigationVersion) return;
         }
         break;
       case 'attach-next-detach-current':
       default:
         for (const child of matches) {
           child.apply(nextResidue, location);
+          if (root._navigationVersion !== navigationVersion) return;
         }
         for (const child of misses) {
           child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          if (root._navigationVersion !== navigationVersion) return;
         }
         break;
       case 'parallel':
@@ -302,6 +331,7 @@ export class RouteContext implements IRouteContext {
           } else {
             child._deactivateBranch('/__inactive__', this.$query, this.$hash);
           }
+          if (root._navigationVersion !== navigationVersion) return;
         }
         break;
     }

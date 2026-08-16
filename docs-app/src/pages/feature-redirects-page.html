@@ -1,0 +1,74 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Declarative Redirects</h2>
+      <p class="page-copy">Move legacy URLs, choose branch defaults, and recover unmatched locations without rendering an intermediate view.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="redirect-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="legacy/:productId"
+  exact
+  redirect-to="/products/:productId"&gt;
+&lt;/au-route&gt;</pre>
+      <p>The redirect route matches normally, passes its captured parameters into the target, and renders no content of its own.</p>
+    </section>
+
+    <section>
+      <h3>Relative and absolute targets</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="account"&gt;
+  &lt;au-route path="/" exact redirect-to="profile"&gt;&lt;/au-route&gt;
+  &lt;au-route path="profile" exact&gt;Profile&lt;/au-route&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="old-account" redirect-to="/account/profile"&gt;
+&lt;/au-route&gt;</pre>
+      <p><code>profile</code> resolves from the redirect route's parent context, producing <code>/account/profile</code>. A leading slash resolves from the root route context.</p>
+    </section>
+
+    <section>
+      <h3>Dynamic targets</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="legacy/:productId"
+  redirect-to.bind="legacyTarget"&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="seasonal" :redirect-to="campaignTarget"&gt;
+&lt;/au-route&gt;</pre>
+      <p>Dynamic redirects require <code>redirect-to.bind</code>, <code>redirect-to.to-view</code>, or <code>:redirect-to</code>. Interpolation-looking static values produce a development warning, just like dynamic paths.</p>
+    </section>
+
+    <section>
+      <h3>Fallback redirects</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="not-found" exact&gt;
+  &lt;h1&gt;Page not found&lt;/h1&gt;
+&lt;/au-route&gt;
+
+&lt;au-route
+  path="*"
+  fallback
+  redirect-to="/not-found"&gt;
+&lt;/au-route&gt;</pre>
+      <p>The fallback redirects only after every regular sibling route misses. The destination must be a regular sibling so it wins instead of matching the fallback again.</p>
+    </section>
+
+    <section>
+      <h3>History and loop safety</h3>
+      <pre class="code-block" syntax-html>&lt;!-- Replacement is the default. --&gt;
+&lt;au-route path="legacy" redirect-to="/current"&gt;&lt;/au-route&gt;
+
+&lt;!-- Opt into an additional history entry. --&gt;
+&lt;au-route
+  path="offer"
+  redirect-to="/sale"
+  redirect-mode="push"&gt;
+&lt;/au-route&gt;</pre>
+      <p>Replacement prevents Back from immediately revisiting the redirect source. Push mode is available for intentional history steps. Redirect chains track normalized locations and throw a development-friendly error when a location repeats.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="declarative-redirects" embedded.bind="true"></playground-page>
+</section>

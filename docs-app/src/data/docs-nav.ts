@@ -57,6 +57,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'redirects',
+    title: 'Redirects',
+    path: '/features/redirects',
+    summary: 'Redirect matched, nested, legacy, and fallback URLs without rendering an intermediate view.',
+    badge: 'A6',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

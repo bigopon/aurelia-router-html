@@ -69,6 +69,9 @@
 - [x] `A5` `MemoryPathAdapter` normalizes complete route locations and supports push, replace, Back, Forward, and external navigation notifications without browser globals.
 - [x] `A5` Custom adapter configuration does not resolve `IWindow`.
 - [x] `A5` Coordinator stop is idempotent and restart resubscribes before applying the adapter's current location.
+- [x] `A6` Redirects support static, relative, root-absolute, parameterized, nested-index, and fallback targets without rendering redirect content.
+- [x] `A6` Dynamic redirects support `redirect-to.bind`, `redirect-to.to-view`, and `:redirect-to` updates.
+- [x] `A6` Redirects replace history by default, support explicit push mode, cancel stale matching passes, and report normalized redirect loops.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -87,6 +90,7 @@
 - [x] Routing adapters have an overview card, focused API page, and editable memory-adapter project.
 - [x] The memory-adapter project navigates with ordinary `au-link` anchors without injecting the coordinator.
 - [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
+- [x] Declarative redirects have an overview card, focused guide, editable playground, and browser history coverage in pathname, hash, and query modes.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

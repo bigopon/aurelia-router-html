@@ -16,7 +16,7 @@ import {
   HydrateElementInstruction,
 } from '@aurelia/template-compiler';
 import { IRouteAnimationOptions } from './animation';
-import { IRouteContext, type SwapOrder } from './route-context';
+import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 
 declare const __DEV__: boolean;
 
@@ -24,13 +24,15 @@ type AnimationPlatform = IPlatform & {
   readonly requestAnimationFrame: typeof requestAnimationFrame;
 };
 
+type RedirectMode = 'replace' | 'push';
+
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
     type: 'custom-element',
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path'],
+    bindables: ['path', 'redirectTo'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -48,6 +50,27 @@ export class AuRoute implements ICustomElementViewModel {
       }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
       data.pathExpression = pathExpression;
+      const redirectTo = node.getAttribute('redirect-to');
+      const boundRedirectExpression = node.getAttribute('redirect-to.bind') ?? node.getAttribute('redirect-to.to-view');
+      const shorthandRedirectExpression = node.getAttribute(':redirect-to');
+      const redirectExpression = boundRedirectExpression ?? shorthandRedirectExpression;
+      if (shorthandRedirectExpression != null) {
+        node.removeAttribute(':redirect-to');
+        if (boundRedirectExpression == null) {
+          node.setAttribute('redirect-to.bind', shorthandRedirectExpression);
+        }
+      }
+      if (__DEV__ && redirectExpression == null && redirectTo?.includes('${') === true) {
+        console.warn(`[au-route] The redirect-to value "${redirectTo}" looks like an interpolation. Dynamic redirects must use redirect-to.bind, redirect-to.to-view, or :redirect-to.`);
+      }
+      const redirectMode = node.getAttribute('redirect-mode') ?? 'replace';
+      if (redirectMode !== 'replace' && redirectMode !== 'push') {
+        throw new Error(`Invalid au-route redirect-mode "${redirectMode}". Expected "replace" or "push".`);
+      }
+      data.redirectTo = redirectTo;
+      data.redirectExpression = redirectExpression;
+      data.redirectMode = redirectMode;
+      data.isRedirect = redirectTo != null || redirectExpression != null;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
       data.animate = node.hasAttribute('animate');
       data.exact = node.hasAttribute('exact');
@@ -56,16 +79,20 @@ export class AuRoute implements ICustomElementViewModel {
   };
 
   public path: string = '/';
+  public redirectTo: string | null = null;
   public view: ISyntheticView | null = null;
   public context: IRouteContext;
   public readonly location = resolve(IRenderLocation);
-  public readonly factory: IViewFactory;
+  public readonly factory: IViewFactory | null;
   public readonly overrideContext: Record<string, unknown> = {};
   private readonly animationOptions = resolve(IRouteAnimationOptions);
   private readonly animationsEnabled: boolean;
   private readonly expressionParser = resolve(IExpressionParser);
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
   private readonly pathExpression: string | null;
+  private readonly redirectExpression: string | null;
+  private readonly redirectMode: RedirectMode;
+  private readonly isRedirect: boolean;
   private readonly unsubscribe: () => void;
   private viewActive: boolean = false;
   private requestedViewActive: boolean = false;
@@ -76,11 +103,11 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; path: string; pathExpression: string | null; swapOrder: SwapOrder | null }>;
-    const { projections, data: { animate, exact, fallback, path, pathExpression, swapOrder } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null }>;
+    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectExpression, redirectMode, redirectTo, swapOrder } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
-    this.factory = rendering.getViewFactory(routeComponentDefinition, childContainer);
+    this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
 
     this.context = parentContext.createChild(path, {
       exact,
@@ -89,6 +116,10 @@ export class AuRoute implements ICustomElementViewModel {
     });
     this.path = path;
     this.pathExpression = pathExpression;
+    this.redirectTo = redirectTo;
+    this.redirectExpression = redirectExpression;
+    this.redirectMode = redirectMode;
+    this.isRedirect = isRedirect;
     this.animationsEnabled = this.animationOptions.enabled || animate;
     this.overrideContext.$pattern = path;
     this.overrideContext.$params = this.context.$params;
@@ -101,6 +132,7 @@ export class AuRoute implements ICustomElementViewModel {
       this.overrideContext.$params = state.params;
       this.overrideContext.$query = state.query;
       this.overrideContext.$hash = state.hash;
+      this.tryRedirect();
     });
     childContainer.register(Registration.instance(IRouteContext, this.context));
   }
@@ -116,14 +148,36 @@ export class AuRoute implements ICustomElementViewModel {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
       this.path = String(astEvaluate(expression, this.scope, null, null));
     }
+    if (this.redirectExpression != null) {
+      const expression = this.expressionParser.parse(this.redirectExpression, 'None');
+      const value = astEvaluate(expression, this.scope, null, null);
+      this.redirectTo = value == null ? null : String(value);
+    }
     this.updatePath(this.path);
 
-    this.requestedViewActive = this.isActive;
+    this.requestedViewActive = this.isActive && !this.isRedirect;
+    this.tryRedirect();
     return this.queueViewUpdate();
   }
 
   public pathChanged(path: string): void {
     this.updatePath(path);
+  }
+
+  public redirectToChanged(value: string | null): void {
+    this.redirectTo = value;
+    this.tryRedirect();
+  }
+
+  private tryRedirect(): void {
+    if (!this.isRedirect || !this.isActive || this.scope == null || this.redirectTo == null || this.redirectTo.trim() === '') {
+      return;
+    }
+    const parent = this.context.parent;
+    if (!(parent instanceof RouteContext)) {
+      throw new Error('An au-route redirect requires a parent route context.');
+    }
+    parent._redirect(this.redirectTo, this.context.$params, this.redirectMode !== 'push');
   }
 
   private updatePath(path: string): void {
@@ -158,7 +212,7 @@ export class AuRoute implements ICustomElementViewModel {
   }
   public set isActive(value: boolean) {
     this._isActive = value;
-    this.requestedViewActive = value;
+    this.requestedViewActive = value && !this.isRedirect;
     if (!this.$controller?.isActive) {
       return;
     }
@@ -202,7 +256,7 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   private getView() {
-    return this.factory.create().setLocation(this.location);
+    return this.factory!.create().setLocation(this.location);
   }
 
   private activateView(): void | Promise<void> {

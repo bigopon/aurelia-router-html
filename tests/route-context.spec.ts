@@ -149,6 +149,30 @@ run('A4 route contexts load resolved targets before adapter href formatting', ()
   }]);
 });
 
+run('A6 redirect navigation cancels the stale matching pass', () => {
+  const root = new RouteContext(null, '*');
+  const redirect = root.createChild('/legacy/:id', { exact: true }) as RouteContext;
+  const staleSibling = root.createChild('/legacy/:id', { exact: true }) as RouteContext;
+  const product = root.createChild('/products/:id', { exact: true }) as RouteContext;
+  const navigations: string[] = [];
+  root._setNavigator(path => {
+    navigations.push(path);
+    const location = parseRouteLocation(path);
+    root.apply(location.pathname, location);
+  });
+  redirect.subscribe(state => {
+    if (state.active) {
+      root._redirect('/products/:id', state.params, true);
+    }
+  });
+
+  root.apply('/legacy/42');
+
+  assert.deepEqual(navigations, ['/products/42']);
+  assert.equal(product.active, true);
+  assert.equal(staleSibling.active, false);
+});
+
 run('A3 route locations round-trip repeated and encoded URL state', () => {
   const location = parseRouteLocation('/search?tag=ice%20cream&tag=caf%C3%A9#customer%20reviews');
 

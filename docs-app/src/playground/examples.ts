@@ -350,6 +350,58 @@ export class App {
 </main>`,
   }),
   routerExample({
+    id: 'declarative-redirects',
+    title: 'Declarative redirects',
+    description: 'Move legacy URLs, select a nested default, and redirect unmatched locations without rendering an intermediate view.',
+    initialPath: '/legacy/camera',
+    appTs: `export class App {
+  public legacyTarget = '/products/:productId';
+}`,
+    appHtml: `<nav>
+  <a au-link="legacy/speaker">Legacy speaker URL</a>
+  <a au-link="catalog/legacy/speaker">Contextual legacy URL</a>
+  <a au-link="account">Account default</a>
+  <a au-link="unknown">Unknown URL</a>
+</nav>
+<main>
+  <au-route
+    path="legacy/:productId"
+    exact
+    redirect-to.bind="legacyTarget">
+  </au-route>
+
+  <au-route path="products/:productId" exact>
+    <h1>Product: \${$params.productId}</h1>
+    <p>The root-absolute target moved this URL to <code>/products/...</code>.</p>
+  </au-route>
+
+  <au-route path="catalog">
+    <au-route
+      path="legacy/:productId"
+      exact
+      redirect-to="products/:productId">
+    </au-route>
+    <au-route path="products/:productId" exact>
+      <h1>Catalog product: \${$params.productId}</h1>
+      <p>The contextual target stayed below <code>/catalog</code>.</p>
+    </au-route>
+  </au-route>
+
+  <au-route path="account">
+    <h1>Account</h1>
+    <au-route path="/" exact redirect-to="profile"></au-route>
+    <au-route path="profile" exact>
+      <p>Profile is the account branch default.</p>
+    </au-route>
+  </au-route>
+
+  <au-route path="not-found" exact>
+    <h1>Page not found</h1>
+  </au-route>
+  <au-route path="*" fallback redirect-to="/not-found"></au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

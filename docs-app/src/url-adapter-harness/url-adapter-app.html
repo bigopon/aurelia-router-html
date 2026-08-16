@@ -5,4 +5,7 @@
 <au-route path.bind="productsPath" exact>
   <h1>Adapter products</h1>
   <a data-e2e="reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>
+  <a data-e2e="legacy-link" href.bind="$route.href(legacyPath)">Legacy</a>
 </au-route>
+
+<au-route path.bind="legacyPath" exact redirect-to.bind="reviewsPath"></au-route>

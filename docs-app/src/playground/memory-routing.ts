@@ -56,11 +56,11 @@ class MemoryPathAdapter implements PathAdapter {
   }
 
   public push(path: string): void {
-    this.setPath(path);
+    this.setPath(path, false);
   }
 
   public replace(path: string): void {
-    this.setPath(path);
+    this.setPath(path, false);
   }
 
   public subscribe(callback: (path: string) => void): () => void {
@@ -90,12 +90,14 @@ class MemoryPathAdapter implements PathAdapter {
       return;
     }
     event.preventDefault();
-    this.setPath(next);
+    this.setPath(next, true);
   };
 
-  private setPath(path: string): void {
+  private setPath(path: string, notify: boolean): void {
     this.path = stringifyRouteLocation(parseRouteLocation(path));
-    this.callback?.(this.path);
+    if (notify) {
+      this.callback?.(this.path);
+    }
     window.parent.postMessage({
       channel: 'router-html-playground',
       type: 'navigation',

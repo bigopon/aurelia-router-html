@@ -61,6 +61,13 @@ export class OverviewPage {
       syntax: 'private readonly route = resolve(IRouteContext);\n\nthis.route.load(\n  \'/products/:id/reviews\',\n  { id },\n  { query: { sort: \'recent\' } }\n);',
     },
     {
+      title: 'Declarative Redirects',
+      summary: 'Move legacy URLs and choose nested defaults without rendering an intermediate route view.',
+      path: '/features/redirects',
+      playgroundId: 'declarative-redirects',
+      syntax: '<au-route\n  path="legacy/:productId"\n  exact\n  redirect-to="/products/:productId">\n</au-route>',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',

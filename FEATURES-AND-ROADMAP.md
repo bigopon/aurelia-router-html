@@ -507,11 +507,7 @@ Coordinator lifecycle owns the adapter subscription:
 
 ---
 
-# Remaining proposed features
-
-Proposal numbers preserve their original design identifiers. Proposals 1, 2, 3, and 5 are implemented as features 18 through 21 above. The remaining proposals are 4 and 6.
-
-## Proposed 4. Declarative redirects
+## 22. Declarative redirects
 
 ### Problem
 
@@ -519,7 +515,7 @@ Common defaults and moved URLs currently require application code or duplicate c
 
 ### Design
 
-Add redirect-only route declarations:
+Redirect-only route declarations move a matched location without creating a route view:
 
 ```html
 <au-route path="/" redirect-to="/welcome"></au-route>
@@ -550,6 +546,14 @@ Preliminary syntax for push behavior:
 - Redirect loops fail with a useful development error.
 - A redirect never briefly renders stale branch content.
 - Browser tests cover direct loading, anchor navigation, Back, and Forward.
+
+Matcher coverage verifies that re-entrant redirect navigation cancels the stale matching pass. Node-based Aurelia coverage verifies static, parameterized, relative, nested-index, fallback, dynamically bound, replacement, push, and loop behavior. Browser coverage exercises direct loads, plain-anchor navigation, Back, and Forward in pathname, hash-only, and query-key modes.
+
+---
+
+# Remaining proposed features
+
+Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. Proposal 6 remains.
 
 ## Proposed 6. Navigation metadata and browser polish
 
@@ -607,10 +611,9 @@ After a successful navigation containing a hash, the browser layer locates the d
 
 # Recommended implementation sequence
 
-1. Implement proposal 4: add redirects using the coordinator and generated-target APIs.
-2. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
+1. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
 
-The complete location model, active-link API, and injectable adapter boundary are now in place. Redirects can use the coordinator without introducing browser dependencies, and later browser polish can remain outside the matching tree.
+The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 
 # Deferred features
 

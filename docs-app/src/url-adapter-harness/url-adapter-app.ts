@@ -12,4 +12,5 @@ export class UrlAdapterApp {
 
   public readonly productsPath = `${pathPrefix}/products`;
   public readonly reviewsPath = `${pathPrefix}/reviews`;
+  public readonly legacyPath = `${pathPrefix}/legacy`;
 }

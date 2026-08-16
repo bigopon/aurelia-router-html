@@ -3,9 +3,10 @@ import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
 import { CustomElement } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
-import { IRouteCoordinator } from '../router/coordinator';
+import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
+import { RouteContext } from '../router/route-context';
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [
@@ -488,6 +489,128 @@ describe('au-link', function () {
     } finally {
       await fixture.tearDown();
     }
+  });
+});
+
+describe('au-route redirects', function () {
+  it('redirects static parameterized, nested index, and fallback matches without rendering redirect content', async function () {
+    const adapter = new MemoryPathAdapter('/legacy/42');
+    const fixture = await createFixture(
+      `<au-route path="legacy/:id" exact redirect-to="/products/:id">
+        <span data-stale>Redirect content</span>
+      </au-route>
+      <au-route path="products/:id" exact><span data-product>Product \${$params.id}</span></au-route>
+      <au-route path="account">
+        <au-route path="/" exact redirect-to="profile"></au-route>
+        <au-route path="profile" exact><span data-profile>Profile</span></au-route>
+      </au-route>
+      <au-route path="not-found" exact><span data-not-found>Not found</span></au-route>
+      <au-route path="*" fallback redirect-to="/not-found"></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/products/42');
+      assert.strictEqual(adapter.back(), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-product]')?.textContent, 'Product 42');
+      assert.strictEqual(fixture.appHost.querySelector('[data-stale]'), null);
+
+      const route = fixture.container.get(IRouteCoordinator);
+      route.load('/account');
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/account/profile');
+      assert.strictEqual(fixture.appHost.querySelector('[data-profile]')?.textContent, 'Profile');
+
+      route.load('/missing');
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/not-found');
+      assert.strictEqual(fixture.appHost.querySelector('[data-not-found]')?.textContent, 'Not found');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const syntax of [
+    'redirect-to.bind="target"',
+    'redirect-to.to-view="target"',
+    ':redirect-to="target"',
+  ]) {
+    it(`binds a dynamic redirect using ${syntax}`, async function () {
+      const adapter = new MemoryPathAdapter('/home');
+      const fixture = await createFixture(
+        `<au-route path="legacy/:id" exact ${syntax}></au-route>
+        <au-route path="home" exact><span>Home</span></au-route>
+        <au-route path="products/:id" exact><span>Product \${$params.id}</span></au-route>
+        <au-route path="archive/:id" exact><span data-archive>Archive \${$params.id}</span></au-route>`,
+        class App {
+          public target = '/products/:id';
+        },
+        [Routing.customize({ adapter })],
+      ).started;
+
+      try {
+        fixture.component.target = '/archive/:id';
+        await tasksSettled();
+        fixture.container.get(IRouteCoordinator).load('/legacy/7');
+        await tasksSettled();
+        assert.strictEqual(adapter.getCurrentPath(), '/archive/7');
+        assert.strictEqual(fixture.appHost.querySelector('[data-archive]')?.textContent, 'Archive 7');
+      } finally {
+        await fixture.tearDown();
+      }
+    });
+  }
+
+  it('supports explicit push redirects', async function () {
+    class RecordingAdapter extends MemoryPathAdapter {
+      public readonly pushed: string[] = [];
+      public readonly replaced: string[] = [];
+
+      public override push(path: string): void {
+        this.pushed.push(path);
+        super.push(path);
+      }
+
+      public override replace(path: string): void {
+        this.replaced.push(path);
+        super.replace(path);
+      }
+    }
+
+    const adapter = new RecordingAdapter('/offer');
+    const fixture = await createFixture(
+      `<au-route path="offer" exact redirect-to="/sale" redirect-mode="push"></au-route>
+      <au-route path="sale" exact><span data-sale>Sale</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.deepStrictEqual(adapter.pushed, ['/sale']);
+      assert.deepStrictEqual(adapter.replaced, []);
+      assert.strictEqual(fixture.appHost.querySelector('[data-sale]')?.textContent, 'Sale');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rejects redirect loops with the visited location chain', function () {
+    const adapter = new MemoryPathAdapter('/a');
+    const root = new RouteContext(null, '*');
+    const a = root.createChild('/a', { exact: true }) as RouteContext;
+    const b = root.createChild('/b', { exact: true }) as RouteContext;
+    const coordinator = new RouteCoordinator(root, adapter);
+    a.subscribe(state => {
+      if (state.active) root._redirect('/b', {}, true);
+    });
+    b.subscribe(state => {
+      if (state.active) root._redirect('/a', {}, true);
+    });
+
+    assert.throws(() => coordinator.start(), /Redirect loop detected: \/a -> \/b -> \/a/);
   });
 });
 

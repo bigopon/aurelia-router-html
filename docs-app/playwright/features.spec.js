@@ -143,7 +143,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(15);
+    await expect(features).toHaveCount(16);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -174,9 +174,11 @@ test.describe('router HTML docs features', () => {
     const programmaticSyntax = features.filter({ hasText: 'Programmatic Navigation' }).locator('pre');
     await expect(programmaticSyntax).toContainText('resolve(IRouteContext)');
     await expect(programmaticSyntax).toContainText('this.route.load');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(15);
+    const redirectSyntax = features.filter({ hasText: 'Declarative Redirects' }).locator('pre');
+    await expect(redirectSyntax).toContainText('redirect-to="/products/:productId"');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(16);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(15);
+    await expect(editLinks).toHaveCount(16);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -184,6 +186,7 @@ test.describe('router HTML docs features', () => {
       '/playground/url-state',
       '/playground/active-links',
       '/playground/programmatic-navigation',
+      '/playground/declarative-redirects',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -310,6 +313,7 @@ test.describe('router HTML docs features', () => {
       ['url-state', "$query.get('sort')"],
       ['active-links', 'au-link.bind'],
       ['programmatic', 'resolve(IRouteContext)', '/src/app.ts'],
+      ['redirects', 'redirect-to.bind'],
       ['adapters', 'MemoryPathAdapter', '/src/main.ts'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
@@ -544,6 +548,37 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'camera reviews' })).toBeVisible();
     await expect(frame.getByText('Sort: recent')).toBeVisible();
     await expect(frame.getByText('Section: comments')).toBeVisible();
+  });
+
+  test('declarative redirects resolve params, nested defaults, and fallbacks', async ({ page }) => {
+    await page.goto('/features/redirects');
+    const guide = page.locator('[data-e2e="redirect-guide"]');
+    await expect(guide).toContainText('redirect-to.bind');
+    await expect(guide).toContainText('redirect-mode="push"');
+    await expect(guide).toContainText('Replacement is the default');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/camera');
+    await expect(frame.getByRole('heading', { name: 'Product: camera' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Account default' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/account/profile');
+    await expect(frame.getByText('Profile is the account branch default.')).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Unknown URL' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/not-found');
+    await expect(frame.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Legacy speaker URL' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/speaker');
+    await expect(frame.getByRole('heading', { name: 'Product: speaker' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Contextual legacy URL' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/catalog/products/speaker');
+    await expect(frame.getByRole('heading', { name: 'Catalog product: speaker' })).toBeVisible();
+    await expect(frame.getByText('The contextual target stayed below /catalog.')).toBeVisible();
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {
