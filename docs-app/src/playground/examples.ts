@@ -346,7 +346,7 @@ const featureExamples: PlaygroundExample[] = [
   <a au-link="products/camera">Camera</a>
   <a au-link="known/details">Known details</a>
   <a au-link="files/guides/router/start.html">Terminal file path</a>
-  <a au-link="offers">Offers</a>
+  <a au-link.bind="{ target: 'offers', options: { exact: true } }">Offers</a>
   <a au-link="offers/summer">Summer offer</a>
   <a au-link="missing">Missing</a>
 </nav>

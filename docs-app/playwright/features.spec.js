@@ -424,8 +424,11 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
     await frame.getByRole('link', { name: 'Offers', exact: true }).click();
     await expect(frame.getByRole('heading', { name: 'Offer: all offers' })).toBeVisible();
+    await expect(frame.getByRole('link', { name: 'Offers', exact: true })).toHaveClass(/is-active/);
     await frame.getByRole('link', { name: 'Summer offer' }).click();
     await expect(frame.getByRole('heading', { name: 'Offer: summer' })).toBeVisible();
+    await expect(frame.getByRole('link', { name: 'Offers', exact: true })).not.toHaveClass(/is-active/);
+    await expect(frame.getByRole('link', { name: 'Summer offer' })).toHaveClass(/is-active/);
     await frame.getByRole('link', { name: 'Missing' }).click();
     await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
     await frame.getByRole('link', { name: 'Terminal file path' }).click();
