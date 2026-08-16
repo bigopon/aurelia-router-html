@@ -78,7 +78,10 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Basic routes',
     description: 'Map simple URLs directly to their rendered markup.',
     initialPath: '/welcome',
-    appHtml: `<nav><a href="/welcome">Welcome</a><a href="/about">About</a></nav>
+    appHtml: `<nav>
+  <a href="/welcome">Welcome</a>
+  <a href="/about">About</a>
+</nav>
 <main>
   <au-route path="/welcome">
     <h1>Welcome</h1>
@@ -97,7 +100,10 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/account/profile',
     appHtml: `<au-route path="/account">
   <h1>Account</h1>
-  <nav><a href="/account/profile">Profile</a><a href="/account/security">Security</a></nav>
+  <nav>
+    <a href="/account/profile">Profile</a>
+    <a href="/account/security">Security</a>
+  </nav>
   <au-route path="/profile">
     <h2>Profile</h2>
     <p>Update your public details.</p>
@@ -113,7 +119,10 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Route parameters',
     description: 'Capture a URL segment and use it directly in routed markup.',
     initialPath: '/users/ada',
-    appHtml: `<nav><a href="/users/ada">Ada</a><a href="/users/grace">Grace</a></nav>
+    appHtml: `<nav>
+  <a href="/users/ada">Ada</a>
+  <a href="/users/grace">Grace</a>
+</nav>
 <au-route path="/users/:userId">
   <h1>User: \${$params.userId}</h1>
   <p>The <code>:userId</code> segment is available as <code>$params.userId</code>.</p>
@@ -128,7 +137,10 @@ const featureExamples: PlaygroundExample[] = [
   public canEdit = true;
 }`,
     appHtml: `<button click.trigger="canEdit = !canEdit">\${canEdit ? 'Disable' : 'Enable'} editing</button>
-<nav><a href="/view">View</a><a href="/edit">Edit</a></nav>
+<nav>
+  <a href="/view">View</a>
+  <a href="/edit">Edit</a>
+</nav>
 <au-route path="/view">
   <h1>Read-only view</h1>
 </au-route>
@@ -151,7 +163,9 @@ const featureExamples: PlaygroundExample[] = [
     { path: '/settings', label: 'Settings' },
   ];
 }`,
-    appHtml: `<nav><a repeat.for="tab of tabs" href.bind="tab.path">\${tab.label}</a></nav>
+    appHtml: `<nav>
+  <a repeat.for="tab of tabs" href.bind="tab.path">\${tab.label}</a>
+</nav>
 <template repeat.for="tab of tabs">
   <au-route path.bind="tab.path">
     <h1>\${tab.label}</h1>
@@ -191,7 +205,10 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/products/camera/specs',
     appHtml: `<au-route path="/products/:productId" swap-order="parallel">
   <h1>Camera</h1>
-  <nav><a href="/products/camera/specs">Specs</a><a href="/products/camera/reviews">Reviews</a></nav>
+  <nav>
+    <a href="/products/camera/specs">Specs</a>
+    <a href="/products/camera/reviews">Reviews</a>
+  </nav>
   <div class="stage">
     <au-route path="/specs" animate>
       <h2>Specs</h2>
@@ -219,7 +236,10 @@ const featureExamples: PlaygroundExample[] = [
     description: 'Opt sibling routes into CSS-driven enter and leave transitions.',
     initialPath: '/rooms/sunny',
     appHtml: `<au-route path="/rooms" swap-order="parallel">
-  <nav><a href="/rooms/sunny">Sunny room</a><a href="/rooms/moon">Moon room</a></nav>
+  <nav>
+    <a href="/rooms/sunny">Sunny room</a>
+    <a href="/rooms/moon">Moon room</a>
+  </nav>
   <div class="stage animated-stage">
     <au-route path="/sunny" animate>
       <article class="room sunny">
@@ -271,7 +291,10 @@ const featureExamples: PlaygroundExample[] = [
     totalQty: 2,
   };
 }`,
-    appHtml: `<nav><a href="/shop">Shop</a><a href="/cart">Cart (\${state.totalQty})</a></nav>
+    appHtml: `<nav>
+  <a href="/shop">Shop</a>
+  <a href="/cart">Cart (\${state.totalQty})</a>
+</nav>
 <button click.trigger="state.totalQty = state.totalQty + 1">Add item</button>
 <au-route path="/shop">
   <h1>Shop</h1>
@@ -294,7 +317,9 @@ const featureExamples: PlaygroundExample[] = [
   ];
 }`,
     appHtml: `<import from="./room-shell"></import>
-<nav><a repeat.for="room of rooms" href.bind="room.path">\${room.name}</a></nav>
+<nav>
+  <a repeat.for="room of rooms" href.bind="room.path">\${room.name}</a>
+</nav>
 <template repeat.for="room of rooms">
   <au-route path.bind="room.path">
     <let greeting.bind="'Welcome to ' + room.name"></let>
@@ -453,7 +478,10 @@ void Aurelia.register(Routing, UpperValueConverter).app({
 }`,
       '/src/app.html': `<import from="./status-card"></import>
 <import from="./status-badge.html"></import>
-<nav><a href="/status">Status</a><a href="/about">About</a></nav>
+<nav>
+  <a href="/status">Status</a>
+  <a href="/about">About</a>
+</nav>
 <au-route path="/status">
   <div class="cards">
     <status-card repeat.for="service of services" name.bind="service | upper"></status-card>

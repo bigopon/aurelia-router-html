@@ -158,6 +158,12 @@ test.describe('router HTML docs features', () => {
     await expect(page.getByLabel('Example')).toHaveValue('basic-routes');
     const editor = page.getByRole('textbox', { name: 'Editing /src/app.html' });
     const sourceLines = await editor.locator('.cm-line').allTextContents();
+    expect(sourceLines.slice(0, 4)).toEqual([
+      '<nav>',
+      '  <a href="/welcome">Welcome</a>',
+      '  <a href="/about">About</a>',
+      '</nav>',
+    ]);
     const welcomeRoute = sourceLines.indexOf('  <au-route path="/welcome">');
     expect(sourceLines.slice(welcomeRoute, welcomeRoute + 5)).toEqual([
       '  <au-route path="/welcome">',

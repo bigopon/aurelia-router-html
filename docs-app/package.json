@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "serve": "vite preview --host 127.0.0.1 --port 9027",
-    "build:serve": "npm run build && npm run serve",
-    "preview": "vite preview",
+    "serve": "vite serve --host 127.0.0.1 --port 9027",
+    "build:serve": "npm run build && npm run preview",
+    "preview": "vite preview --host 127.0.0.1 --port 9027",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:e2e:ci": "cross-env APP_PORT=9027 PLAYWRIGHT_CI_WEBSERVER=1 node ../node_modules/@playwright/test/cli.js test --config playwright.config.cjs"
   },
