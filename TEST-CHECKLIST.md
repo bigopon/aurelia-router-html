@@ -49,6 +49,9 @@
 # Browser playground
 
 - [x] CodeMirror highlights TypeScript, JavaScript, HTML, and CSS while preserving editor state across file tabs.
+- [x] Editing source queues an automatic run with a visible countdown while the explicit Run action remains available.
+- [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
+- [x] The memory-backed URL is displayed in the preview header beside the content it describes.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Every focused feature page embeds its matching playground project and has no separate show-source control.
 - [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.

@@ -13,11 +13,21 @@ test.describe('router HTML docs features', () => {
       ...new Set(tokens.map(token => getComputedStyle(token).color)),
     ]);
     expect(tokenColors.length).toBeGreaterThan(1);
+    const firstLineTop = await page.locator('.code-editor .cm-line').first().evaluate(element => element.getBoundingClientRect().top);
+    const firstLineNumberTop = await page.locator('.code-editor .cm-lineNumbers .cm-gutterElement')
+      .nth(1)
+      .evaluate(element => element.getBoundingClientRect().top);
+    expect(Math.abs(firstLineTop - firstLineNumberTop)).toBeLessThan(2);
+    const firstLineNumberMargin = await page.locator('.code-editor .cm-lineNumbers .cm-gutterElement')
+      .nth(1)
+      .evaluate(element => element.style.marginTop);
+    expect(firstLineNumberMargin).not.toBe('16px');
 
     const frame = page.frameLocator('[data-e2e="playground-preview"]');
     await expect(frame.getByRole('heading', { name: 'Build routes where the view lives.' })).toBeVisible();
     await frame.getByRole('link', { name: 'Camera' }).click();
-    await expect(page.getByRole('status')).toContainText('Preview URL: /products/camera');
+    await expect(page.locator('.playground-preview-panel .preview-label code')).toHaveText('/products/camera');
+    await expect(page.getByRole('status')).not.toContainText('/products/camera');
     await expect(frame.getByRole('heading', { name: 'Product: camera' })).toBeVisible();
 
     const firstPreview = await preview.elementHandle();
@@ -26,6 +36,35 @@ test.describe('router HTML docs features', () => {
     await expect(preview).toHaveCount(1);
     const secondPreview = await preview.elementHandle();
     expect(await firstPreview?.evaluate((first, second) => first !== second, secondPreview)).toBe(true);
+  });
+
+  test('playground auto-runs edits and switches views without discarding editor state', async ({ page }) => {
+    test.setTimeout(90000);
+    await page.goto('/playground');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    await expect(page.locator('.playground-workspace')).toHaveClass(/view-split/);
+    await page.getByRole('tab', { name: 'app.html' }).click();
+    const editor = page.getByRole('textbox', { name: 'Editing /src/app.html' });
+    await expect(editor).toBeVisible();
+    await editor.fill('<au-route path="/"><h1>Automatic preview</h1></au-route>');
+    await expect(page.locator('[data-e2e="auto-run-progress"]')).toHaveClass(/is-counting/);
+    await expect(page.getByRole('status')).toContainText('Changes pending');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(page.frameLocator('[data-e2e="playground-preview"]').getByRole('heading', { name: 'Automatic preview' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Code', exact: true }).click();
+    await expect(page.locator('.playground-editor-panel')).toBeVisible();
+    await expect(page.locator('.playground-preview-panel')).toBeHidden();
+
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await expect(page.locator('.playground-editor-panel')).toBeHidden();
+    await expect(page.locator('.playground-preview-panel')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Split', exact: true }).click();
+    await expect(editor).toBeVisible();
+    await expect(editor).toContainText('Automatic preview');
+    await expect(page.locator('.playground-preview-panel')).toBeVisible();
   });
 
   test('playground reports compiler errors and reset restores the example', async ({ page }) => {
@@ -166,7 +205,7 @@ test.describe('router HTML docs features', () => {
 
     const frame = playground.frameLocator('[data-e2e="playground-preview"]');
     await frame.getByRole('link', { name: 'Activity' }).click();
-    await expect(playground.getByRole('status')).toContainText('Preview URL: /activity');
+    await expect(playground.locator('.preview-label code')).toHaveText('/activity');
     await expect(frame.getByRole('heading', { name: 'Activity' })).toBeVisible();
 
     await playground.getByRole('textbox', { name: 'Editing /src/app.html' }).fill(

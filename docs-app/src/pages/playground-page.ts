@@ -19,6 +19,10 @@ interface CodeMirrorUpdate {
   readonly state: { readonly doc: { toString(): string } };
 }
 
+type PlaygroundViewMode = 'code' | 'split' | 'preview';
+
+const autoRunDelay = 900;
+
 export class PlaygroundPage {
   public static readonly $au = {
     type: 'custom-element',
@@ -37,15 +41,19 @@ export class PlaygroundPage {
   public compiling = false;
   public status = 'Ready to compile';
   public currentPreviewPath = this.project.initialPath;
+  public viewMode: PlaygroundViewMode = 'split';
   public editorHost!: HTMLElement;
   public previewHost!: HTMLElement;
+  public autoRunProgress!: HTMLElement;
   private readonly worker = new CompilerWorker();
   private readonly editors = new Map<string, EditorView>();
   private requestId = 0;
   private iframe: HTMLIFrameElement | null = null;
   private runtimeSource: Promise<string> | null = null;
+  private autoRunTimer: number | null = null;
 
   public binding(): void {
+    this.viewMode = this.readViewMode();
     if (this.exampleId == null) {
       return;
     }
@@ -64,6 +72,7 @@ export class PlaygroundPage {
   }
 
   public detaching(): void {
+    this.cancelAutoRun();
     this.worker.removeEventListener('message', this.onCompileMessage);
     this.worker.removeEventListener('error', this.onWorkerError);
     this.worker.terminate();
@@ -86,6 +95,31 @@ export class PlaygroundPage {
     }
     this.selectedFile = path;
     this.showEditor(path);
+  }
+
+  public setViewMode(mode: PlaygroundViewMode): void {
+    this.viewMode = mode;
+    try {
+      localStorage.setItem(this.viewModeStorageKey, mode);
+    } catch {
+      // A blocked storage API should not prevent the playground from working.
+    }
+    if (mode !== 'preview') {
+      requestAnimationFrame(() => this.editors.get(this.selectedFile)?.requestMeasure());
+    }
+  }
+
+  public queueRun(): void {
+    this.cancelAutoRun();
+    this.status = 'Changes pending';
+    this.autoRunProgress?.classList.remove('is-counting');
+    void this.autoRunProgress?.offsetWidth;
+    this.autoRunProgress?.classList.add('is-counting');
+    this.autoRunTimer = window.setTimeout(() => {
+      this.autoRunTimer = null;
+      this.autoRunProgress?.classList.remove('is-counting');
+      this.run();
+    }, autoRunDelay);
   }
 
   public chooseExample(event: Event): void {
@@ -116,6 +150,7 @@ export class PlaygroundPage {
   }
 
   public run(): void {
+    this.cancelAutoRun();
     const id = ++this.requestId;
     this.compiling = true;
     this.status = 'Compiling…';
@@ -215,6 +250,7 @@ export class PlaygroundPage {
               ...this.project,
               files: { ...this.project.files, [path]: update.state.doc.toString() },
             };
+            this.queueRun();
           }),
         ],
       });
@@ -245,6 +281,30 @@ export class PlaygroundPage {
       this.status = 'Preview failed';
       this.consoleEntries = [{ level: 'error', message: error instanceof Error ? error.message : String(error) }];
     }
+  }
+
+  private get viewModeStorageKey(): string {
+    return this.embedded ? 'router-html-playground-view-embedded' : 'router-html-playground-view-standalone';
+  }
+
+  private readViewMode(): PlaygroundViewMode {
+    try {
+      const mode = localStorage.getItem(this.viewModeStorageKey);
+      if (mode === 'code' || mode === 'split' || mode === 'preview') {
+        return mode;
+      }
+    } catch {
+      // Use the default split view when storage is unavailable.
+    }
+    return 'split';
+  }
+
+  private cancelAutoRun(): void {
+    if (this.autoRunTimer != null) {
+      window.clearTimeout(this.autoRunTimer);
+      this.autoRunTimer = null;
+    }
+    this.autoRunProgress?.classList.remove('is-counting');
   }
 }
 

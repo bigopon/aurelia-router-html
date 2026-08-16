@@ -552,6 +552,57 @@ button.primary,
   font-size: 0.9rem;
 }
 
+.view-mode-switcher {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.view-mode-switcher button {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.view-mode-switcher button[aria-pressed='true'] {
+  background: var(--ink);
+  color: white;
+}
+
+.auto-run-progress {
+  height: 3px;
+  margin: -1px 10px -2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.auto-run-progress::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #34a899;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.auto-run-progress.is-counting::after {
+  animation: playground-auto-run 900ms linear forwards;
+}
+
+@keyframes playground-auto-run {
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .playground-workspace {
   display: flex;
   align-items: stretch;
@@ -573,6 +624,18 @@ button.primary,
   overflow: auto;
   border-right: 1px solid var(--line-strong);
   background: var(--code);
+}
+
+.playground-workspace.view-code .playground-editor-panel {
+  width: 100%;
+  max-width: none;
+  resize: none;
+  border-right: 0;
+}
+
+.playground-workspace.view-code .playground-preview-panel,
+.playground-workspace.view-preview .playground-editor-panel {
+  display: none;
 }
 
 .file-tabs {
@@ -610,16 +673,16 @@ button.primary,
 
 .code-editor .cm-scroller {
   min-height: 470px;
+  padding: 16px 0;
   overflow: auto;
 }
 
 .code-editor .cm-content {
-  padding: 16px 0;
+  padding: 0;
   caret-color: #8be0d2;
 }
 
 .code-editor .cm-gutters {
-  padding-top: 16px;
   border-right-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -643,6 +706,24 @@ button.primary,
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.preview-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-label code {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .preview-host,

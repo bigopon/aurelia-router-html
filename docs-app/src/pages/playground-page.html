@@ -13,7 +13,7 @@
       </label>
       <label class="route-input">
         <span>Initial route</span>
-        <input value.bind="project.initialPath">
+        <input value.bind="project.initialPath" input.trigger="queueRun()">
       </label>
       <button click.trigger="copyProject()">Copy project</button>
       <button click.trigger="reset()">Reset</button>
@@ -29,19 +29,25 @@
     <div class="playground-actions">
       <label class="route-input">
         <span>Initial route</span>
-        <input value.bind="project.initialPath">
+        <input value.bind="project.initialPath" input.trigger="queueRun()">
       </label>
       <button click.trigger="reset()">Reset</button>
-      <button class="primary" disabled.bind="compiling" click.trigger="run()">${compiling ? 'Compilingâ€¦' : 'Run'}</button>
+      <button class="primary" disabled.bind="compiling" click.trigger="run()">${compiling ? 'Compiling…' : 'Run'}</button>
     </div>
   </header>
 
   <div class="playground-status" role="status">
     <strong>${status}</strong>
-    <span>Preview URL: ${currentPreviewPath}</span>
+    <div class="view-mode-switcher" role="group" aria-label="Playground view">
+      <button aria-pressed.bind="viewMode === 'code'" click.trigger="setViewMode('code')">Code</button>
+      <button aria-pressed.bind="viewMode === 'split'" click.trigger="setViewMode('split')">Split</button>
+      <button aria-pressed.bind="viewMode === 'preview'" click.trigger="setViewMode('preview')">Preview</button>
+    </div>
   </div>
 
-  <div class="playground-workspace">
+  <div class="auto-run-progress" ref="autoRunProgress" data-e2e="auto-run-progress" aria-hidden="true"></div>
+
+  <div class="playground-workspace view-${viewMode}">
     <section class="playground-editor-panel">
       <div class="file-tabs" role="tablist" aria-label="Project files">
         <button
@@ -55,7 +61,10 @@
     </section>
 
     <section class="playground-preview-panel">
-      <div class="panel-label">Preview</div>
+      <div class="panel-label preview-label">
+        <span>Preview</span>
+        <code>${currentPreviewPath}</code>
+      </div>
       <div class="preview-host" ref="previewHost"></div>
     </section>
   </div>
