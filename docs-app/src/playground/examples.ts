@@ -116,16 +116,21 @@ const featureExamples: PlaygroundExample[] = [
   }),
   routerExample({
     id: 'route-params',
-    title: 'Route parameters',
-    description: 'Capture a URL segment and use it directly in routed markup.',
-    initialPath: '/users/ada',
+    title: 'Nested route parameters',
+    description: 'Keep each route parameter local and reach parent parameters explicitly when a child needs them.',
+    initialPath: '/users/ada/posts/routing-basics',
     appHtml: `<nav>
-  <a href="/users/ada">Ada</a>
-  <a href="/users/grace">Grace</a>
+  <a href="/users/ada/posts/routing-basics">Ada / Routing</a>
+  <a href="/users/grace/posts/compiler-design">Grace / Compilers</a>
 </nav>
 <au-route path="/users/:userId">
-  <h1>User: \${$params.userId}</h1>
-  <p>The <code>:userId</code> segment is available as <code>$params.userId</code>.</p>
+  <h1>Parent user: \${$params.userId}</h1>
+  <p>This view owns <code>$params.userId</code>.</p>
+  <au-route path="/posts/:postId">
+    <h2>Child post: \${$params.postId}</h2>
+    <p>This view owns <code>$params.postId</code>.</p>
+    <p>Parent user from child: \${$route.parent.$params.userId}</p>
+  </au-route>
 </au-route>`,
   }),
   routerExample({

@@ -32,10 +32,10 @@ export class OverviewPage {
     },
     {
       title: 'Params',
-      summary: 'Capture dynamic URL segments and expose them to the matched view.',
+      summary: 'Give each nested route its own URL parameters and access ancestors explicitly.',
       path: '/features/params',
       playgroundId: 'route-params',
-      syntax: '<au-route path="/users/:userId">\n  User: ${$params.userId}\n</au-route>',
+      syntax: '<au-route path="/users/:userId">\n  User: ${$params.userId}\n  <au-route path="/posts/:postId">\n    Post: ${$params.postId}\n    User: ${$route.parent.$params.userId}\n  </au-route>\n</au-route>',
     },
     {
       title: 'Conditional Routes',

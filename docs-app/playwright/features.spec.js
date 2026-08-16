@@ -127,6 +127,11 @@ test.describe('router HTML docs features', () => {
     const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="/products" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="/files/**">');
+    const paramsSyntax = features
+      .filter({ has: page.getByRole('heading', { name: 'Params', exact: true }) })
+      .locator('pre');
+    await expect(paramsSyntax).toContainText('<au-route path="/posts/:postId">');
+    await expect(paramsSyntax).toContainText('$route.parent.$params.userId');
     const swapSyntax = features.filter({ hasText: 'Swap Order' }).locator('pre');
     await expect(swapSyntax).toContainText('swap-order="parallel"');
     await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
@@ -224,6 +229,24 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Edited embedded preview' })).toBeVisible();
   });
 
+  test('an embedded playground recreates its compiler and preview after reattachment', async ({ page }) => {
+    await page.goto('/features/basic');
+
+    let playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(playground.frameLocator('[data-e2e="playground-preview"]').getByRole('heading', { name: 'Welcome' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Overview', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.getByRole('link', { name: 'Basic Routes', exact: true }).click();
+    await expect(page).toHaveURL(/\/features\/basic$/);
+
+    playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(playground.locator('[data-e2e="playground-preview"]')).toHaveCount(1);
+    await expect(playground.frameLocator('[data-e2e="playground-preview"]').getByRole('heading', { name: 'Welcome' })).toBeVisible();
+  });
+
   test('every focused feature uses its matching embedded project without a source toggle', async ({ page }) => {
     const features = [
       ['basic', 'path="/welcome"'],
@@ -263,6 +286,26 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Profile' })).toBeVisible();
     await frame.getByRole('link', { name: 'Security' }).click();
     await expect(frame.getByRole('heading', { name: 'Security' })).toBeVisible();
+  });
+
+  test('nested parameter views keep local params scoped to their own route', async ({ page }) => {
+    await page.goto('/features/params');
+
+    const details = page.locator('.feature-details');
+    await expect(details).toContainText('Child $params does not silently merge ancestor parameters.');
+    await expect(details.locator('pre')).toContainText('$route.parent.$params.userId');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Parent user: ada' })).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'Child post: routing-basics' })).toBeVisible();
+    await expect(frame.getByText('Parent user from child: ada')).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Grace / Compilers' }).click();
+    await expect(frame.getByRole('heading', { name: 'Parent user: grace' })).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'Child post: compiler-design' })).toBeVisible();
+    await expect(frame.getByText('Parent user from child: grace')).toBeVisible();
   });
 
   test('exact, fallback, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {

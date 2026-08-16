@@ -3,10 +3,31 @@
     <div>
       <h2>Params</h2>
       <p class="page-copy">
-        See how a route parameter selects the right detail view from the URL.
+        Keep parameters local to the route that declared them while nested views reach ancestors explicitly.
       </p>
     </div>
   </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="/users/:userId"&gt;
+  Parent: $<span>{$params.userId}</span>
+  &lt;au-route path="/posts/:postId"&gt;
+    Child: $<span>{$params.postId}</span>
+    Parent from child: $<span>{$route.parent.$params.userId}</span>
+  &lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p>Each <code>au-route</code> creates its own parameter scope. The parent view receives <code>userId</code>; the nested view receives <code>postId</code>. Child <code>$params</code> does not silently merge ancestor parameters.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <p>Read local values from <code>$params</code>. When a nested view intentionally needs an ancestor value, follow its route context with <code>$route.parent.$params</code>.</p>
+    </section>
+  </div>
 
   <playground-page example-id="route-params" embedded.bind="true"></playground-page>
 </section>

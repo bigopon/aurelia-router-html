@@ -45,7 +45,7 @@ export class PlaygroundPage {
   public editorHost!: HTMLElement;
   public previewHost!: HTMLElement;
   public autoRunProgress!: HTMLElement;
-  private readonly worker = new CompilerWorker();
+  private worker: Worker | null = null;
   private readonly editors = new Map<string, EditorView>();
   private requestId = 0;
   private iframe: HTMLIFrameElement | null = null;
@@ -65,6 +65,7 @@ export class PlaygroundPage {
 
   public attached(): void {
     this.showEditor(this.selectedFile);
+    this.worker = new CompilerWorker();
     this.worker.addEventListener('message', this.onCompileMessage);
     this.worker.addEventListener('error', this.onWorkerError);
     window.addEventListener('message', this.onPreviewMessage);
@@ -73,9 +74,10 @@ export class PlaygroundPage {
 
   public detaching(): void {
     this.cancelAutoRun();
-    this.worker.removeEventListener('message', this.onCompileMessage);
-    this.worker.removeEventListener('error', this.onWorkerError);
-    this.worker.terminate();
+    this.worker?.removeEventListener('message', this.onCompileMessage);
+    this.worker?.removeEventListener('error', this.onWorkerError);
+    this.worker?.terminate();
+    this.worker = null;
     window.removeEventListener('message', this.onPreviewMessage);
     this.iframe?.remove();
     this.iframe = null;
@@ -162,7 +164,7 @@ export class PlaygroundPage {
       entry: this.project.entry,
       files: this.project.files,
     };
-    this.worker.postMessage(request);
+    this.worker?.postMessage(request);
   }
 
   private readonly onCompileMessage = (event: MessageEvent<PlaygroundCompileResponse>): void => {
