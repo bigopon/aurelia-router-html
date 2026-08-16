@@ -123,18 +123,20 @@ test.describe('router HTML docs features', () => {
     await page.goto('/');
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(12);
+    await expect(features).toHaveCount(13);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
     await expect(basicSyntax).toContainText('au-link="products"');
     await expect(basicSyntax).toContainText('au-link="/products"');
-    const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Wildcard Paths' }).locator('pre');
+    const matchingSyntax = features.filter({ hasText: 'Exact & Fallback Matching' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="products/:id" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="offers/:id?" exact>');
-    await expect(matchingSyntax).toContainText('<au-route path="folders/*">');
-    await expect(matchingSyntax).toContainText("Folder: ${$params['*']}");
-    await expect(matchingSyntax).toContainText('<au-route path="files/**">');
+    await expect(matchingSyntax).toContainText('<au-route path="*" fallback>');
+    const wildcardSyntax = features.filter({ hasText: 'Wildcard Paths' }).locator('pre');
+    await expect(wildcardSyntax).toContainText('<au-route path="date/*/summary" exact>');
+    await expect(wildcardSyntax).toContainText("Date: ${$params['*']}");
+    await expect(wildcardSyntax).toContainText('<au-route path="files/**">');
     const paramsSyntax = features
       .filter({ has: page.getByRole('heading', { name: 'Params', exact: true }) })
       .locator('pre');
@@ -146,9 +148,9 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(12);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(13);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(12);
+    await expect(editLinks).toHaveCount(13);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -158,6 +160,7 @@ test.describe('router HTML docs features', () => {
       '/playground/conditional-routes',
       '/playground/repeated-routes',
       '/playground/exact-fallback',
+      '/playground/wildcard-paths',
       '/playground/swap-order',
       '/playground/route-animations',
       '/playground/shared-state',
@@ -197,7 +200,7 @@ test.describe('router HTML docs features', () => {
   test('syntax highlighting gives valued and valueless attributes the same color', async ({ page }) => {
     await page.goto('/');
 
-    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact, Fallback & Wildcard Paths' }).locator('pre');
+    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact & Fallback Matching' }).locator('pre');
     const pathAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^path$/ }).first();
     const exactAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^exact$/ }).first();
     const fallbackAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^fallback$/ });
@@ -279,7 +282,8 @@ test.describe('router HTML docs features', () => {
       ['active-links', 'au-link.bind'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
-      ['matching', 'path="files/**"'],
+      ['matching', 'fallback'],
+      ['wildcards', 'path="date/*/summary"'],
       ['swap', 'swap-order="parallel"'],
       ['animation', 'animate'],
       ['shared-state', 'state.totalQty'],
@@ -418,7 +422,7 @@ test.describe('router HTML docs features', () => {
     await expect(page.getByRole('link', { name: 'Basic Routes', exact: true })).toHaveClass(/is-active/);
   });
 
-  test('exact, fallback, wildcard, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {
+  test('exact, fallback, and parallel swap fixtures run inside their pages', async ({ page }) => {
     await page.goto('/features/matching');
     let playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
@@ -431,18 +435,8 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Offer: summer' })).toBeVisible();
     await expect(frame.getByRole('link', { name: 'Offers', exact: true })).not.toHaveClass(/is-active/);
     await expect(frame.getByRole('link', { name: 'Summer offer' })).toHaveClass(/is-active/);
-    await frame.getByRole('link', { name: 'Folder guide' }).click();
-    await expect(frame.getByRole('heading', { name: 'Single folder route' })).toBeVisible();
-    await expect(frame.getByText('Captured folder: guides and api')).toBeVisible();
-    await expect(frame.getByText('Residue after *: /')).toBeVisible();
     await frame.getByRole('link', { name: 'Missing' }).click();
     await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
-    await frame.getByRole('link', { name: 'Terminal file path' }).click();
-    await expect(frame.getByRole('heading', { name: 'Terminal file route' })).toBeVisible();
-    await expect(frame.getByText('Path presented: /files/guides/router/start.html')).toBeVisible();
-    await expect(frame.getByText('Terminal segment: guides/router/start.html')).toBeVisible();
-    await expect(frame.getByText('Residue after **: /')).toBeVisible();
-    await expect(frame.getByText('The nested route receives /')).toBeVisible();
 
     await page.goto('/features/swap');
     playground = page.locator('.playground-page.is-embedded');
@@ -451,6 +445,26 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Specs' })).toBeVisible();
     await frame.getByRole('link', { name: 'Reviews' }).click();
     await expect(frame.getByRole('heading', { name: 'Reviews' })).toBeVisible();
+  });
+
+  test('single and terminal wildcard fixtures capture their own path values', async ({ page }) => {
+    await page.goto('/features/wildcards');
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+
+    await expect(frame.getByRole('heading', { name: 'Daily summary' })).toBeVisible();
+    await expect(frame.getByText('Captured date: 2026-08-16')).toBeVisible();
+    await frame.getByRole('link', { name: 'Folder guide' }).click();
+    await expect(frame.getByRole('heading', { name: 'Single folder route' })).toBeVisible();
+    await expect(frame.getByText('Captured folder: guides and api')).toBeVisible();
+    await expect(frame.getByText('Residue after *: /')).toBeVisible();
+    await frame.getByRole('link', { name: 'Terminal file path' }).click();
+    await expect(frame.getByRole('heading', { name: 'Terminal file route' })).toBeVisible();
+    await expect(frame.getByText('Path presented: /files/guides/router/start.html')).toBeVisible();
+    await expect(frame.getByText('Terminal segment: guides/router/start.html')).toBeVisible();
+    await expect(frame.getByText('Residue after **: /')).toBeVisible();
+    await expect(frame.getByText('The nested route receives /')).toBeVisible();
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

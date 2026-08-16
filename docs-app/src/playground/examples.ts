@@ -338,15 +338,13 @@ const featureExamples: PlaygroundExample[] = [
   }),
   routerExample({
     id: 'exact-fallback',
-    title: 'Exact, fallback, and wildcard matching',
-    description: 'Choose complete matches, recover from misses, or capture one or every remaining URL segment.',
+    title: 'Exact and fallback matching',
+    description: 'Require complete matches or render a fallback only after regular sibling routes miss.',
     initialPath: '/products',
     appHtml: `<nav>
   <a au-link="products">Products</a>
   <a au-link="products/camera">Camera</a>
   <a au-link="known/details">Known details</a>
-  <a au-link="folders/guides%20and%20api">Folder guide</a>
-  <a au-link="files/guides/router/start.html">Terminal file path</a>
   <a au-link.bind="{ target: 'offers', options: { exact: true } }">Offers</a>
   <a au-link="offers/summer">Summer offer</a>
   <a au-link="missing">Missing</a>
@@ -364,6 +362,39 @@ const featureExamples: PlaygroundExample[] = [
   <h1>Known prefix matched</h1>
   <p>The remaining <code>/details</code> residue can be handled by a nested route.</p>
 </au-route>
+<au-route path="*" fallback>
+  <h1>Nothing matched this URL</h1>
+</au-route>`,
+  }),
+  routerExample({
+    id: 'wildcard-paths',
+    title: 'Wildcard paths',
+    description: 'Capture one segment with * or consume the complete remaining path with **.',
+    initialPath: '/date/2026-08-16/summary',
+    appHtml: `<nav>
+  <a au-link.bind="{
+    target: 'date/*/summary',
+    params: { '*': '2026-08-16' }
+  }">
+    Daily summary
+  </a>
+  <a au-link.bind="{
+    target: 'folders/*',
+    params: { '*': 'guides and api' }
+  }">
+    Folder guide
+  </a>
+  <a au-link.bind="{
+    target: 'files/**',
+    params: { '**': 'guides/router/start.html' }
+  }">
+    Terminal file path
+  </a>
+</nav>
+<au-route path="date/*/summary" exact>
+  <h1>Daily summary</h1>
+  <p>Captured date: <code>\${$params['*']}</code></p>
+</au-route>
 <au-route path="folders/*" exact>
   <h1>Single folder route</h1>
   <p>Captured folder: <code>\${$params['*']}</code></p>
@@ -377,9 +408,6 @@ const featureExamples: PlaygroundExample[] = [
   <au-route path="/" exact>
     <p>The nested route receives <code>/</code>.</p>
   </au-route>
-</au-route>
-<au-route path="*" fallback>
-  <h1>Nothing matched this URL</h1>
 </au-route>`,
   }),
   routerExample({

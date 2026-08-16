@@ -11,6 +11,7 @@ import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
+import { FeatureWildcardPage } from './feature-wildcard-page';
 import { OverviewPage } from './overview-page';
 import template from './docs-app.html?raw';
 
@@ -29,6 +30,7 @@ export class DocsApp {
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,
+      FeatureWildcardPage,
       FeatureSwapPage,
       FeatureAnimationPage,
       FeatureSharedStatePage,

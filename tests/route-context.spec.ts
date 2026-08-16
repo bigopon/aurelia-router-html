@@ -482,6 +482,21 @@ run('A2 single wildcard captures and decodes its segment symmetrically with href
   assert.equal(folder.residue, '/');
 });
 
+run('A2 single wildcard captures a middle segment before a static suffix', () => {
+  const root = new RouteContext(null, '*');
+  const summary = root.createChild('/date/*/summary', { exact: true }) as RouteContext;
+  const href = root.href(summary, { '*': '2026-08-16' });
+
+  assert.equal(href, '/date/2026-08-16/summary');
+  root.apply(href);
+  assert.equal(summary.active, true);
+  assert.deepEqual({ ...summary.$params }, { '*': '2026-08-16' });
+  assert.equal(summary.residue, '/');
+
+  root.apply('/date/2026-08-16/details');
+  assert.equal(summary.active, false);
+});
+
 run('A2 nested wildcard captures stay local to their route contexts', () => {
   const root = new RouteContext(null, '*');
   const team = root.createChild('/teams/*') as RouteContext;
@@ -514,6 +529,10 @@ run('A2 duplicate anonymous wildcards in one pattern are rejected', () => {
   assert.throws(
     () => root.createChild('/files/**/**'),
     /only one "\*\*" wildcard/,
+  );
+  assert.throws(
+    () => root.href('/date/*/summary/*/errors', { '*': '2026-08-16', '*2': 'orders' }),
+    /Use named parameters when more than one segment varies/,
   );
 });
 

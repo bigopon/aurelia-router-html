@@ -468,18 +468,7 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   }
 
   const parts = pattern.split('/').filter(Boolean);
-  const wildcardCount = parts.filter(part => part === '*').length;
-  const restWildcardCount = parts.filter(part => part === '**').length;
-  if (wildcardCount > 1) {
-    throw new Error(`A route pattern can contain only one "*" wildcard: "${pattern}".`);
-  }
-  if (restWildcardCount > 1) {
-    throw new Error(`A route pattern can contain only one "**" wildcard: "${pattern}".`);
-  }
   const restIndex = parts.indexOf('**');
-  if (restIndex >= 0 && restIndex !== parts.length - 1) {
-    throw new Error(`The rest wildcard must be the final segment in route pattern "${pattern}".`);
-  }
   const consumesRest = restIndex >= 0;
   const routeParts = consumesRest ? parts.slice(0, -1) : parts;
   let compiled = '';
@@ -554,9 +543,23 @@ function normalizePattern(pattern: string): string {
   }
 
   const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+  const normalized = withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
+  const parts = normalized.split('/').filter(Boolean);
+  const wildcardCount = parts.filter(part => part === '*').length;
+  const restWildcardCount = parts.filter(part => part === '**').length;
+  if (wildcardCount > 1) {
+    throw new Error(`A route pattern can contain only one "*" wildcard: "${normalized}". Use named parameters when more than one segment varies.`);
+  }
+  if (restWildcardCount > 1) {
+    throw new Error(`A route pattern can contain only one "**" wildcard: "${normalized}". Use named parameters when more than one segment varies.`);
+  }
+  const restIndex = parts.indexOf('**');
+  if (restIndex >= 0 && restIndex !== parts.length - 1) {
+    throw new Error(`The rest wildcard must be the final segment in route pattern "${normalized}".`);
+  }
+  return normalized;
 }
 
 function stripCurrentPrefix(value: string): string {

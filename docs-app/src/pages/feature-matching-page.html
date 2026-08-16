@@ -1,9 +1,9 @@
 <section class="route-stack">
   <header class="page-header">
     <div>
-      <h2>Exact, Fallback &amp; Wildcard Paths</h2>
+      <h2>Exact &amp; Fallback Matching</h2>
       <p class="page-copy">
-        Control complete matches, no-match recovery, and routes that capture one or every remaining URL segment.
+        Decide whether a route accepts child residue and what renders when every regular sibling misses.
       </p>
     </div>
   </header>
@@ -16,27 +16,17 @@
 &lt;au-route path="offers/:id?" exact&gt;ID optional&lt;/au-route&gt;
 &lt;au-route path="*" fallback&gt;
   &lt;au-route path="details" exact&gt;...&lt;/au-route&gt;
-&lt;/au-route&gt;
-&lt;au-route path="folders/*" exact&gt;
-  Folder: $<span>{$params['*']}</span>
-&lt;/au-route&gt;
-&lt;au-route path="files/**"&gt;
-  Path presented: $<span>{$route.$path}</span>
-  Terminal segment: $<span>{$params['**']}</span>
-  Residue after **: $<span>{$route.residue}</span>
-  &lt;au-route path="/" exact&gt;Remaining URL is /&lt;/au-route&gt;
 &lt;/au-route&gt;</pre>
     </section>
     <section>
       <h3>Meaning</h3>
-      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>:id</code> requires a segment, while <code>:id?</code> makes that segment optional. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches. <code>*</code> consumes one segment and exposes it as <code>$params['*']</code>. A terminal <code>**</code> consumes the complete remaining residue, exposes it as <code>$params['**']</code>, and gives its children <code>/</code>.</p>
+      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>:id</code> requires a segment, while <code>:id?</code> makes that segment optional. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches in that parent context.</p>
     </section>
     <section>
       <h3>Apply it</h3>
       <pre class="code-block" syntax-html>&lt;a au-link="products/camera"&gt;Camera&lt;/a&gt;
-&lt;a au-link.bind="{ target: 'folders/*', params: { '*': folder } }"&gt;Folder&lt;/a&gt;
-&lt;a au-link="files/guides/router/start.html"&gt;Router guide&lt;/a&gt;</pre>
-      <p>Add <code>exact</code> where extra child segments must not be accepted. Add <code>?</code> only when a named parameter may be omitted. Use <code>fallback</code> for a branch that appears only after regular siblings miss. Use <code>*</code> for one captured segment and end a path with <code>**</code> when that route should terminally own every remaining segment. Captures are decoded and scoped to the route that declares them. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent to <code>*</code> and <code>**</code>.</p>
+&lt;a au-link.bind="{ target: 'offers', options: { exact: true } }"&gt;Offers&lt;/a&gt;</pre>
+      <p>Add <code>exact</code> where extra child segments must not be accepted. Add <code>?</code> only when a named parameter may be omitted. Use <code>fallback</code> for a branch that appears only after regular siblings miss.</p>
     </section>
   </div>
 

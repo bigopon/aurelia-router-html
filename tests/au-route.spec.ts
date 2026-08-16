@@ -175,6 +175,45 @@ describe('au-route optional parameters', function () {
 });
 
 describe('au-route terminal path capture', function () {
+  it('rejects an au-link target containing multiple anonymous wildcards', function () {
+    assert.throws(
+      () => createFixture(
+        '<a au-link.bind="link">Order errors</a>',
+        class App {
+          public link = {
+            target: 'date/*/summary/*/errors',
+            params: { '*': '2026-08-16', '*2': 'orders' },
+          };
+        },
+        [Routing],
+      ),
+      /A route pattern can contain only one "\*" wildcard.*Use named parameters/,
+    );
+  });
+
+  it('captures a single wildcard used between static path segments', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/date/*/summary" exact>
+        <span data-date-summary>\${$params['*']}</span>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/date/august%2016/summary');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-date-summary]')?.textContent, 'august 16');
+
+      router.load('/date/august%2016/details');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-date-summary]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('generates an au-link from the same single-wildcard parameter used by matching', async function () {
     const fixture = await createFixture(
       `<a data-folder-link au-link.bind="folderLink">Folder</a>

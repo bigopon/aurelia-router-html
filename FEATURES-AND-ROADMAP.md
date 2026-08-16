@@ -471,7 +471,7 @@ Wildcard captures follow these rules:
 - a prefix-only terminal match exposes `''` for `$params['**']`;
 - href generation uses the same `'*'` and `'**'` parameter keys and percent-encodes their values;
 - captures remain local to the `<au-route>` that declared the wildcard;
-- a pattern cannot contain multiple anonymous wildcards of the same kind because one parameter key could not represent them independently.
+- a pattern cannot contain multiple anonymous wildcards of the same kind because one parameter key could not represent them independently; use named `:params` when multiple segments vary.
 
 ```ts
 route.href('/folders/*', { '*': 'guides' });

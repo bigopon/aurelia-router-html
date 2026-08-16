@@ -1,0 +1,53 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Wildcard Paths</h2>
+      <p class="page-copy">
+        Capture one dynamic segment or give a route ownership of every segment that remains.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="date/*/summary" exact&gt;
+  Date: $<span>{$params['*']}</span>
+&lt;/au-route&gt;
+
+&lt;au-route path="files/**"&gt;
+  Path presented: $<span>{$route.$path}</span>
+  Terminal segment: $<span>{$params['**']}</span>
+  Residue after **: $<span>{$route.residue}</span>
+  &lt;au-route path="/" exact&gt;Remaining URL is /&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p><code>*</code> consumes exactly one decoded segment wherever it appears in a pattern and exposes it as <code>$params['*']</code>. <code>**</code> must be the final segment; it consumes the complete remaining path, exposes it as <code>$params['**']</code>, and gives nested routes the index residue <code>/</code>. A pattern can contain only one anonymous wildcard of each kind because each capture has one parameter key.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-html>&lt;a au-link.bind="{
+  target: 'date/*/summary',
+  params: { '*': selectedDate }
+}"&gt;
+  Daily summary
+&lt;/a&gt;
+
+&lt;a au-link.bind="{
+  target: 'files/**',
+  params: { '**': filePath }
+}"&gt;
+  Open file
+&lt;/a&gt;
+
+&lt;au-route path="date/:date/summary/:category/errors"&gt;
+  ...
+&lt;/au-route&gt;</pre>
+      <p>Use <code>*</code> when exactly one segment varies and <code>**</code> when the routed view owns an arbitrary-depth suffix. When multiple segments vary, give them names such as <code>:date</code> and <code>:category</code>. Captures are decoded and scoped to the route that declares them. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent to <code>*</code> and <code>**</code>.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="wildcard-paths" embedded.bind="true"></playground-page>
+</section>

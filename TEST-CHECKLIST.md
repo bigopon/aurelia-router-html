@@ -44,8 +44,9 @@
 - [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
 - [x] `A2` `*` and `/*` normalize to the same one-segment wildcard behavior.
 - [x] `A2` `*` captures one decoded segment as route-local `$params['*']` and round-trips through href and `au-link` generation.
+- [x] `A2` `*` captures a middle segment between static path segments such as `date/*/summary`.
 - [x] `A2` Nested wildcard captures remain scoped to the route context that consumed each segment.
-- [x] `A2` Malformed wildcard encoding fails before route state changes, and duplicate anonymous wildcards are rejected.
+- [x] `A2` Malformed wildcard encoding fails before route state changes, and duplicate anonymous wildcards are rejected from route declarations and `au-link` targets with guidance to use named parameters.
 - [x] `A2` `**` and `/**` consume the complete remaining residue and nested index routes receive `/`.
 - [x] `A2` `**` capture and href generation round-trip encoded multi-segment values.
 - [x] `A2` A terminal `**` path exposes only its consumed wildcard segment as `$params['**']`.
@@ -74,8 +75,9 @@
 - [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.
 - [x] A detached and reattached embedded playground recreates its compiler worker and iframe preview.
-- [x] The matching docs present terminal `**` paths alongside exact and fallback behavior and run a nested index child after the residue is consumed.
-- [x] The matching playground renders the decoded `$params['*']` value captured by a single-wildcard route.
+- [x] Exact/fallback and wildcard behavior have separate overview cards, focused pages, and editable playground projects.
+- [x] The wildcard docs present middle-segment `*` and terminal `**` captures and run a nested index child after terminal residue is consumed.
+- [x] The wildcard playground renders decoded `$params['*']` values captured at the end and in the middle of a pattern.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.
