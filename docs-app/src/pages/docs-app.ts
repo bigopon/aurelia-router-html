@@ -1,7 +1,7 @@
 import { resolve } from 'aurelia';
 import { IRouteCoordinator } from '../../../router/coordinator';
 import { docNav } from '../data/docs-nav';
-import { DocsState } from '../state/docs-state';
+import { FeatureActiveLinksPage } from './feature-active-links-page';
 import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
@@ -27,6 +27,7 @@ export class DocsApp {
       FeatureNestedPage,
       FeatureParamsPage,
       FeatureUrlStatePage,
+      FeatureActiveLinksPage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,
@@ -38,23 +39,5 @@ export class DocsApp {
   } as const;
 
   public readonly nav = docNav;
-  public readonly state = resolve(DocsState);
-  private readonly router = resolve(IRouteCoordinator);
-  private disposePath: (() => void) | null = null;
-
-  public binding(): void {
-    this.disposePath = this.router.subscribe(path => {
-      this.state.setPath(path);
-    });
-  }
-
-  public unbinding(): void {
-    this.disposePath?.();
-    this.disposePath = null;
-  }
-
-  public isActive(path: string): boolean {
-    return this.state.currentPath === path
-      || (path !== '/' && this.state.currentPath.startsWith(`${path}/`));
-  }
+  public readonly route = resolve(IRouteCoordinator).root;
 }

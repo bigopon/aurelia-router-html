@@ -123,7 +123,7 @@ test.describe('router HTML docs features', () => {
     await page.goto('/');
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(11);
+    await expect(features).toHaveCount(12);
     const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="/products" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="/files/**">');
@@ -138,14 +138,15 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="/reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(11);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(12);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(11);
+    await expect(editLinks).toHaveCount(12);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
       '/playground/url-state',
+      '/playground/active-links',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
       '/playground/exact-fallback',
@@ -256,6 +257,7 @@ test.describe('router HTML docs features', () => {
       ['nested', 'path="/account"'],
       ['params', ':userId'],
       ['url-state', "$query.get('sort')"],
+      ['active-links', "$route.isActive('/reviews'"],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
       ['matching', 'path="/files/**"'],
@@ -353,6 +355,48 @@ test.describe('router HTML docs features', () => {
     const configurationSource = details.locator('pre').nth(1);
     await expect(configurationSource.locator('.syntax-string')).not.toHaveCount(0);
     await expect(configurationSource.locator('.syntax-comment')).not.toHaveCount(0);
+  });
+
+  test('active links update pathname, query, hash, and docs navigation state', async ({ page }) => {
+    await page.goto('/features/active-links');
+
+    const activeDocsLink = page.getByRole('link', { name: 'Active Links', exact: true });
+    await expect(activeDocsLink).toHaveClass(/is-active/);
+    await expect(activeDocsLink).toHaveAttribute('aria-current', 'page');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    const overview = frame.getByRole('link', { name: 'Overview' });
+    const reviews = frame.getByRole('link', { name: 'Reviews', exact: true });
+    const recent = frame.getByRole('link', { name: 'Recent reviews' });
+    const comments = frame.getByRole('link', { name: 'Review comments' });
+
+    await expect(reviews).toHaveClass(/selected/);
+    await expect(reviews).toHaveAttribute('aria-current', 'page');
+    await expect(recent).toHaveClass(/selected/);
+    await expect(comments).toHaveClass(/selected/);
+
+    await overview.click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/ice-cream/overview');
+    await expect(overview).toHaveClass(/selected/);
+    await expect(overview).toHaveAttribute('aria-current', 'page');
+    await expect(reviews).not.toHaveClass(/selected/);
+    await expect(recent).not.toHaveClass(/selected/);
+    await expect(comments).not.toHaveClass(/selected/);
+
+    await page.getByRole('link', { name: 'Basic Routes', exact: true }).click();
+    await expect(page).toHaveURL(/\/features\/basic$/);
+    await expect(page.getByRole('link', { name: 'Basic Routes', exact: true })).toHaveClass(/is-active/);
+    await expect(activeDocsLink).not.toHaveClass(/is-active/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/features\/active-links$/);
+    await expect(activeDocsLink).toHaveClass(/is-active/);
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/features\/basic$/);
+    await expect(page.getByRole('link', { name: 'Basic Routes', exact: true })).toHaveClass(/is-active/);
   });
 
   test('exact, fallback, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {

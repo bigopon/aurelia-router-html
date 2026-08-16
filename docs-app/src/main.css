@@ -72,6 +72,8 @@ input {
 }
 
 .sidebar {
+  grid-column: 1;
+  grid-row: 1;
   position: sticky;
   top: 26px;
   height: calc(100vh - 52px);
@@ -181,6 +183,8 @@ button:hover {
 }
 
 .main-panel {
+  grid-column: 2;
+  grid-row: 1;
   padding: 28px;
   display: grid;
   gap: 22px;
@@ -802,8 +806,15 @@ button.primary,
   }
 
   .sidebar {
+    grid-column: 1;
+    grid-row: 1;
     position: static;
     height: auto;
+  }
+
+  .main-panel {
+    grid-column: 1;
+    grid-row: 2;
   }
 
   .nav-list {

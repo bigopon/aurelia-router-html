@@ -46,6 +46,10 @@
 - [x] `A2` A prefixed rest wildcard such as `/files/**` consumes its complete suffix.
 - [x] `A2` The docs app demonstrates exact, prefix, and fallback outcomes from one nested parent context.
 - [x] `A2` The matching page uses its editable project source as the single input for the rendered preview.
+- [x] `A4` Active links share registered-target and parameter resolution with href generation for static, nested, index, parameterized, and terminal routes.
+- [x] `A4` Active links use pathname prefix matching by default, support exact matching, and treat `/` as an exact target.
+- [x] `A4` Query and hash comparisons are independently opt-in and react in Aurelia template bindings.
+- [x] `A4` Disposed dynamic route contexts cannot remain active-link targets.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -61,6 +65,7 @@
 - [x] The matching docs present terminal `**` paths alongside exact and fallback behavior and run a nested index child after the residue is consumed.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Every focused feature page embeds its matching playground project and has no separate show-source control.
+- [x] The active-links example updates selected classes and `aria-current`, and the docs sidebar uses the public `isActive()` API.
 - [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.
 - [x] Virtual paths normalize Windows separators, dot segments, extensionless imports, and index imports.
 - [x] A conventional `main.ts`, `app.ts`, `app.html`, and `app.css` project compiles in the browser worker.

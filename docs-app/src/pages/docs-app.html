@@ -1,28 +1,5 @@
 <div class="docs-shell">
   <div class="docs-grid">
-    <aside class="sidebar">
-      <div class="brand-stack">
-        <div class="brand-row">
-          <img class="brand-mark" src="/router-html-icon-128.png" alt="Router HTML" />
-          <div>
-            <h1>Router HTML</h1>
-            <div class="muted">A html based router for Aurelia</div>
-          </div>
-        </div>
-      </div>
-
-      <nav class="nav-list">
-        <a
-          repeat.for="item of nav"
-          href.bind="item.path"
-          class="nav-item"
-          class.is-active.bind="isActive(item.path)"
-          aria-current.bind="isActive(item.path) ? 'page' : null">
-          <strong>${item.title}</strong>
-        </a>
-      </nav>
-    </aside>
-
     <main class="main-panel">
       <au-route path="/">
         <overview-page></overview-page>
@@ -42,6 +19,10 @@
 
       <au-route path="/features/url-state">
         <feature-url-state-page></feature-url-state-page>
+      </au-route>
+
+      <au-route path="/features/active-links">
+        <feature-active-links-page></feature-active-links-page>
       </au-route>
 
       <au-route path="/features/conditional">
@@ -76,5 +57,27 @@
         <playground-page></playground-page>
       </au-route>
     </main>
+
+    <aside class="sidebar">
+      <div class="brand-stack">
+        <div class="brand-row">
+          <img class="brand-mark" src="/router-html-icon-128.png" alt="Router HTML" />
+          <div>
+            <h1>Router HTML</h1>
+            <div class="muted">A html based router for Aurelia</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <a
+          repeat.for="item of nav"
+          href.bind="item.path"
+          class.bind="route.isActive(item.path) ? 'nav-item is-active' : 'nav-item'"
+          aria-current.bind="route.isActive(item.path, {}, { exact: true }) ? 'page' : null">
+          <strong>${item.title}</strong>
+        </a>
+      </nav>
+    </aside>
   </div>
 </div>

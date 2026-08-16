@@ -5,7 +5,7 @@ export { RouteCoordinator, IRouteCoordinator } from './coordinator';
 export type { LoadOptions } from './coordinator';
 export { Routing } from './configuration';
 export { RouteContext, IRouteContext } from './route-context';
-export type { RouteParams, RouteState, SwapOrder } from './route-context';
+export type { RouteActiveOptions, RouteParams, RouteState, SwapOrder } from './route-context';
 export { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
 export type { RouteHrefOptions, RouteLocation, RouteQuery, RouteQueryInput, RouteQueryValue } from './route-location';
 export { IRouteAnimationOptions } from './animation';

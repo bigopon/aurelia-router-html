@@ -1,0 +1,36 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Active Links</h2>
+      <p class="page-copy">Generate a link and its selected state from the same registered route target.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;a
+  href.bind="$route.href('/reviews')"
+  class.bind="$route.isActive('/reviews') ? 'selected' : ''"
+  aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null"&gt;
+  Reviews
+&lt;/a&gt;</pre>
+    </section>
+    <section>
+      <h3>Meaning</h3>
+      <p><code>isActive()</code> resolves registered targets exactly like <code>href()</code>. Prefix matching keeps a parent link selected on deeper pages; <code>exact</code> limits selection to one complete pathname.</p>
+    </section>
+    <section>
+      <h3>Apply it</h3>
+      <p>Pathname matching is the default. Enable query or hash comparison only when that URL state represents a distinct navigation choice.</p>
+      <pre class="code-block" syntax-typescript>$route.isActive('/reviews', {}, {
+  query: { sort: 'recent' },
+  matchQuery: true,
+  hash: 'comments',
+  matchHash: true
+});</pre>
+    </section>
+  </div>
+
+  <playground-page example-id="active-links" embedded.bind="true"></playground-page>
+</section>

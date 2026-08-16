@@ -133,6 +133,62 @@ run('A3 href options can clear or selectively preserve URL state', () => {
   assert.equal(createRouteHref('/products', query, 'reviews', { preserveQuery: true, hash: null }), '/products?sort=popular&tag=cold');
 });
 
+run('A4 active links use prefix matching by default and exact matching on demand', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  const reviews = products.createChild('/reviews') as RouteContext;
+  products.createChild('/') as RouteContext;
+  root.apply('/products/ice-cream/reviews');
+
+  assert.equal(products.isActive(products), true);
+  assert.equal(products.isActive(products, {}, { exact: true }), false);
+  assert.equal(products.isActive(reviews, {}, { exact: true }), true);
+  assert.equal(root.isActive('/products/:productId', { productId: 'coffee' }), false);
+  assert.equal(root.isActive('/', {}, { exact: false }), false);
+});
+
+run('A4 active links generate nested, index, and terminal targets with active parameters', () => {
+  const root = new RouteContext(null, '*');
+  const files = root.createChild('/files/:bucket') as RouteContext;
+  const index = files.createChild('/') as RouteContext;
+  const terminal = files.createChild('/view/**') as RouteContext;
+
+  root.apply('/files/manuals');
+  assert.equal(files.isActive(index, {}, { exact: true }), true);
+
+  root.apply('/files/manuals/view/guides/start.html');
+  assert.equal(terminal.isActive(terminal, {}, { exact: true }), true);
+  assert.equal(terminal.isActive(terminal, { '**': 'guides/other.html' }, { exact: true }), false);
+});
+
+run('A4 query and hash comparison is opt-in for active links', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products') as RouteContext;
+  root.apply('/products', {
+    query: createRouteQuery('tag=cold&tag=sale&sort=popular'),
+    hash: 'reviews',
+  });
+
+  assert.equal(products.isActive(products, {}, { query: { sort: 'price' }, hash: 'details' }), true);
+  assert.equal(products.isActive(products, {}, {
+    query: { sort: 'popular', tag: ['cold', 'sale'] },
+    matchQuery: true,
+  }), true);
+  assert.equal(products.isActive(products, {}, { query: { sort: 'price' }, matchQuery: true }), false);
+  assert.equal(products.isActive(products, {}, { hash: 'reviews', matchHash: true }), true);
+  assert.equal(products.isActive(products, {}, { hash: 'details', matchHash: true }), false);
+});
+
+run('A4 disposed route contexts cannot remain active link targets', () => {
+  const root = new RouteContext(null, '*');
+  const generated = root.createChild('/generated') as RouteContext;
+  root.apply('/generated');
+  assert.equal(root.isActive(generated), true);
+
+  generated.dispose();
+  assert.equal(root.isActive(generated), false);
+});
+
 run('A2 disposed children stop receiving updates', () => {
   const root = new RouteContext(null, '*');
   const store = root.createChild('/store') as RouteContext;

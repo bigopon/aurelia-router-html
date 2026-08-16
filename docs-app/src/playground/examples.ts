@@ -197,6 +197,65 @@ const featureExamples: PlaygroundExample[] = [
 </au-route>`,
   }),
   routerExample({
+    id: 'active-links',
+    title: 'Active links',
+    description: 'Generate link URLs and selected navigation state from the same route targets.',
+    initialPath: '/products/ice-cream/reviews?sort=recent#comments',
+    appHtml: `<au-route path="/products/:productId">
+  <section class="active-link-demo">
+    <au-route path="/overview" exact>
+      <article>
+        <h1>\${$params.productId} overview</h1>
+      </article>
+    </au-route>
+    <au-route path="/reviews" exact>
+      <article>
+        <h1>\${$params.productId} reviews</h1>
+        <p>Sort: \${$query.get('sort') || 'default'}</p>
+        <p>Section: \${$hash || 'none'}</p>
+      </article>
+    </au-route>
+    <nav>
+      <a
+        href.bind="$route.href('/overview')"
+        class.bind="$route.isActive('/overview', {}, { exact: true }) ? 'selected' : ''"
+        aria-current.bind="$route.isActive('/overview', {}, { exact: true }) ? 'page' : null">
+        Overview
+      </a>
+      <a
+        href.bind="$route.href('/reviews')"
+        class.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'selected' : ''"
+        aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null">
+        Reviews
+      </a>
+      <a
+        href.bind="$route.href('/reviews', {}, { query: { sort: 'recent' } })"
+        class.bind="$route.isActive('/reviews', {}, { query: { sort: 'recent' }, matchQuery: true }) ? 'selected' : ''">
+        Recent reviews
+      </a>
+      <a
+        href.bind="$route.href('/reviews', {}, { hash: 'comments' })"
+        class.bind="$route.isActive('/reviews', {}, { hash: 'comments', matchHash: true }) ? 'selected' : ''">
+        Review comments
+      </a>
+    </nav>
+  </section>
+</au-route>`,
+    appCss: `.active-link-demo {
+  display: flex;
+  flex-direction: column;
+}
+
+.active-link-demo nav {
+  order: -1;
+}
+
+.active-link-demo a.selected {
+  color: white;
+  background: #08766b;
+}`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

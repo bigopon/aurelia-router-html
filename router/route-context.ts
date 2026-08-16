@@ -1,5 +1,6 @@
 import { DI } from '@aurelia/kernel';
-import { createRouteHref, emptyRouteQuery, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
+import { computed } from '@aurelia/runtime';
+import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 
 export interface RouteState {
   readonly active: boolean;
@@ -13,6 +14,11 @@ export interface RouteState {
 export type RouteContextCallback = (state: RouteState) => void;
 export type SwapOrder = 'attach-next-detach-current' | 'detach-current-attach-next' | 'parallel';
 export type RouteParams = Readonly<Record<string, string | number>>;
+export interface RouteActiveOptions extends RouteHrefOptions {
+  exact?: boolean;
+  matchQuery?: boolean;
+  matchHash?: boolean;
+}
 
 export interface RouteContextOptions {
   exact?: boolean;
@@ -35,6 +41,7 @@ export interface IRouteContext {
   readonly fullPath: string;
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
+  isActive(target?: string | IRouteContext, params?: RouteParams, options?: RouteActiveOptions): boolean;
   getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
   apply(path: string, location?: Pick<RouteLocation, 'query' | 'hash'>): void;
@@ -107,6 +114,29 @@ export class RouteContext implements IRouteContext {
   }
 
   public href(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteHrefOptions = {}): string {
+    return this._hrefFormatter(this._createHref(target, params, options));
+  }
+
+  public isActive(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteActiveOptions = {}): boolean {
+    if (target instanceof RouteContext && target._disposed) {
+      return false;
+    }
+
+    const targetLocation = parseRouteLocation(this._createHref(target, params, options));
+    const currentPath = this.root.$path;
+    const pathMatches = options.exact || targetLocation.pathname === '/'
+      ? currentPath === targetLocation.pathname
+      : currentPath === targetLocation.pathname || currentPath.startsWith(`${targetLocation.pathname}/`);
+    if (!pathMatches) {
+      return false;
+    }
+    if (options.matchQuery && !queryEqual(this.$query, targetLocation.query)) {
+      return false;
+    }
+    return !options.matchHash || this.$hash === targetLocation.hash;
+  }
+
+  private _createHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string {
     const targetContext = typeof target === 'string'
       ? this._findContext(target)
       : target;
@@ -126,7 +156,7 @@ export class RouteContext implements IRouteContext {
     }
     Object.assign(resolvedParams, params);
     const pathname = generateHref(targetContext.fullPath, resolvedParams);
-    return this._hrefFormatter(createRouteHref(pathname, this.$query, this.$hash, options));
+    return createRouteHref(pathname, this.$query, this.$hash, options);
   }
 
   public getPaths(includeSelf: boolean = true): readonly string[] {
@@ -353,6 +383,11 @@ export class RouteContext implements IRouteContext {
   }
 }
 
+computed<RouteContext>({ deps: ['root.$path', '$query', '$hash'] })(
+  RouteContext.prototype.isActive,
+  { kind: 'method' } as ClassMethodDecoratorContext<RouteContext>,
+);
+
 function compilePattern(pattern: string, exact: boolean, transparentRoot: boolean): RegExp {
   if (pattern === '*') {
     if (transparentRoot) {
@@ -504,6 +539,14 @@ function shallowEqual(a: Readonly<Record<string, string>>, b: Readonly<Record<st
   }
 
   return true;
+}
+
+function queryEqual(left: RouteQuery, right: RouteQuery): boolean {
+  const leftParams = new URLSearchParams(left.toString());
+  const rightParams = new URLSearchParams(right.toString());
+  leftParams.sort();
+  rightParams.sort();
+  return leftParams.toString() === rightParams.toString();
 }
 
 function escapeRegex(value: string): string {

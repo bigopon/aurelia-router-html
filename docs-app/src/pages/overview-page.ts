@@ -45,6 +45,13 @@ export class OverviewPage {
       syntax: '<au-route path="/products/:productId">\n  Sort: ${$query.get(\'sort\')}\n  Section: ${$hash}\n</au-route>',
     },
     {
+      title: 'Active Links',
+      summary: 'Generate hrefs and selected navigation state from the same registered route target.',
+      path: '/features/active-links',
+      playgroundId: 'active-links',
+      syntax: '<a\n  href.bind="$route.href(\'/reviews\')"\n  class.bind="$route.isActive(\'/reviews\') ? \'selected\' : \'\'">\n  Reviews\n</a>',
+    },
+    {
       title: 'Conditional Routes',
       summary: 'Add and remove routes with Aurelia template controllers.',
       path: '/features/conditional',

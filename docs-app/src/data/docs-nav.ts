@@ -43,6 +43,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A3',
   },
   {
+    id: 'active-links',
+    title: 'Active Links',
+    path: '/features/active-links',
+    summary: 'Generate links and selected navigation state from the same registered route target.',
+    badge: 'A4',
+  },
+  {
     id: 'conditional',
     title: 'Conditional',
     path: '/features/conditional',

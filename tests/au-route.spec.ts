@@ -194,6 +194,59 @@ describe('route URL state', function () {
   });
 });
 
+describe('active route links', function () {
+  it('updates prefix, exact, query, hash, and aria-current bindings after navigation', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/products/:productId">
+        <au-route path="/reviews"><span data-reviews>Reviews</span></au-route>
+        <au-route path="/specs"><span data-specs>Specs</span></au-route>
+        <nav>
+          <a data-parent class.bind="$route.isActive($route) ? 'is-active' : ''">Product</a>
+          <a data-reviews-link
+            class.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'is-active' : ''"
+            aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null">Reviews</a>
+          <a data-query-link class.bind="$route.isActive('/reviews', {}, {
+            query: { sort: 'recent' },
+            matchQuery: true
+          }) ? 'is-active' : ''">Recent</a>
+          <a data-hash-link class.bind="$route.isActive('/reviews', {}, {
+            hash: 'comments',
+            matchHash: true
+          }) ? 'is-active' : ''">Comments</a>
+        </nav>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products/ice-cream/reviews?sort=recent#comments');
+      await tasksSettled();
+
+      const parent = fixture.appHost.querySelector('[data-parent]')!;
+      const reviews = fixture.appHost.querySelector('[data-reviews-link]')!;
+      const query = fixture.appHost.querySelector('[data-query-link]')!;
+      const hash = fixture.appHost.querySelector('[data-hash-link]')!;
+      assert.strictEqual(parent.classList.contains('is-active'), true);
+      assert.strictEqual(reviews.classList.contains('is-active'), true);
+      assert.strictEqual(reviews.getAttribute('aria-current'), 'page');
+      assert.strictEqual(query.classList.contains('is-active'), true);
+      assert.strictEqual(hash.classList.contains('is-active'), true);
+
+      router.load('/products/ice-cream/specs');
+      await tasksSettled();
+      assert.strictEqual(parent.classList.contains('is-active'), true);
+      assert.strictEqual(reviews.classList.contains('is-active'), false);
+      assert.strictEqual(reviews.hasAttribute('aria-current'), false);
+      assert.strictEqual(query.classList.contains('is-active'), false);
+      assert.strictEqual(hash.classList.contains('is-active'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route animation scheduling', function () {
   it('uses the injected platform frame callback and runtime task scheduler', async function () {
     assert.strictEqual(globalThis.requestAnimationFrame, undefined);
