@@ -124,7 +124,9 @@ test.describe('router HTML docs features', () => {
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
     await expect(features).toHaveCount(10);
-    await expect(features.filter({ hasText: 'Exact & Fallback' }).locator('pre')).toContainText('<au-route path="/products" exact>');
+    const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
+    await expect(matchingSyntax).toContainText('<au-route path="/products" exact>');
+    await expect(matchingSyntax).toContainText('<au-route path="/files/**">');
     const swapSyntax = features.filter({ hasText: 'Swap Order' }).locator('pre');
     await expect(swapSyntax).toContainText('swap-order="parallel"');
     await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
@@ -178,7 +180,7 @@ test.describe('router HTML docs features', () => {
   test('syntax highlighting gives valued and valueless attributes the same color', async ({ page }) => {
     await page.goto('/');
 
-    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact & Fallback' }).locator('pre');
+    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
     const pathAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^path$/ }).first();
     const exactAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^exact$/ });
     const fallbackAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^fallback$/ });
@@ -229,7 +231,7 @@ test.describe('router HTML docs features', () => {
       ['params', ':userId'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
-      ['matching', 'fallback'],
+      ['matching', 'path="/files/**"'],
       ['swap', 'swap-order="parallel"'],
       ['animation', 'animate'],
       ['shared-state', 'state.totalQty'],
@@ -263,7 +265,7 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Security' })).toBeVisible();
   });
 
-  test('exact, fallback, and parallel swap fixtures run inside their pages', async ({ page }) => {
+  test('exact, fallback, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {
     await page.goto('/features/matching');
     let playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
@@ -271,6 +273,12 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
     await frame.getByRole('link', { name: 'Missing' }).click();
     await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Terminal file path' }).click();
+    await expect(frame.getByRole('heading', { name: 'Terminal file route' })).toBeVisible();
+    await expect(frame.getByText('Path presented: /files/guides/router/start.html')).toBeVisible();
+    await expect(frame.getByText('Terminal segment: guides/router/start.html')).toBeVisible();
+    await expect(frame.getByText('Residue after **: /')).toBeVisible();
+    await expect(frame.getByText('The nested route receives /')).toBeVisible();
 
     await page.goto('/features/swap');
     playground = page.locator('.playground-page.is-embedded');

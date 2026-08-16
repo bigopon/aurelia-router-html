@@ -1,9 +1,9 @@
 <section class="route-stack">
   <header class="page-header">
     <div>
-      <h2>Exact &amp; Fallback</h2>
+      <h2>Exact, Fallback &amp; Terminal Paths</h2>
       <p class="page-copy">
-        Keep prefix routing flexible while making complete matches and not-found branches explicit.
+        Control complete matches, no-match recovery, and routes that own every remaining URL segment.
       </p>
     </div>
   </header>
@@ -15,15 +15,20 @@
 &lt;au-route path="*" fallback&gt;
   &lt;au-route path="/details" exact&gt;...&lt;/au-route&gt;
 &lt;/au-route&gt;
-&lt;au-route path="**"&gt;Consume the complete residue&lt;/au-route&gt;</pre>
+&lt;au-route path="/files/**"&gt;
+  Path presented: $<span>{$route.$path}</span>
+  Terminal segment: $<span>{$params['**']}</span>
+  Residue after **: $<span>{$route.residue}</span>
+  &lt;au-route path="/" exact&gt;Remaining URL is /&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
     </section>
     <section>
       <h3>Meaning</h3>
-      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches. <code>*</code> consumes one segment and forwards the rest; <code>**</code> consumes the complete residue.</p>
+      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches. A terminal <code>**</code> path consumes the complete remaining residue, exposes that segment as <code>$params['**']</code>, and gives its children <code>/</code>.</p>
     </section>
     <section>
       <h3>Apply it</h3>
-      <p>Add <code>exact</code> where extra child segments must not be accepted. Use <code>*</code> when nested routes need the remaining URL, or <code>**</code> for a terminal catch-all whose children should receive <code>/</code>. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent.</p>
+      <p>Add <code>exact</code> where extra child segments must not be accepted. Use <code>fallback</code> for a branch that appears only after regular siblings miss. End a path with <code>**</code> when that route should terminally own every remaining segment. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent to <code>*</code> and <code>**</code>.</p>
     </section>
   </div>
 

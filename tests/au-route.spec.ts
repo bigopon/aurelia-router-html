@@ -117,6 +117,30 @@ describe('au-route index path aliases', function () {
   }
 });
 
+describe('au-route terminal path capture', function () {
+  it('exposes the segment consumed by ** without the static prefix', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/files/**">
+        <span data-terminal>\${$params['**']}</span>
+        <span data-residue>\${$route.residue}</span>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/files/guides/router/start.html');
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-terminal]')?.textContent, 'guides/router/start.html');
+      assert.strictEqual(fixture.appHost.querySelector('[data-residue]')?.textContent, '/');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route animation scheduling', function () {
   it('uses the injected platform frame callback and runtime task scheduler', async function () {
     assert.strictEqual(globalThis.requestAnimationFrame, undefined);

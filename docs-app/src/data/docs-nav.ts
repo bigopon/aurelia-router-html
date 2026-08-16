@@ -51,9 +51,9 @@ export const docNav: DocNavItem[] = [
   },
   {
     id: 'matching',
-    title: 'Exact & Fallback',
+    title: 'Exact, Fallback & Terminal',
     path: '/features/matching',
-    summary: 'Complete residue matching and parent-aware fallback branches.',
+    summary: 'Complete matches, parent-aware fallbacks, and terminal paths that consume the remaining URL.',
     badge: 'A2',
   },
   {

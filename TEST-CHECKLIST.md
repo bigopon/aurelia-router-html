@@ -41,6 +41,7 @@
 - [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
 - [x] `A2` `*` and `/*` normalize to the same one-segment wildcard behavior.
 - [x] `A2` `**` and `/**` consume the complete remaining residue and nested index routes receive `/`.
+- [x] `A2` A terminal `**` path exposes only its consumed wildcard segment as `$params['**']`.
 - [x] `A2` A non-index child beneath `**` cannot match segments already consumed by the rest wildcard.
 - [x] `A2` A prefixed rest wildcard such as `/files/**` consumes its complete suffix.
 - [x] `A2` The docs app demonstrates exact, prefix, and fallback outcomes from one nested parent context.
@@ -52,6 +53,7 @@
 - [x] Editing source queues an automatic run with a visible countdown while the explicit Run action remains available.
 - [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.
+- [x] The matching docs present terminal `**` paths alongside exact and fallback behavior and run a nested index child after the residue is consumed.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Every focused feature page embeds its matching playground project and has no separate show-source control.
 - [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.

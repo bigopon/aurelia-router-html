@@ -175,13 +175,14 @@ const featureExamples: PlaygroundExample[] = [
   }),
   routerExample({
     id: 'exact-fallback',
-    title: 'Exact and fallback matching',
-    description: 'Use a complete match first and show a fallback only when regular siblings miss.',
+    title: 'Exact, fallback, and terminal matching',
+    description: 'Choose complete matches, recover from misses, or consume every remaining URL segment.',
     initialPath: '/products',
     appHtml: `<nav>
   <a href="/products">Products</a>
   <a href="/products/camera">Camera</a>
   <a href="/known/details">Known details</a>
+  <a href="/files/guides/router/start.html">Terminal file path</a>
   <a href="/missing">Missing</a>
 </nav>
 <au-route path="/products" exact>
@@ -193,6 +194,15 @@ const featureExamples: PlaygroundExample[] = [
 <au-route path="/known">
   <h1>Known prefix matched</h1>
   <p>The remaining <code>/details</code> residue can be handled by a nested route.</p>
+</au-route>
+<au-route path="/files/**">
+  <h1>Terminal file route</h1>
+  <p>Path presented: <code>\${$route.$path}</code></p>
+  <p>Terminal segment: <code>\${$params['**']}</code></p>
+  <p>Residue after <code>**</code>: <code>\${$route.residue}</code></p>
+  <au-route path="/" exact>
+    <p>The nested route receives <code>/</code>.</p>
+  </au-route>
 </au-route>
 <au-route path="*" fallback>
   <h1>Nothing matched this URL</h1>

@@ -358,8 +358,8 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
 
   if (consumesRest) {
     return compiled.length === 0
-      ? /^\/.*$/
-      : new RegExp(`^/${compiled.join('/')}(?:/.*)?$`);
+      ? /^\/(?<restWildcard__>.*)$/
+      : new RegExp(`^/${compiled.join('/')}(?:/(?<restWildcard__>.*))?$`);
   }
 
   return exact
@@ -370,7 +370,14 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
 function extractParams(groups: Record<string, string | undefined>): Record<string, string> {
   const params: Record<string, string> = Object.create(null);
   for (const [key, value] of Object.entries(groups)) {
-    if (key === 'rest__' || value == null) {
+    if (key === 'rest__') {
+      continue;
+    }
+    if (key === 'restWildcard__') {
+      params['**'] = value == null ? '' : decodeURIComponent(value);
+      continue;
+    }
+    if (value == null) {
       continue;
     }
     params[key] = decodeURIComponent(value);

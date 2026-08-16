@@ -286,6 +286,7 @@ run('A2 rest wildcard consumes all remaining segments', () => {
 
   assert.equal(catchAll.active, true);
   assert.equal(catchAll.residue, '/');
+  assert.deepEqual({ ...catchAll.$params }, { '**': 'products/abc/details' });
   assert.equal(index.active, true);
   assert.equal(consumedSegment.active, false);
 });
@@ -298,6 +299,17 @@ run('A2 prefixed rest wildcard consumes the complete suffix', () => {
 
   assert.equal(files.active, true);
   assert.equal(files.residue, '/');
+  assert.deepEqual({ ...files.$params }, { '**': 'guides/router/start' });
+});
+
+run('A2 prefixed rest wildcard exposes an empty terminal segment when only its prefix matches', () => {
+  const root = new RouteContext(null, '*');
+  const files = root.createChild('/files/**') as RouteContext;
+
+  root.apply('/files');
+
+  assert.equal(files.active, true);
+  assert.deepEqual({ ...files.$params }, { '**': '' });
 });
 
 run('A2 rest wildcard patterns normalize an optional leading slash', () => {

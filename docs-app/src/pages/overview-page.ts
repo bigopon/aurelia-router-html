@@ -52,11 +52,11 @@ export class OverviewPage {
       syntax: '<template repeat.for="tab of tabs">\n  <au-route path.bind="tab.path">${tab.label}</au-route>\n</template>',
     },
     {
-      title: 'Exact & Fallback',
-      summary: 'Choose complete matches first and a fallback only when siblings miss.',
+      title: 'Exact, Fallback & Terminal Paths',
+      summary: 'Choose complete matches, recover when siblings miss, or consume the complete remaining URL.',
       path: '/features/matching',
       playgroundId: 'exact-fallback',
-      syntax: '<au-route path="/products" exact>Products</au-route>\n<au-route path="*" fallback>Not found</au-route>',
+      syntax: '<au-route path="/products" exact>Products</au-route>\n<au-route path="*" fallback>Not found</au-route>\n<au-route path="/files/**">\n  Terminal segment: ${$params[\'**\']}\n  Remaining: ${$route.residue}\n</au-route>',
     },
     {
       title: 'Swap Order',
