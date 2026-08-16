@@ -78,6 +78,9 @@
 - [x] `A7` Route contexts normalize and expose title metadata in subscription state without writing browser globals.
 - [x] `A7` Mocha coverage composes nested static titles, reacts to bound titles, restores a fallback for untitled routes, and waits for asynchronous routed content.
 - [x] `A7` Standalone Chromium coverage updates document titles through pathname, hash-only, and query-key browser adapters.
+- [x] `A8` `loading.bind` waits before route activation and `loaded.bind` waits after nested asynchronous activation while retaining the application binding context.
+- [x] `A8` Nested route loading runs parent-first and loaded notification runs children-first.
+- [x] `A8` Three-level nested routes preserve parent-first loading and child-first loaded ordering, including an asynchronous grandchild that delays ancestor loaded callbacks.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -98,6 +101,7 @@
 - [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
 - [x] Declarative redirects have an overview card and focused editable playground, while behavior is covered independently by standalone real-browser fixtures in pathname, hash, and query modes.
 - [x] Page titles have an overview card, focused guide, bound-title demo, editable playground, and real-browser coverage.
+- [x] Loading and loaded have an overview card, focused guide, nested editable playground, and real-browser ordering coverage without presenting planned guards as implemented.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

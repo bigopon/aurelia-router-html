@@ -565,6 +565,21 @@ Dynamic titles require `title.bind`, `title.to-view`, or `:title`. Active titled
 
 `RouteContext` exposes normalized title metadata without touching browser globals. `BrowserRouteTitleService` owns `document.title`, coalesces matching changes, and waits for asynchronous routed content to attach before publishing the next title. Node tests cover static, nested, dynamic, fallback, and asynchronous behavior. Standalone browser tests cover pathname, hash-only, and query-key adapters.
 
+## 24. Declarative loading lifecycle
+
+Route templates can prepare data before activation and observe the fully activated nested branch:
+
+```html
+<au-route
+  path="products/:id"
+  loading.bind="() => loadProduct()"
+  loaded.bind="() => productIsReady()">
+  ...
+</au-route>
+```
+
+These are Aurelia v2 function bindings, not `.call` expressions, so the callbacks retain the application binding context. `loading` runs parent-first before the route view activates. `loaded` runs children-first after the routed template and all asynchronous activation lifecycle work inside it have completed. Both accept `void | Promise<void>` and retain the synchronous fast path when no promise is returned.
+
 ---
 
 # Remaining proposed features
@@ -580,6 +595,8 @@ Matching, rendering, and document titles are functional, but production applicat
 ### Design
 
 Deliver this feature in small optional layers rather than placing browser behavior in `RouteContext`.
+
+The title implementation's pending-view counter is the first use of a broader settled-view boundary. Before adding scrolling, extract that coordination into a shared route-view settlement service. Titles, fragment scrolling, later scroll restoration, and opt-in focus management must observe the same completed rendered tree rather than maintain independent timing heuristics.
 
 ### Hash scrolling
 
@@ -613,12 +630,81 @@ URL-mode rules must remain unambiguous:
 - All browser behavior is implemented outside `RouteContext` and can be disabled.
 - Accessibility-focused browser tests cover focus behavior.
 
+## Proposed 7. Declarative guards
+
+Route declarations can participate in navigation without requiring a routed component view-model. Callback expressions use Aurelia v2 function bindings so the application binding context is retained; `.call` is not supported:
+
+```html
+<au-route
+  path="products/:id"
+  can-load.bind="() => canOpenProduct()"
+  can-unload.bind="() => canLeaveProduct()">
+  ...
+</au-route>
+```
+
+The guard API belongs to each individual `<au-route>`, while the result controls the complete navigation. A route returning `false` must not merely hide its own view while allowing the URL and sibling branches to advance; that would leave a matched location partially rendered. Denial therefore preserves the complete outgoing navigation state.
+
+Router HTML does not need to reproduce the component router's global phase ordering exactly. The component router can discover its complete configured route tree before activation, while nested, conditional, or repeated `<au-route>` declarations may not exist until their parent template is staged. Router HTML instead guarantees progressive ordering along each selected declarative branch:
+
+1. run the incoming route's `canLoad`;
+2. run its `loading`;
+3. stage its template, discovering the selected nested route;
+4. repeat the same sequence for that child;
+5. commit the URL and staged branch only after the complete discovered branch succeeds;
+6. run `loaded` while unwinding children-first.
+
+Outgoing `canUnload` callbacks still run deepest-first before incoming work begins. This protects child scope while it is inspected and ensures a parent is not approved for removal before a child refuses to leave.
+
+The resulting contract keeps the useful semantics of Aurelia's component router without imposing a static route-tree assumption:
+
+- `canUnload` runs deepest-first for active routes that would leave and returns `boolean | Promise<boolean>`;
+- `canLoad` runs parent-first for incoming routes and may return `boolean`, a redirect target, or a promise of either;
+- `false` cancels the complete navigation without committing a new route tree or browser-history entry;
+- a `canLoad` redirect uses Router HTML's normal contextual target syntax rather than component-router viewport instructions;
+- the implemented `loading` and `loaded` callbacks surround activation after guards approve the navigation;
+- unchanged route contexts do not rerun hooks merely because a descendant changes;
+- a newer navigation supersedes stale asynchronous guard or lifecycle work safely.
+
+Because a parent `loading` callback may complete before staging reveals a child that later denies navigation, successful loading side effects are not compensated automatically. The staged route tree is discarded atomically, and cancellable application work should use the transition's abort signal.
+
+Guard support requires a navigation transaction boundary ahead of adapter mutation and route-state publication. It must not be implemented as a late callback from `AuRoute.isActive`, because that would briefly commit denied content and make browser-history rollback observable.
+
+### Loading error recovery
+
+Loading failure is distinct from a guard returning `false`. A thrown error or rejected promise from `loading` fails the navigation and preserves the original error for the caller and navigation-error reporting.
+
+The transaction must provide the following recovery behavior before loading errors are considered production-ready:
+
+- retain the outgoing location and rendered branch until every incoming `loading` callback succeeds;
+- do not push or replace browser history until guards and loading have completed;
+- do not run `loaded` for the failed route or any ancestor waiting for that route;
+- discard any staged incoming view and route state, leaving selected links and `$route` state on the outgoing location;
+- allow a later navigation, including a retry of the same target, to proceed normally;
+- never attempt to roll back arbitrary application state changed by a loading callback. Applications remain responsible for their own side effects and cancellation;
+- reject the programmatic navigation result with the original error. Link-triggered navigation must report the same error through one router error-notification path rather than create an unhandled rejection.
+
+If several nested loading callbacks are involved, earlier successful callbacks are not called again as compensation. The route tree is recovered atomically, but application work should use an abort signal supplied by the transition when it needs cancellable network or background activity.
+
+The current coordinator does not yet provide this transaction. It mutates the adapter and publishes the matching tree before route-view activation begins, so the transaction work is a prerequisite for the recovery contract above as well as for guards.
+
+### Acceptance criteria
+
+- Synchronous callbacks preserve the existing void fast path; promises are awaited only when returned.
+- Nested ordering matches the existing Aurelia router.
+- Cancellation leaves the current URL, selected links, rendered branch, and history index unchanged.
+- Relative and root-absolute guard redirects use the same resolution rules as `$route.load()`.
+- Node tests cover callback binding context, sync and async hooks, nesting order, cancellation, redirects, and stale navigation.
+- Node tests cover synchronous throws and asynchronous loading rejection without changing the committed route.
+- Browser tests cover cancellation and redirect history behavior through the browser adapter.
+
 ---
 
 # Recommended implementation sequence
 
-1. Finalize and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
-2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
+1. Add the navigation transaction required by proposal 7 guards.
+2. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
+3. Add history restoration and opt-in focus management on the same settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 
@@ -626,8 +712,6 @@ The complete location model, active-link API, injectable adapter boundary, and d
 
 The following remain deliberately outside the immediate roadmap:
 
-- a centralized navigation transaction pipeline;
-- guard and lifecycle parity with Aurelia's main router;
 - route-name registries before context and path-based generation prove insufficient;
 - a large optional-segment or regular-expression pattern language;
 - router-owned data loading;

@@ -75,6 +75,13 @@ export class OverviewPage {
       syntax: '<au-route path="products" title="Products">\n  <au-route\n    path="camera"\n    exact\n    title.bind="cameraTitle">\n    Camera\n  </au-route>\n</au-route>',
     },
     {
+      title: 'Loading & Loaded',
+      summary: 'Prepare data before activation and observe when the complete nested route branch is ready.',
+      path: '/features/lifecycle',
+      playgroundId: 'route-lifecycle',
+      syntax: '<au-route\n  path="products/:id"\n  loading.bind="() => loadProduct()"\n  loaded.bind="() => productIsReady()">\n  Product\n</au-route>',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',

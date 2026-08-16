@@ -26,6 +26,7 @@ type AnimationPlatform = IPlatform & {
 };
 
 type RedirectMode = 'replace' | 'push';
+export type RouteLifecycleCallback = (context: IRouteContext) => void | Promise<void>;
 
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
@@ -33,7 +34,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title'],
+    bindables: ['path', 'redirectTo', 'title', 'loading', 'loaded'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -96,6 +97,8 @@ export class AuRoute implements ICustomElementViewModel {
   public path: string = '/';
   public redirectTo: string | null = null;
   public title: string | null = null;
+  public loading: RouteLifecycleCallback | null = null;
+  public loaded: RouteLifecycleCallback | null = null;
   public view: ISyntheticView | null = null;
   public context: IRouteContext;
   public readonly location = resolve(IRenderLocation);
@@ -293,30 +296,39 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
-    this.view ??= this.getView();
-    this.viewActive = true;
-    this.titleService.beginViewActivation();
-    let activation: void | Promise<void>;
-    try {
-      activation = this.view.activate(this.view, this.$controller, this.scope);
-    } catch (error) {
+    return onResolve(this.loading?.(this.context), () => {
+      if (!this.requestedViewActive || this.scope == null) {
+        return;
+      }
+
+      this.view ??= this.getView();
+      const view = this.view;
+      this.viewActive = true;
+      this.titleService.beginViewActivation();
+      let activation: void | Promise<void>;
+      try {
+        activation = view.activate(view, this.$controller, this.scope);
+      } catch (error) {
+        this.titleService.endViewActivation();
+        throw error;
+      }
+
+      const ready = onResolve(activation, () => this.loaded?.(this.context));
+      if (isPromise(ready)) {
+        return ready.then(
+          () => {
+            this.titleService.endViewActivation();
+            return this.animate('enter');
+          },
+          error => {
+            this.titleService.endViewActivation();
+            throw error;
+          },
+        );
+      }
       this.titleService.endViewActivation();
-      throw error;
-    }
-    if (isPromise(activation)) {
-      return activation.then(
-        () => {
-          this.titleService.endViewActivation();
-          return this.animate('enter');
-        },
-        error => {
-          this.titleService.endViewActivation();
-          throw error;
-        },
-      );
-    }
-    this.titleService.endViewActivation();
-    return this.animate('enter');
+      return this.animate('enter');
+    });
   }
 
   private deactivateView(): void | Promise<void> {

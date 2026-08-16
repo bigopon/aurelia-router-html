@@ -147,7 +147,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(17);
+    await expect(features).toHaveCount(18);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -182,9 +182,12 @@ test.describe('router HTML docs features', () => {
     await expect(redirectSyntax).toContainText('redirect-to="/products/:productId"');
     const titleSyntax = features.filter({ hasText: 'Page Titles' }).locator('pre');
     await expect(titleSyntax).toContainText('title.bind="cameraTitle"');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(17);
+    const lifecycleSyntax = features.filter({ hasText: 'Loading & Loaded' }).locator('pre');
+    await expect(lifecycleSyntax).toContainText('loading.bind="() => loadProduct()"');
+    await expect(lifecycleSyntax).toContainText('loaded.bind="() => productIsReady()"');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(18);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(17);
+    await expect(editLinks).toHaveCount(18);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -194,6 +197,7 @@ test.describe('router HTML docs features', () => {
       '/playground/programmatic-navigation',
       '/playground/declarative-redirects',
       '/playground/page-titles',
+      '/playground/route-lifecycle',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -590,6 +594,30 @@ test.describe('router HTML docs features', () => {
     await expect(visibleTitle).toHaveText('Products · Mirrorless camera');
     await preview.getByRole('link', { name: 'Lens' }).click();
     await expect(visibleTitle).toHaveText('Products · Lens details');
+  });
+
+  test('loading and loaded guide runs nested lifecycle callbacks in its embedded playground', async ({ page }) => {
+    await page.goto('/features/lifecycle');
+    await expect(page).toHaveTitle('Loading & Loaded | Aurelia Router HTML');
+
+    const guide = page.locator('[data-e2e="lifecycle-guide"]');
+    await expect(guide).toContainText('loading.bind');
+    await expect(guide).toContainText('loaded.bind');
+    await expect(guide).toContainText('parent to child');
+    await expect(guide).toContainText('child to parent');
+    await expect(guide).toContainText('Loading errors today');
+    await expect(guide).not.toContainText('.call="');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('loading.bind="() => prepare');
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await frame.getByRole('link', { name: 'Project board' }).click();
+    await expect(frame.getByRole('heading', { name: 'Project board' })).toBeVisible();
+    await expect(frame.locator('ol')).toContainText('Projects loading');
+    await expect(frame.locator('ol')).toContainText('Board loading');
+    await expect(frame.locator('ol')).toContainText('Board loaded');
+    await expect(frame.locator('ol')).toContainText('Projects loaded');
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

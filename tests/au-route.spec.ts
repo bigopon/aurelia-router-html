@@ -690,6 +690,190 @@ describe('au-route animation scheduling', function () {
 });
 
 describe('au-route template lifecycle', function () {
+  it('awaits loading and loaded callbacks bound to the application context', async function () {
+    const events: string[] = [];
+    let finishLoading!: () => void;
+    let finishLoaded!: () => void;
+    const loading = new Promise<void>(resolve => { finishLoading = resolve; });
+    const loaded = new Promise<void>(resolve => { finishLoaded = resolve; });
+
+    class App {
+      public loading(): Promise<void> {
+        events.push('loading');
+        return loading;
+      }
+
+      public loaded(): Promise<void> {
+        events.push('loaded');
+        return loaded;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route
+        path="ready"
+        exact
+        loading.bind="() => loading()"
+        loaded.bind="() => loaded()">
+        <span data-ready>Ready</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      fixture.container.get(IRouteCoordinator).load('/ready');
+      assert.deepStrictEqual(events, ['loading']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-ready]'), null);
+
+      finishLoading();
+      await Promise.resolve();
+      assert.deepStrictEqual(events, ['loading', 'loaded']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-ready]')?.textContent, 'Ready');
+
+      finishLoaded();
+      await tasksSettled();
+      assert.deepStrictEqual(events, ['loading', 'loaded']);
+    } finally {
+      finishLoading();
+      finishLoaded();
+      await fixture.tearDown();
+    }
+  });
+
+  it('runs nested loading parent-first and loaded children-first', async function () {
+    const events: string[] = [];
+    class App {
+      public record(event: string): void {
+        events.push(event);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="parent" loading.bind="() => record('parent loading')" loaded.bind="() => record('parent loaded')">
+        <au-route path="child" exact loading.bind="() => record('child loading')" loaded.bind="() => record('child loaded')">
+          <span data-child>Child</span>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      fixture.container.get(IRouteCoordinator).load('/parent/child');
+      await tasksSettled();
+      assert.deepStrictEqual(events, [
+        'parent loading',
+        'child loading',
+        'child loaded',
+        'parent loaded',
+      ]);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('preserves loading and loaded ordering through three nested route levels', async function () {
+    const events: string[] = [];
+    class App {
+      public record(event: string): void {
+        events.push(event);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="catalog" loading.bind="() => record('catalog loading')" loaded.bind="() => record('catalog loaded')">
+        <au-route path="products" loading.bind="() => record('products loading')" loaded.bind="() => record('products loaded')">
+          <au-route path=":id" exact loading.bind="() => record('product loading')" loaded.bind="() => record('product loaded')">
+            <span data-product>\${$params.id}</span>
+          </au-route>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      fixture.container.get(IRouteCoordinator).load('/catalog/products/camera');
+      await tasksSettled();
+      assert.deepStrictEqual(events, [
+        'catalog loading',
+        'products loading',
+        'product loading',
+        'product loaded',
+        'products loaded',
+        'catalog loaded',
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-product]')?.textContent, 'camera');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('waits for a grandchild loaded callback before notifying its ancestors', async function () {
+    const events: string[] = [];
+    let finishProductLoaded!: () => void;
+    const productLoaded = new Promise<void>(resolve => { finishProductLoaded = resolve; });
+
+    class App {
+      public record(event: string): void {
+        events.push(event);
+      }
+
+      public async recordProductLoaded(): Promise<void> {
+        events.push('product loaded');
+        await productLoaded;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="catalog" loading.bind="() => record('catalog loading')" loaded.bind="() => record('catalog loaded')">
+        <au-route path="products" loading.bind="() => record('products loading')" loaded.bind="() => record('products loaded')">
+          <au-route path=":id" exact loading.bind="() => record('product loading')" loaded.bind="() => recordProductLoaded()">
+            <span data-product-ready>Ready</span>
+          </au-route>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      fixture.container.get(IRouteCoordinator).load('/catalog/products/camera');
+      for (let index = 0; index < 10 && !events.includes('product loaded'); index++) {
+        await Promise.resolve();
+      }
+      assert.deepStrictEqual(events, [
+        'catalog loading',
+        'products loading',
+        'product loading',
+        'product loaded',
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-product-ready]')?.textContent, 'Ready');
+
+      finishProductLoaded();
+      for (let index = 0; index < 10 && !events.includes('catalog loaded'); index++) {
+        await Promise.resolve();
+        await tasksSettled();
+      }
+      assert.deepStrictEqual(events, [
+        'catalog loading',
+        'products loading',
+        'product loading',
+        'product loaded',
+        'products loaded',
+        'catalog loaded',
+      ]);
+    } finally {
+      finishProductLoaded();
+      await fixture.tearDown();
+    }
+  });
+
   it('waits for an async child attaching lifecycle before deactivating its view', async function () {
     const events: string[] = [];
     let finishAttaching!: () => void;

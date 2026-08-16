@@ -71,6 +71,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A7',
   },
   {
+    id: 'lifecycle',
+    title: 'Loading & Loaded',
+    path: '/features/lifecycle',
+    summary: 'Prepare route data before activation and observe when the complete nested branch is ready.',
+    badge: 'A8',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

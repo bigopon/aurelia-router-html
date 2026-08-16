@@ -434,6 +434,59 @@ export class App {
 </main>`,
   }),
   routerExample({
+    id: 'route-lifecycle',
+    title: 'Loading and loaded lifecycle',
+    description: 'Prepare each nested route from parent to child, then observe readiness from child to parent.',
+    initialPath: '/home',
+    appTs: `export class App {
+  public phase = 'Choose a route';
+  public events: string[] = [];
+
+  public async prepare(name: string): Promise<void> {
+    this.phase = \`Loading \${name}…\`;
+    this.events.push(\`\${name} loading\`);
+    await new Promise(resolve => setTimeout(resolve, 180));
+  }
+
+  public ready(name: string): void {
+    this.events.push(\`\${name} loaded\`);
+    this.phase = \`\${name} ready\`;
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="projects/board">Project board</a>
+</nav>
+
+<p role="status">\${phase}</p>
+<ol>
+  <li repeat.for="event of events">\${event}</li>
+</ol>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+    <p>Open the project board to run both nested lifecycle pairs.</p>
+  </au-route>
+
+  <au-route
+    path="projects"
+    loading.bind="() => prepare('Projects')"
+    loaded.bind="() => ready('Projects')">
+    <h1>Projects</h1>
+
+    <au-route
+      path="board"
+      exact
+      loading.bind="() => prepare('Board')"
+      loaded.bind="() => ready('Board')">
+      <h2>Project board</h2>
+      <p>The complete nested branch is ready.</p>
+    </au-route>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

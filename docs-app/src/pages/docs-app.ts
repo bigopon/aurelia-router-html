@@ -5,6 +5,7 @@ import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
 import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
+import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
@@ -35,6 +36,7 @@ export class DocsApp {
       FeatureProgrammaticPage,
       FeatureRedirectsPage,
       FeatureTitlesPage,
+      FeatureLifecyclePage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,
