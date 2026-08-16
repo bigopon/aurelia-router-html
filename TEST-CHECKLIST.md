@@ -72,6 +72,9 @@
 - [x] `A6` Redirects support static, relative, root-absolute, parameterized, nested-index, and fallback targets without rendering redirect content.
 - [x] `A6` Dynamic redirects support `redirect-to.bind`, `redirect-to.to-view`, and `:redirect-to` updates.
 - [x] `A6` Redirects replace history by default, support explicit push mode, cancel stale matching passes, and report normalized redirect loops.
+- [x] `A6` Mocha and standalone Chromium fixtures follow a three-hop parameterized redirect chain, render only its destination, and collapse every default-replace intermediate into one history entry.
+- [x] `A6` Standalone Chromium fixtures exercise nested-index, relative, root-absolute, parameterized, root-fallback, and nested-fallback redirects through the production browser adapter.
+- [x] `A6` Standalone Chromium fixtures verify redirect-only routes render no content, dynamic targets update after an earlier redirect, replace and push mutate real browser history differently, and loop diagnostics include the normalized chain.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -90,7 +93,7 @@
 - [x] Routing adapters have an overview card, focused API page, and editable memory-adapter project.
 - [x] The memory-adapter project navigates with ordinary `au-link` anchors without injecting the coordinator.
 - [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
-- [x] Declarative redirects have an overview card, focused guide, editable playground, and browser history coverage in pathname, hash, and query modes.
+- [x] Declarative redirects have an overview card and focused editable playground, while behavior is covered independently by standalone real-browser fixtures in pathname, hash, and query modes.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

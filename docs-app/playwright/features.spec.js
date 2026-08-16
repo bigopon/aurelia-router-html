@@ -550,7 +550,7 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByText('Section: comments')).toBeVisible();
   });
 
-  test('declarative redirects resolve params, nested defaults, and fallbacks', async ({ page }) => {
+  test('redirect guide embeds the documented playground source', async ({ page }) => {
     await page.goto('/features/redirects');
     const guide = page.locator('[data-e2e="redirect-guide"]');
     await expect(guide).toContainText('redirect-to.bind');
@@ -559,26 +559,10 @@ test.describe('router HTML docs features', () => {
 
     const playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
-    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
-    await expect(playground.locator('.preview-label code')).toHaveText('/products/camera');
-    await expect(frame.getByRole('heading', { name: 'Product: camera' })).toBeVisible();
-
-    await frame.getByRole('link', { name: 'Account default' }).click();
-    await expect(playground.locator('.preview-label code')).toHaveText('/account/profile');
-    await expect(frame.getByText('Profile is the account branch default.')).toBeVisible();
-
-    await frame.getByRole('link', { name: 'Unknown URL' }).click();
-    await expect(playground.locator('.preview-label code')).toHaveText('/not-found');
-    await expect(frame.getByRole('heading', { name: 'Page not found' })).toBeVisible();
-
-    await frame.getByRole('link', { name: 'Legacy speaker URL' }).click();
-    await expect(playground.locator('.preview-label code')).toHaveText('/products/speaker');
-    await expect(frame.getByRole('heading', { name: 'Product: speaker' })).toBeVisible();
-
-    await frame.getByRole('link', { name: 'Contextual legacy URL' }).click();
-    await expect(playground.locator('.preview-label code')).toHaveText('/catalog/products/speaker');
-    await expect(frame.getByRole('heading', { name: 'Catalog product: speaker' })).toBeVisible();
-    await expect(frame.getByText('The contextual target stayed below /catalog.')).toBeVisible();
+    const editor = playground.getByRole('textbox', { name: 'Editing /src/app.html' });
+    await expect(editor).toContainText('redirect-to.bind="legacyTarget"');
+    await expect(editor).toContainText('redirect-to="products/:productId"');
+    await expect(editor).toContainText('path="/" exact redirect-to="profile"');
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

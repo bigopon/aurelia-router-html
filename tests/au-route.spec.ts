@@ -532,6 +532,40 @@ describe('au-route redirects', function () {
     }
   });
 
+  it('follows a three-hop redirect chain while preserving parameters and one history entry', async function () {
+    class RecordingAdapter extends MemoryPathAdapter {
+      public readonly replaced: string[] = [];
+
+      public override replace(path: string): void {
+        this.replaced.push(path);
+        super.replace(path);
+      }
+    }
+
+    const adapter = new RecordingAdapter('/chain/42');
+    const fixture = await createFixture(
+      `<au-route path="chain/:id" exact redirect-to="renamed/:id"><span data-chain-one>One</span></au-route>
+      <au-route path="renamed/:id" exact redirect-to="legacy/:id"><span data-chain-two>Two</span></au-route>
+      <au-route path="legacy/:id" exact redirect-to="/products/:id"><span data-chain-three>Three</span></au-route>
+      <au-route path="products/:id" exact><span data-product>Product \${$params.id}</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.deepStrictEqual(adapter.replaced, ['/renamed/42', '/legacy/42', '/products/42']);
+      assert.strictEqual(adapter.getCurrentPath(), '/products/42');
+      assert.strictEqual(adapter.back(), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-product]')?.textContent, 'Product 42');
+      assert.strictEqual(fixture.appHost.querySelector('[data-chain-one]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-chain-two]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-chain-three]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   for (const syntax of [
     'redirect-to.bind="target"',
     'redirect-to.to-view="target"',
@@ -551,6 +585,12 @@ describe('au-route redirects', function () {
       ).started;
 
       try {
+        fixture.container.get(IRouteCoordinator).load('/legacy/7');
+        await tasksSettled();
+        assert.strictEqual(adapter.getCurrentPath(), '/products/7');
+
+        fixture.container.get(IRouteCoordinator).load('/home');
+        await tasksSettled();
         fixture.component.target = '/archive/:id';
         await tasksSettled();
         fixture.container.get(IRouteCoordinator).load('/legacy/7');

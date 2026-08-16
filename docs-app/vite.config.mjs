@@ -42,11 +42,13 @@ export default defineConfig(({ command }) => ({
   },
   plugins: [
     {
-      name: 'url-adapter-test-harness',
+      name: 'browser-routing-test-harnesses',
       configureServer(server) {
         server.middlewares.use((request, _response, next) => {
           if (request.url?.startsWith('/__adapter-test__')) {
             request.url = '/url-adapter.html';
+          } else if (request.url?.startsWith('/__redirect-test__')) {
+            request.url = '/redirect-harness.html';
           }
           next();
         });

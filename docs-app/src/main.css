@@ -108,9 +108,9 @@ input {
 }
 
 .brand-mark {
-  width: 88px;
-  height: 88px;
-  flex: 0 0 88px;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
   object-fit: contain;
   image-rendering: pixelated;
 }

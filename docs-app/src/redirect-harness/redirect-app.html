@@ -1,0 +1,85 @@
+<nav>
+  <a au-link="/__redirect-test__/home" data-e2e="home-link">Home</a>
+  <a au-link="/__redirect-test__/legacy/camera" data-e2e="absolute-redirect-link">Legacy camera</a>
+  <a au-link="/__redirect-test__/catalog/legacy/speaker" data-e2e="contextual-redirect-link">Legacy catalog speaker</a>
+  <a au-link="/__redirect-test__/chain/headphones" data-e2e="chain-redirect-link">Legacy headphones chain</a>
+  <a au-link="/__redirect-test__/push/projector" data-e2e="push-redirect-link">Pushed projector redirect</a>
+  <a au-link="/__redirect-test__/dynamic/keyboard" data-e2e="dynamic-redirect-link">Dynamic keyboard redirect</a>
+</nav>
+
+<button type="button" click.trigger="useArchiveTarget()" data-e2e="use-archive-target">
+  Redirect dynamically into archive
+</button>
+<output data-e2e="dynamic-target">${dynamicTarget}</output>
+<button type="button" click.trigger="triggerLoop()" data-e2e="trigger-loop">Trigger redirect loop</button>
+<output data-e2e="redirect-error">${redirectError}</output>
+
+<main>
+  <au-route path="__redirect-test__">
+    <au-route path="/" exact redirect-to="home"></au-route>
+
+    <au-route path="home" exact>
+      <h1 data-e2e="home-view">Redirect home</h1>
+    </au-route>
+
+    <au-route
+      path="legacy/:productId"
+      exact
+      redirect-to="/__redirect-test__/products/:productId">
+      <p data-e2e="redirect-content">Redirect route content must not render.</p>
+    </au-route>
+
+    <au-route path="chain/:productId" exact redirect-to="renamed/:productId">
+      <p data-e2e="chain-source-content">Chain source content must not render.</p>
+    </au-route>
+    <au-route path="renamed/:productId" exact redirect-to="legacy/:productId">
+      <p data-e2e="chain-renamed-content">Renamed route content must not render.</p>
+    </au-route>
+
+    <au-route
+      path="push/:productId"
+      exact
+      redirect-to="/__redirect-test__/products/:productId"
+      redirect-mode="push">
+    </au-route>
+
+    <au-route path="dynamic/:productId" exact redirect-to.bind="dynamicTarget"></au-route>
+
+    <au-route path="products/:productId" exact>
+      <h1 data-e2e="product-view">Product ${$params.productId}</h1>
+    </au-route>
+
+    <au-route path="archive/:productId" exact>
+      <h1 data-e2e="archive-view">Archived product ${$params.productId}</h1>
+    </au-route>
+
+    <au-route path="catalog">
+      <au-route path="/" exact redirect-to="overview"></au-route>
+
+      <au-route path="overview" exact>
+        <h1 data-e2e="catalog-overview">Catalog overview</h1>
+      </au-route>
+
+      <au-route path="legacy/:productId" exact redirect-to="products/:productId"></au-route>
+
+      <au-route path="products/:productId" exact>
+        <h1 data-e2e="catalog-product-view">Catalog product ${$params.productId}</h1>
+      </au-route>
+
+      <au-route path="not-found" exact>
+        <h1 data-e2e="catalog-not-found">Catalog route not found</h1>
+      </au-route>
+
+      <au-route path="*" fallback redirect-to="not-found"></au-route>
+    </au-route>
+
+    <au-route path="not-found" exact>
+      <h1 data-e2e="root-not-found">Route not found</h1>
+    </au-route>
+
+    <au-route path="loop-a" exact redirect-to="loop-b"></au-route>
+    <au-route path="loop-b" exact redirect-to="loop-a"></au-route>
+
+    <au-route path="*" fallback redirect-to="not-found"></au-route>
+  </au-route>
+</main>

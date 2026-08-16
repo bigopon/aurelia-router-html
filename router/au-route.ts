@@ -68,7 +68,6 @@ export class AuRoute implements ICustomElementViewModel {
         throw new Error(`Invalid au-route redirect-mode "${redirectMode}". Expected "replace" or "push".`);
       }
       data.redirectTo = redirectTo;
-      data.redirectExpression = redirectExpression;
       data.redirectMode = redirectMode;
       data.isRedirect = redirectTo != null || redirectExpression != null;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
@@ -90,7 +89,6 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly expressionParser = resolve(IExpressionParser);
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
   private readonly pathExpression: string | null;
-  private readonly redirectExpression: string | null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
   private readonly unsubscribe: () => void;
@@ -103,8 +101,8 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null }>;
-    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectExpression, redirectMode, redirectTo, swapOrder } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null }>;
+    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -117,7 +115,6 @@ export class AuRoute implements ICustomElementViewModel {
     this.path = path;
     this.pathExpression = pathExpression;
     this.redirectTo = redirectTo;
-    this.redirectExpression = redirectExpression;
     this.redirectMode = redirectMode;
     this.isRedirect = isRedirect;
     this.animationsEnabled = this.animationOptions.enabled || animate;
@@ -147,11 +144,6 @@ export class AuRoute implements ICustomElementViewModel {
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
       this.path = String(astEvaluate(expression, this.scope, null, null));
-    }
-    if (this.redirectExpression != null) {
-      const expression = this.expressionParser.parse(this.redirectExpression, 'None');
-      const value = astEvaluate(expression, this.scope, null, null);
-      this.redirectTo = value == null ? null : String(value);
     }
     this.updatePath(this.path);
 
