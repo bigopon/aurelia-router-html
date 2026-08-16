@@ -21,6 +21,7 @@
   class.bind="$route.isActive('reviews') ? 'is-active' : ''"&gt;
   Reviews without au-link
 &lt;/a&gt;</pre>
+      <p>A native <code>href</code> needs <code>interceptLinks: true</code> only when its eligible same-origin click should stay client-side. Without interception it remains a valid native link and performs a document navigation. Prefer <code>au-link</code> for application-owned links; interception is useful for CMS, Markdown, legacy, or server-rendered content that cannot use the custom attribute.</p>
     </section>
     <section>
       <h3>Apply it</h3>

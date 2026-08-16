@@ -351,7 +351,6 @@ In every mode, matching receives only the route pathname. Route query values and
 
 ```ts
 Routing.customize({
-  interceptLinks: true,
   swapOrder: 'parallel',
   animations: false,
   routingMode: 'query',
@@ -359,7 +358,7 @@ Routing.customize({
 });
 ```
 
-Configuration controls browser link interception, default swap order, animation behavior, and the browser URL mode. `routingMode` accepts `path`, `hash`, or `query`; `routeQueryKey` names the reserved query parameter used by query mode.
+Configuration controls default swap order, animation behavior, and the browser URL mode. `routingMode` accepts `path`, `hash`, or `query`; `routeQueryKey` names the reserved query parameter used by query mode. `interceptLinks: true` is an optional enhancement for plain same-origin `<a href>` links and is not required by `au-link`.
 
 ## 17. In-browser documentation playground
 

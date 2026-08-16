@@ -29,7 +29,7 @@
           </tbody>
         </table>
       </div>
-      <p>If no custom adapter is configured, Router HTML creates the browser adapter and applies <code>routingMode</code>, <code>routeQueryKey</code>, and <code>interceptLinks</code>. Supplying a custom adapter skips <code>IWindow</code> resolution; that adapter owns its URL and click policy.</p>
+      <p>If no custom adapter is configured, Router HTML creates the browser adapter and applies <code>routingMode</code> and <code>routeQueryKey</code>. Enable <code>interceptLinks</code> only when plain <code>&lt;a href&gt;</code> markup should navigate without reloading the document; <code>au-link</code> works without it. Supplying a custom adapter skips <code>IWindow</code> resolution.</p>
     </section>
 
     <section>
@@ -115,6 +115,31 @@ adapter.go(-2);    // moves through memory history</pre>
     </section>
 
     <section>
+      <h3>Decide whether to intercept plain links</h3>
+      <p><code>interceptLinks</code> belongs to the default browser adapter. It upgrades eligible plain anchors into client-side navigation; it is not a switch for Router HTML navigation as a whole.</p>
+      <div class="option-table-wrap" data-e2e="intercept-links-guide">
+        <table class="option-table">
+          <thead>
+            <tr><th>Situation</th><th>Use it?</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>&lt;a au-link="products"&gt;</code></td><td>No</td><td><code>au-link</code> already resolves and loads through the local route context.</td></tr>
+            <tr><td><code>$route.load('products')</code></td><td>No</td><td>Programmatic navigation already enters through the route context.</td></tr>
+            <tr><td>Plain same-origin <code>&lt;a href="/products"&gt;</code> that should stay client-side</td><td>Yes—required</td><td>Interception prevents a document reload and sends the anchor location into the router.</td></tr>
+            <tr><td>CMS, Markdown, legacy, or server-rendered internal links</td><td>Often useful</td><td>It enhances markup that cannot use the <code>au-link</code> custom attribute.</td></tr>
+            <tr><td>External, download, modified-click, or non-self-target links</td><td>Not useful</td><td>The browser adapter deliberately leaves these links to native browser behavior.</td></tr>
+            <tr><td>Memory or custom adapters</td><td>Not applicable</td><td>The option is implemented only by the default browser adapter; custom hosts own their external navigation events.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  // Only needed for eligible plain &lt;a href&gt; navigation.
+  interceptLinks: true
+});</pre>
+      <p>In hash or query routing mode, generate a plain anchor's correctly formatted URL with <code>$route.href()</code>. Interception changes how a click is handled; it does not rewrite a manually typed <code>href</code>.</p>
+    </section>
+
+    <section>
       <h3>Options with custom adapters</h3>
       <div class="option-table-wrap">
         <table class="option-table">
@@ -124,7 +149,7 @@ adapter.go(-2);    // moves through memory history</pre>
           <tbody>
             <tr><td><code>routingMode</code></td><td>Ignored by Router HTML; implement the required formatting in the adapter.</td></tr>
             <tr><td><code>routeQueryKey</code></td><td>Used only by the default browser query adapter.</td></tr>
-            <tr><td><code>interceptLinks</code></td><td>Used only by the default browser adapter. A custom host decides how navigation events enter <code>subscribe()</code>.</td></tr>
+            <tr><td><code>interceptLinks</code></td><td>Optional plain-anchor enhancement used only by the default browser adapter. It is not involved in <code>au-link</code> navigation.</td></tr>
             <tr><td><code>swapOrder</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>
             <tr><td><code>animations</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>
           </tbody>

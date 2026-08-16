@@ -127,7 +127,9 @@ test.describe('router HTML docs features', () => {
     expect(overviewOrder).toEqual(['getting-started', 'examples-section', 'routing-customization']);
     const gettingStarted = page.locator('[data-e2e="getting-started"]');
     await expect(gettingStarted).toContainText("import { Routing } from 'aurelia-v2-router-html'");
-    await expect(gettingStarted).toContainText('Routing.customize');
+    await expect(gettingStarted).toContainText('.register(Routing)');
+    await expect(gettingStarted).not.toContainText('interceptLinks');
+    await expect(gettingStarted).not.toContainText('animations');
 
     const customization = page.locator('[data-e2e="routing-customization"]');
     await expect(customization).toContainText('Pathname');
@@ -505,6 +507,12 @@ test.describe('router HTML docs features', () => {
     await expect(details).toContainText('adapterFactory');
     await expect(details).toContainText('pre-registered IPathAdapter');
     await expect(details).toContainText('Ignored by Router HTML');
+    const interceptGuide = page.locator('[data-e2e="intercept-links-guide"]');
+    await expect(interceptGuide).toContainText('Yes—required');
+    await expect(interceptGuide).toContainText('Often useful');
+    await expect(interceptGuide).toContainText('Not useful');
+    await expect(interceptGuide).toContainText('Not applicable');
+    await expect(interceptGuide).toContainText('$route.load');
 
     const playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });

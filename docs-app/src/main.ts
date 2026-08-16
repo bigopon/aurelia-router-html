@@ -9,7 +9,6 @@ import './main.css';
 void Aurelia
   .register(
     Routing.customize({
-      interceptLinks: true,
       animations: false,
     }),
     SyntaxHtml,

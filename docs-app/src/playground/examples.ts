@@ -160,24 +160,28 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/products/ice-cream?sort=popular#reviews',
     appHtml: `<au-route path="products/:productId" exact>
   <nav>
-    <a
-      href.bind="$route.href($route, $params, { query: { sort: 'popular' }, hash: 'reviews' })"
-      class.bind="$route.isActive($route, $params, {
+    <a au-link.bind="{
+      target: $route,
+      params: $params,
+      options: {
         query: { sort: 'popular' },
         hash: 'reviews',
         matchQuery: true,
         matchHash: true
-      }) ? 'is-active' : ''">
+      }
+    }">
       Popular reviews
     </a>
-    <a
-      href.bind="$route.href($route, $params, { query: { sort: 'price' }, hash: 'details' })"
-      class.bind="$route.isActive($route, $params, {
+    <a au-link.bind="{
+      target: $route,
+      params: $params,
+      options: {
         query: { sort: 'price' },
         hash: 'details',
         matchQuery: true,
         matchHash: true
-      }) ? 'is-active' : ''">
+      }
+    }">
       Price details
     </a>
   </nav>
@@ -692,7 +696,7 @@ export const playgroundExamples: PlaygroundExample[] = [
     }">
     \${product.name}
   </a>
-  <a href="/missing" class.bind="$route.isActive('/missing') ? 'is-active' : ''">Missing route</a>
+  <a au-link="/missing">Missing route</a>
 </nav>
 
 <main>
@@ -907,7 +911,6 @@ import { App } from './app';
 
 void Aurelia
   .register(Routing.customize({
-    interceptLinks: true,
     animations: false${modeLines}
   }))
   .app({ host: document.querySelector('#app')!, component: App })

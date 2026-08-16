@@ -19,10 +19,7 @@ import { Routing } from 'aurelia-v2-router-html';
 import { App } from './app';
 
 void Aurelia
-  .register(Routing.customize({
-    interceptLinks: true,
-    animations: false
-  }))
+  .register(Routing)
   .app({
     host: document.querySelector('#app')!,
     component: App
@@ -44,8 +41,8 @@ void Aurelia
           <h3>${feature.title}</h3>
           <p>${feature.summary}</p>
           <div class="overview-links">
-            <a class="example-jump" href.bind="feature.path">Jump to example</a>
-            <a class="example-jump" href.bind="playgroundPath(feature)">Edit in playground</a>
+            <a class="example-jump" au-link.bind="feature.path">Jump to example</a>
+            <a class="example-jump" au-link.bind="playgroundPath(feature)">Edit in playground</a>
           </div>
         </div>
         <pre if.bind="feature.language === 'typescript'" class="code-block overview-syntax" syntax-typescript>${feature.syntax}</pre>
@@ -87,7 +84,7 @@ void Aurelia
               <tr><th>Option</th><th>Controls</th></tr>
             </thead>
             <tbody>
-              <tr><td><code>interceptLinks</code></td><td>Whether the default browser adapter handles same-origin anchor clicks.</td></tr>
+              <tr><td><code>interceptLinks</code></td><td>Opt into client-side handling for plain same-origin <code>&lt;a href&gt;</code> links. <code>au-link</code> does not require it.</td></tr>
               <tr><td><code>swapOrder</code></td><td>Whether incoming and outgoing sibling views attach first, detach first, or run in parallel.</td></tr>
               <tr><td><code>animations</code></td><td>Global route-transition behavior; animation remains opt-in by default.</td></tr>
               <tr><td><code>routeQueryKey</code></td><td>The query-string key used by query routing mode; it defaults to <code>app</code>.</td></tr>
@@ -99,14 +96,15 @@ void Aurelia
 
     <pre class="code-block" syntax-typescript>Routing.customize({
   routingMode: 'path',
+  // Optional: enhance eligible plain &lt;a href&gt; links.
   interceptLinks: true,
   swapOrder: 'parallel',
   animations: false
 });</pre>
 
     <div class="overview-links">
-      <a class="example-jump" href="/features/url-state">Compare browser URL modes</a>
-      <a class="example-jump" href="/features/adapters">Choose or build an adapter</a>
+      <a class="example-jump" au-link="/features/url-state">Compare browser URL modes</a>
+      <a class="example-jump" au-link="/features/adapters">Choose or build an adapter</a>
     </div>
   </section>
 </section>

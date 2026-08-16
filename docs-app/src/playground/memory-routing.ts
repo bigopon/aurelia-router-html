@@ -141,7 +141,7 @@ export function createPlaygroundRouting() {
     }
     const adapter = options.adapterFactory?.(container)
       ?? options.adapter
-      ?? new MemoryPathAdapter({ ...options, interceptLinks: options.interceptLinks ?? true });
+      ?? new MemoryPathAdapter(options);
     const root = new RouteContext(null, '*', {
       swapOrder: options.swapOrder,
       hrefFormatter: path => adapter.formatHref(path),
