@@ -122,6 +122,13 @@ test.describe('router HTML docs features', () => {
   test('overview presents static feature syntax with links to focused examples', async ({ page }) => {
     await page.goto('/');
 
+    const overviewOrder = await page.locator('[data-e2e="getting-started"], [data-e2e="examples-section"], [data-e2e="routing-customization"]')
+      .evaluateAll(elements => elements.map(element => element.getAttribute('data-e2e')));
+    expect(overviewOrder).toEqual(['getting-started', 'examples-section', 'routing-customization']);
+    const gettingStarted = page.locator('[data-e2e="getting-started"]');
+    await expect(gettingStarted).toContainText("import { Routing } from 'aurelia-v2-router-html'");
+    await expect(gettingStarted).toContainText('Routing.customize');
+
     const customization = page.locator('[data-e2e="routing-customization"]');
     await expect(customization).toContainText('Pathname');
     await expect(customization).toContainText('Hash');
@@ -187,6 +194,7 @@ test.describe('router HTML docs features', () => {
     ]);
     await expect(page.getByText('Runnable demo')).toHaveCount(0);
     await expect(page.locator('button')).toHaveCount(0);
+    await expect(page.locator('.nav-list .nav-end')).toHaveText('End of guide');
   });
 
   test('an overview edit link opens its matching runnable source', async ({ page }) => {

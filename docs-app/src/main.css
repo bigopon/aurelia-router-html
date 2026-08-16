@@ -137,7 +137,26 @@ input {
   gap: 10px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 6px 4px 14px 0;
+}
+
+.nav-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px 2px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nav-end::before,
+.nav-end::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 .nav-item {
@@ -274,6 +293,7 @@ button:hover {
   gap: 16px;
 }
 
+.getting-started-overview,
 .customization-overview {
   display: grid;
   gap: 16px;
@@ -281,6 +301,36 @@ button:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--panel-strong);
+}
+
+.getting-started-overview {
+  background: linear-gradient(135deg, var(--panel-strong), var(--panel-soft));
+}
+
+.getting-started-overview header,
+.getting-started-overview h3,
+.getting-started-overview p,
+.overview-section-header,
+.overview-section-header h3,
+.overview-section-header p {
+  margin: 0;
+}
+
+.getting-started-overview header,
+.overview-section-header {
+  display: grid;
+  gap: 6px;
+}
+
+.getting-started-overview p,
+.overview-section-header p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.overview-examples {
+  display: grid;
+  gap: 16px;
 }
 
 .customization-overview header,

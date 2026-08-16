@@ -8,6 +8,52 @@
     </div>
   </header>
 
+  <section class="getting-started-overview" data-e2e="getting-started">
+    <header>
+      <h3>Register Router HTML and start routing</h3>
+      <p>Register one configuration with the Aurelia application, then declare routes and links directly in its templates.</p>
+    </header>
+
+    <pre class="code-block" syntax-typescript>import Aurelia from 'aurelia';
+import { Routing } from 'aurelia-v2-router-html';
+import { App } from './app';
+
+void Aurelia
+  .register(Routing.customize({
+    interceptLinks: true,
+    animations: false
+  }))
+  .app({
+    host: document.querySelector('#app')!,
+    component: App
+  })
+  .start();</pre>
+
+    <p>Router HTML uses pathname URLs by default. Start with the examples below, then choose a different URL mode or adapter only when the host requires one.</p>
+  </section>
+
+  <section class="overview-examples" data-e2e="examples-section">
+    <header class="overview-section-header">
+      <h3>Build with focused examples</h3>
+      <p>Each feature pairs its essential syntax with a focused guide and an editable browser playground.</p>
+    </header>
+
+    <div class="feature-catalog" data-e2e="overview-features">
+      <article class="overview-feature" repeat.for="feature of features">
+        <div class="overview-feature-copy">
+          <h3>${feature.title}</h3>
+          <p>${feature.summary}</p>
+          <div class="overview-links">
+            <a class="example-jump" href.bind="feature.path">Jump to example</a>
+            <a class="example-jump" href.bind="playgroundPath(feature)">Edit in playground</a>
+          </div>
+        </div>
+        <pre if.bind="feature.language === 'typescript'" class="code-block overview-syntax" syntax-typescript>${feature.syntax}</pre>
+        <pre else class="code-block overview-syntax" syntax-html>${feature.syntax}</pre>
+      </article>
+    </div>
+  </section>
+
   <section class="customization-overview" data-e2e="routing-customization">
     <header>
       <h3>Choose how routing integrates with the host</h3>
@@ -63,19 +109,4 @@
       <a class="example-jump" href="/features/adapters">Choose or build an adapter</a>
     </div>
   </section>
-
-  <div class="feature-catalog" data-e2e="overview-features">
-    <article class="overview-feature" repeat.for="feature of features">
-      <div class="overview-feature-copy">
-        <h3>${feature.title}</h3>
-        <p>${feature.summary}</p>
-        <div class="overview-links">
-          <a class="example-jump" href.bind="feature.path">Jump to example</a>
-          <a class="example-jump" href.bind="playgroundPath(feature)">Edit in playground</a>
-        </div>
-      </div>
-      <pre if.bind="feature.language === 'typescript'" class="code-block overview-syntax" syntax-typescript>${feature.syntax}</pre>
-      <pre else class="code-block overview-syntax" syntax-html>${feature.syntax}</pre>
-    </article>
-  </div>
 </section>
