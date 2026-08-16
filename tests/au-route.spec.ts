@@ -175,6 +175,60 @@ describe('au-route optional parameters', function () {
 });
 
 describe('au-route terminal path capture', function () {
+  it('generates an au-link from the same single-wildcard parameter used by matching', async function () {
+    const fixture = await createFixture(
+      `<a data-folder-link au-link.bind="folderLink">Folder</a>
+      <au-route path="/folders/*" exact>
+        <span data-folder>\${$params['*']}</span>
+      </au-route>`,
+      class App {
+        public folderLink = {
+          target: '/folders/*',
+          params: { '*': 'guides/router' },
+        };
+      },
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const link = fixture.appHost.querySelector('[data-folder-link]');
+      assert.strictEqual(link?.getAttribute('href'), '/folders/guides%2Frouter');
+
+      router.load(link!.getAttribute('href')!);
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-folder]')?.textContent, 'guides/router');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('scopes nested single-wildcard captures to the route that consumed each segment', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/teams/*">
+        <span data-team>\${$params['*']}</span>
+        <au-route path="members/*" exact>
+          <span data-member>\${$params['*']}</span>
+          <span data-parent-team>\${$route.parent.$params['*']}</span>
+        </au-route>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/teams/core%20team/members/alice%20smith');
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-team]')?.textContent, 'core team');
+      assert.strictEqual(fixture.appHost.querySelector('[data-member]')?.textContent, 'alice smith');
+      assert.strictEqual(fixture.appHost.querySelector('[data-parent-team]')?.textContent, 'core team');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('exposes the segment consumed by ** without the static prefix', async function () {
     const fixture = await createFixture(
       `<au-route path="/files/**">

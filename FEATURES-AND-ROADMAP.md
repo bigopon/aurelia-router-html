@@ -448,45 +448,41 @@ interface RouteActiveOptions extends RouteHrefOptions {
 
 The docs sidebar and focused playground example use the public API instead of comparing URL strings locally. Matcher, Aurelia/node, and browser tests cover exact and prefix behavior, URL-state comparison, reactive classes, `aria-current`, and navigation updates.
 
----
+## 20. Complete wildcard captures
 
-# Remaining proposed features
-
-Proposal numbers preserve their original design identifiers. Proposals 1 and 2 are implemented as features 18 and 19 above, so the remaining list begins with proposal 3.
-
-## Proposed 3. Complete wildcard captures
-
-### Problem
-
-Terminal `**` matching and href generation are symmetrical through `$params['**']`. Single-segment `*` href generation already accepts a `'*'` parameter, but matching does not expose the consumed segment.
-
-### Design
-
-Expose the segment consumed by a single wildcard as `$params['*']`.
+Single- and rest-wildcard matching expose the URL segments they consume through route-local parameters.
 
 ```html
-<au-route path="files/*">
+<au-route path="folders/*">
   Folder: ${$params['*']}
+</au-route>
+
+<au-route path="files/**">
+  File path: ${$params['**']}
 </au-route>
 ```
 
-For `/files/guides`, `$params['*']` is `guides`.
+For `/folders/guides`, `$params['*']` is `guides`. For `/files/guides/router/start.html`, `$params['**']` is `guides/router/start.html`.
 
-Wildcard rules:
+Wildcard captures follow these rules:
 
 - `*` captures exactly one decoded segment without a leading slash;
 - `**` captures zero or more decoded segments without the static prefix or leading slash;
 - a prefix-only terminal match exposes `''` for `$params['**']`;
-- href generation uses the same `'*'` and `'**'` keys;
-- multiple anonymous wildcards of the same kind in one pattern are rejected because a single parameter key would be ambiguous;
-- applications that need multiple values should use named `:params`.
+- href generation uses the same `'*'` and `'**'` parameter keys and percent-encodes their values;
+- captures remain local to the `<au-route>` that declared the wildcard;
+- a pattern cannot contain multiple anonymous wildcards of the same kind because one parameter key could not represent them independently.
 
-### Acceptance criteria
+```ts
+route.href('/folders/*', { '*': 'guides' });
+route.href('/files/**', { '**': 'guides/router/start.html' });
+```
 
-- `*`, `/*`, `**`, and `/**` have documented capture behavior.
-- Matching and href generation round-trip wildcard values.
-- Empty terminal captures, encoded segments, malformed encoding, and invalid duplicate wildcards are tested.
-- Local wildcard params follow the same route scoping rules as named params.
+---
+
+# Remaining proposed features
+
+Proposal numbers preserve their original design identifiers. Proposals 1 through 3 are implemented as features 18 through 20 above, so the remaining list begins with proposal 4.
 
 ## Proposed 4. Declarative redirects
 
@@ -624,10 +620,9 @@ After a successful navigation containing a hash, the browser layer locates the d
 
 # Recommended implementation sequence
 
-1. Implement proposal 3: complete wildcard captures.
-2. Implement proposal 5: make the path/location adapter injectable and export a memory adapter.
-3. Implement proposal 4: add redirects using the coordinator and generated-target APIs.
-4. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
+1. Implement proposal 5: make the path/location adapter injectable and export a memory adapter.
+2. Implement proposal 4: add redirects using the coordinator and generated-target APIs.
+3. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
 
 The complete location model and active-link API are now in place. Adapter injection should precede browser polish so those policies stay outside the matching tree.
 

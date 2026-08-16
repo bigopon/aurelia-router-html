@@ -191,8 +191,10 @@ export class RouteContext implements IRouteContext {
   }
 
   public usePattern(pattern: string): void {
-    this.pattern = normalizePattern(pattern);
-    this._matcher = compilePattern(this.pattern, this._exact, this.parent === null);
+    const normalizedPattern = normalizePattern(pattern);
+    const matcher = compilePattern(normalizedPattern, this._exact, this.parent === null);
+    this.pattern = normalizedPattern;
+    this._matcher = matcher;
   }
 
   public apply(path: string, location: Pick<RouteLocation, 'query' | 'hash'> = { query: emptyRouteQuery, hash: '' }): void {
@@ -457,8 +459,8 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
       return /^(?<rest__>\/.*|\/)?$/;
     }
     return exact
-      ? /^\/[^/]+$/
-      : /^\/[^/]+(?<rest__>\/.*)?$/;
+      ? /^\/(?<wildcard__>[^/]+)$/
+      : /^\/(?<wildcard__>[^/]+)(?<rest__>\/.*)?$/;
   }
 
   if (pattern === '/') {
@@ -466,6 +468,14 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   }
 
   const parts = pattern.split('/').filter(Boolean);
+  const wildcardCount = parts.filter(part => part === '*').length;
+  const restWildcardCount = parts.filter(part => part === '**').length;
+  if (wildcardCount > 1) {
+    throw new Error(`A route pattern can contain only one "*" wildcard: "${pattern}".`);
+  }
+  if (restWildcardCount > 1) {
+    throw new Error(`A route pattern can contain only one "**" wildcard: "${pattern}".`);
+  }
   const restIndex = parts.indexOf('**');
   if (restIndex >= 0 && restIndex !== parts.length - 1) {
     throw new Error(`The rest wildcard must be the final segment in route pattern "${pattern}".`);
@@ -475,7 +485,7 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   let compiled = '';
   for (const part of routeParts) {
     if (part === '*') {
-      compiled += '/[^/]+';
+      compiled += '/(?<wildcard__>[^/]+)';
       continue;
     }
     if (part.startsWith(':')) {
@@ -510,6 +520,10 @@ function extractParams(groups: Record<string, string | undefined>): Record<strin
     }
     if (key === 'restWildcard__') {
       params['**'] = value == null ? '' : decodeURIComponent(value);
+      continue;
+    }
+    if (key === 'wildcard__') {
+      params['*'] = decodeURIComponent(value!);
       continue;
     }
     if (value == null) {

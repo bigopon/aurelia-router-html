@@ -43,7 +43,11 @@
 - [x] `A2` A nested fallback route uses sibling matches from its parent context and deactivates with that parent.
 - [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
 - [x] `A2` `*` and `/*` normalize to the same one-segment wildcard behavior.
+- [x] `A2` `*` captures one decoded segment as route-local `$params['*']` and round-trips through href and `au-link` generation.
+- [x] `A2` Nested wildcard captures remain scoped to the route context that consumed each segment.
+- [x] `A2` Malformed wildcard encoding fails before route state changes, and duplicate anonymous wildcards are rejected.
 - [x] `A2` `**` and `/**` consume the complete remaining residue and nested index routes receive `/`.
+- [x] `A2` `**` capture and href generation round-trip encoded multi-segment values.
 - [x] `A2` A terminal `**` path exposes only its consumed wildcard segment as `$params['**']`.
 - [x] `A2` A non-index child beneath `**` cannot match segments already consumed by the rest wildcard.
 - [x] `A2` A prefixed rest wildcard such as `/files/**` consumes its complete suffix.
@@ -71,6 +75,7 @@
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.
 - [x] A detached and reattached embedded playground recreates its compiler worker and iframe preview.
 - [x] The matching docs present terminal `**` paths alongside exact and fallback behavior and run a nested index child after the residue is consumed.
+- [x] The matching playground renders the decoded `$params['*']` value captured by a single-wildcard route.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

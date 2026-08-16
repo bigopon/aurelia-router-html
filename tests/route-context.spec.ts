@@ -470,6 +470,53 @@ run('A2 wildcard patterns normalize an optional leading slash', () => {
   assert.equal(withSlash.residue, '/abc');
 });
 
+run('A2 single wildcard captures and decodes its segment symmetrically with href generation', () => {
+  const root = new RouteContext(null, '*');
+  const folder = root.createChild('/files/*', { exact: true }) as RouteContext;
+  const href = root.href(folder, { '*': 'guides/router' });
+
+  assert.equal(href, '/files/guides%2Frouter');
+  root.apply(href);
+  assert.equal(folder.active, true);
+  assert.deepEqual({ ...folder.$params }, { '*': 'guides/router' });
+  assert.equal(folder.residue, '/');
+});
+
+run('A2 nested wildcard captures stay local to their route contexts', () => {
+  const root = new RouteContext(null, '*');
+  const team = root.createChild('/teams/*') as RouteContext;
+  const member = team.createChild('/members/*', { exact: true }) as RouteContext;
+
+  root.apply('/teams/core/members/alice');
+
+  assert.deepEqual({ ...team.$params }, { '*': 'core' });
+  assert.deepEqual({ ...member.$params }, { '*': 'alice' });
+});
+
+run('A2 malformed wildcard encoding fails before route state changes', () => {
+  const root = new RouteContext(null, '*');
+  const single = root.createChild('/files/*', { exact: true }) as RouteContext;
+  const terminal = root.createChild('/archive/**') as RouteContext;
+
+  assert.throws(() => root.apply('/files/%E0%A4%A'), URIError);
+  assert.equal(single.active, false);
+  assert.throws(() => root.apply('/archive/%E0%A4%A'), URIError);
+  assert.equal(terminal.active, false);
+});
+
+run('A2 duplicate anonymous wildcards in one pattern are rejected', () => {
+  const root = new RouteContext(null, '*');
+
+  assert.throws(
+    () => root.createChild('/files/*/*'),
+    /only one "\*" wildcard/,
+  );
+  assert.throws(
+    () => root.createChild('/files/**/**'),
+    /only one "\*\*" wildcard/,
+  );
+});
+
 run('A2 rest wildcard consumes all remaining segments', () => {
   const root = new RouteContext(null, '*');
   const catchAll = root.createChild('**') as RouteContext;
@@ -494,6 +541,16 @@ run('A2 prefixed rest wildcard consumes the complete suffix', () => {
   assert.equal(files.active, true);
   assert.equal(files.residue, '/');
   assert.deepEqual({ ...files.$params }, { '**': 'guides/router/start' });
+});
+
+run('A2 rest wildcard captures encoded segments symmetrically with href generation', () => {
+  const root = new RouteContext(null, '*');
+  const files = root.createChild('/files/**') as RouteContext;
+  const href = root.href(files, { '**': 'guides and api/router start' });
+
+  assert.equal(href, '/files/guides%20and%20api/router%20start');
+  root.apply(href);
+  assert.deepEqual({ ...files.$params }, { '**': 'guides and api/router start' });
 });
 
 run('A2 prefixed rest wildcard exposes an empty terminal segment when only its prefix matches', () => {

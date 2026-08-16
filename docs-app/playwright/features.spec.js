@@ -129,9 +129,11 @@ test.describe('router HTML docs features', () => {
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
     await expect(basicSyntax).toContainText('au-link="products"');
     await expect(basicSyntax).toContainText('au-link="/products"');
-    const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
+    const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Wildcard Paths' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="products/:id" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="offers/:id?" exact>');
+    await expect(matchingSyntax).toContainText('<au-route path="folders/*">');
+    await expect(matchingSyntax).toContainText("Folder: ${$params['*']}");
     await expect(matchingSyntax).toContainText('<au-route path="files/**">');
     const paramsSyntax = features
       .filter({ has: page.getByRole('heading', { name: 'Params', exact: true }) })
@@ -195,7 +197,7 @@ test.describe('router HTML docs features', () => {
   test('syntax highlighting gives valued and valueless attributes the same color', async ({ page }) => {
     await page.goto('/');
 
-    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
+    const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact, Fallback & Wildcard Paths' }).locator('pre');
     const pathAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^path$/ }).first();
     const exactAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^exact$/ }).first();
     const fallbackAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^fallback$/ });
@@ -416,7 +418,7 @@ test.describe('router HTML docs features', () => {
     await expect(page.getByRole('link', { name: 'Basic Routes', exact: true })).toHaveClass(/is-active/);
   });
 
-  test('exact, fallback, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {
+  test('exact, fallback, wildcard, terminal, and parallel swap fixtures run inside their pages', async ({ page }) => {
     await page.goto('/features/matching');
     let playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
@@ -429,6 +431,10 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Offer: summer' })).toBeVisible();
     await expect(frame.getByRole('link', { name: 'Offers', exact: true })).not.toHaveClass(/is-active/);
     await expect(frame.getByRole('link', { name: 'Summer offer' })).toHaveClass(/is-active/);
+    await frame.getByRole('link', { name: 'Folder guide' }).click();
+    await expect(frame.getByRole('heading', { name: 'Single folder route' })).toBeVisible();
+    await expect(frame.getByText('Captured folder: guides and api')).toBeVisible();
+    await expect(frame.getByText('Residue after *: /')).toBeVisible();
     await frame.getByRole('link', { name: 'Missing' }).click();
     await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
     await frame.getByRole('link', { name: 'Terminal file path' }).click();

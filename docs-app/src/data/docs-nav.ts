@@ -65,9 +65,9 @@ export const docNav: DocNavItem[] = [
   },
   {
     id: 'matching',
-    title: 'Exact, Fallback & Terminal',
+    title: 'Exact, Fallback & Wildcards',
     path: '/features/matching',
-    summary: 'Complete matches, parent-aware fallbacks, and terminal paths that consume the remaining URL.',
+    summary: 'Complete matches, parent-aware fallbacks, and wildcard paths that capture one or every remaining segment.',
     badge: 'A2',
   },
   {
