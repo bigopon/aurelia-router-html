@@ -31,8 +31,9 @@ export type PlaygroundCompileResponse = PlaygroundCompileSuccess | PlaygroundCom
 
 export interface PlaygroundPreviewMessage {
   channel: 'router-html-playground';
-  type: 'ready' | 'console' | 'runtime-error' | 'navigation';
+  type: 'ready' | 'console' | 'runtime-error' | 'navigation' | 'title';
   level?: 'log' | 'info' | 'warn' | 'error';
   message?: string;
   path?: string;
+  title?: string;
 }

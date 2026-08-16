@@ -17,6 +17,7 @@ import {
 } from '@aurelia/template-compiler';
 import { IRouteAnimationOptions } from './animation';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
+import { IRouteTitleService } from './title';
 
 declare const __DEV__: boolean;
 
@@ -32,7 +33,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo'],
+    bindables: ['path', 'redirectTo', 'title'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -50,6 +51,21 @@ export class AuRoute implements ICustomElementViewModel {
       }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
       data.pathExpression = pathExpression;
+      const title = node.getAttribute('title');
+      const shorthandTitleExpression = node.getAttribute(':title');
+      if (shorthandTitleExpression != null) {
+        node.removeAttribute(':title');
+        if (!node.hasAttribute('title.bind') && !node.hasAttribute('title.to-view')) {
+          node.setAttribute('title.bind', shorthandTitleExpression);
+        }
+      }
+      const hasBoundTitle = node.hasAttribute('title.bind')
+        || node.hasAttribute('title.to-view')
+        || shorthandTitleExpression != null;
+      if (__DEV__ && !hasBoundTitle && title?.includes('${') === true) {
+        console.warn(`[au-route] The title value "${title}" looks like an interpolation. Dynamic titles must use title.bind, title.to-view, or :title.`);
+      }
+      data.title = title;
       const redirectTo = node.getAttribute('redirect-to');
       const boundRedirectExpression = node.getAttribute('redirect-to.bind') ?? node.getAttribute('redirect-to.to-view');
       const shorthandRedirectExpression = node.getAttribute(':redirect-to');
@@ -79,6 +95,7 @@ export class AuRoute implements ICustomElementViewModel {
 
   public path: string = '/';
   public redirectTo: string | null = null;
+  public title: string | null = null;
   public view: ISyntheticView | null = null;
   public context: IRouteContext;
   public readonly location = resolve(IRenderLocation);
@@ -88,6 +105,7 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly animationsEnabled: boolean;
   private readonly expressionParser = resolve(IExpressionParser);
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
+  private readonly titleService = resolve(IRouteTitleService);
   private readonly pathExpression: string | null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
@@ -101,8 +119,8 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null }>;
-    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
+    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -113,6 +131,8 @@ export class AuRoute implements ICustomElementViewModel {
       swapOrder: swapOrder ?? undefined,
     });
     this.path = path;
+    this.title = title;
+    (this.context as RouteContext)._setTitle(title);
     this.pathExpression = pathExpression;
     this.redirectTo = redirectTo;
     this.redirectMode = redirectMode;
@@ -152,6 +172,10 @@ export class AuRoute implements ICustomElementViewModel {
     return this.queueViewUpdate();
   }
 
+  public bound(): void {
+    this.updateTitle(this.title);
+  }
+
   public pathChanged(path: string): void {
     this.updatePath(path);
   }
@@ -159,6 +183,18 @@ export class AuRoute implements ICustomElementViewModel {
   public redirectToChanged(value: string | null): void {
     this.redirectTo = value;
     this.tryRedirect();
+  }
+
+  public titleChanged(value: unknown): void {
+    this.updateTitle(value);
+  }
+
+  private updateTitle(value: unknown): void {
+    this.title = value == null ? null : String(value);
+    (this.context as RouteContext)._setTitle(this.title);
+    if (this.context.active && !this.isRedirect) {
+      this.titleService.requestUpdate();
+    }
   }
 
   private tryRedirect(): void {
@@ -196,6 +232,7 @@ export class AuRoute implements ICustomElementViewModel {
   public dispose(): void {
     this.unsubscribe();
     this.context.dispose();
+    this.titleService.requestUpdate();
   }
 
   private _isActive: boolean = false;
@@ -258,10 +295,28 @@ export class AuRoute implements ICustomElementViewModel {
 
     this.view ??= this.getView();
     this.viewActive = true;
-    return onResolve(
-      this.view.activate(this.view, this.$controller, this.scope),
-      () => this.animate('enter'),
-    );
+    this.titleService.beginViewActivation();
+    let activation: void | Promise<void>;
+    try {
+      activation = this.view.activate(this.view, this.$controller, this.scope);
+    } catch (error) {
+      this.titleService.endViewActivation();
+      throw error;
+    }
+    if (isPromise(activation)) {
+      return activation.then(
+        () => {
+          this.titleService.endViewActivation();
+          return this.animate('enter');
+        },
+        error => {
+          this.titleService.endViewActivation();
+          throw error;
+        },
+      );
+    }
+    this.titleService.endViewActivation();
+    return this.animate('enter');
   }
 
   private deactivateView(): void | Promise<void> {
@@ -278,6 +333,7 @@ export class AuRoute implements ICustomElementViewModel {
         if (this.view === view) {
           this.view = null;
         }
+        this.titleService.requestUpdate();
       });
     });
   }

@@ -8,10 +8,12 @@ import { BrowserPathAdapter, type BrowserAdapterOptions } from './browser-path-a
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import { IPathAdapter } from './path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
+import { BrowserRouteTitleService, IRouteTitleService, noRouteTitleService, type RouteTitleOptions } from './title';
 
 export interface RoutingOptions extends BrowserAdapterOptions {
   swapOrder?: SwapOrder;
   animations?: RouteAnimationInput;
+  titles?: boolean | RouteTitleOptions;
   adapter?: IPathAdapter | Key;
   adapterFactory?: (container: IContainer) => IPathAdapter;
 }
@@ -21,11 +23,16 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     throw new Error('Routing options cannot specify both adapter and adapterFactory.');
   }
 
+  const hasRegisteredAdapter = c.has(IPathAdapter, true);
+  const usesDefaultBrowserAdapter = options.adapter == null
+    && options.adapterFactory == null
+    && !hasRegisteredAdapter;
+  const browserWindow = usesDefaultBrowserAdapter ? c.get(IWindow) : null;
   const adapter = options.adapterFactory?.(c)
     ?? (options.adapter == null
-      ? (c.has(IPathAdapter, true)
+      ? (hasRegisteredAdapter
         ? c.get(IPathAdapter)
-        : new BrowserPathAdapter(c.get(IWindow), options))
+        : new BrowserPathAdapter(browserWindow!, options))
       : (isPathAdapter(options.adapter)
         ? options.adapter
         : c.get(options.adapter) as IPathAdapter));
@@ -38,6 +45,15 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     hrefFormatter: path => adapter.formatHref(path),
   });
   const coordinator = new RouteCoordinator(rootContext, adapter);
+  const titleService = c.has(IRouteTitleService, true)
+    ? c.get(IRouteTitleService)
+    : options.titles === false || (!usesDefaultBrowserAdapter && options.titles == null)
+      ? noRouteTitleService
+      : new BrowserRouteTitleService(
+        rootContext,
+        (browserWindow ?? c.get(IWindow)).document,
+        typeof options.titles === 'object' ? options.titles : {},
+      );
 
   c.register(
     AuRoute,
@@ -45,11 +61,14 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     Registration.instance(IPathAdapter, adapter),
     Registration.instance(IRouteAnimationOptions, animationOptions),
     Registration.instance(IRouteContext, rootContext),
+    Registration.instance(IRouteTitleService, titleService),
     Registration.instance(IRouteCoordinator, coordinator),
     AppTask.creating(() => {
+      titleService.start();
       coordinator.start();
     }),
     AppTask.deactivated(() => {
+      titleService.stop();
       coordinator.stop();
     }),
   );

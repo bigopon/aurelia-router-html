@@ -8,10 +8,12 @@ import { IPathAdapter, type PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
 import type { BrowserRoutingMode } from '../../../router/browser-path-adapter';
 import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from '../../../router/route-location';
+import { BrowserRouteTitleService, IRouteTitleService, type RouteTitleOptions } from '../../../router/title';
 
 interface PlaygroundRoutingOptions {
   swapOrder?: SwapOrder;
   animations?: RouteAnimationInput;
+  titles?: boolean | RouteTitleOptions;
   interceptLinks?: boolean;
   routingMode?: BrowserRoutingMode;
   routeQueryKey?: string;
@@ -149,15 +151,29 @@ export function createPlaygroundRouting() {
       hrefFormatter: path => adapter.formatHref(path),
     });
     const coordinator = new RouteCoordinator(root, adapter);
+    const titleService = options.titles === false
+      ? { start() {}, beginViewActivation() {}, endViewActivation() {}, requestUpdate() {}, stop() {} }
+      : new BrowserRouteTitleService(
+        root,
+        document,
+        typeof options.titles === 'object' ? options.titles : {},
+      );
     container.register(
       AuRoute,
       AuLink,
       Registration.instance(IPathAdapter, adapter),
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
       Registration.instance(IRouteContext, root),
+      Registration.instance(IRouteTitleService, titleService),
       Registration.instance(IRouteCoordinator, coordinator),
-      AppTask.creating(() => coordinator.start()),
-      AppTask.deactivated(() => coordinator.stop()),
+      AppTask.creating(() => {
+        titleService.start();
+        coordinator.start();
+      }),
+      AppTask.deactivated(() => {
+        titleService.stop();
+        coordinator.stop();
+      }),
     );
   };
   return {

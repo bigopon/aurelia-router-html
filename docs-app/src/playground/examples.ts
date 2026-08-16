@@ -402,6 +402,38 @@ export class App {
 </main>`,
   }),
   routerExample({
+    id: 'page-titles',
+    title: 'Nested page titles',
+    description: 'Compose static and bound route metadata after the active view is ready.',
+    initialPath: '/products/camera',
+    appTs: `export class App {
+  public cameraTitle = 'Camera details';
+
+  public renameCamera(): void {
+    this.cameraTitle = this.cameraTitle === 'Camera details'
+      ? 'Mirrorless camera'
+      : 'Camera details';
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="products/camera">Camera</a>
+  <a au-link="products/lens">Lens</a>
+</nav>
+<main>
+  <au-route path="products" title="Products">
+    <au-route path="camera" exact title.bind="cameraTitle">
+      <h1>Camera</h1>
+      <p>The browser title includes this bound route title.</p>
+      <button click.trigger="renameCamera()">Change title</button>
+    </au-route>
+    <au-route path="lens" exact title="Lens details">
+      <h1>Lens</h1>
+      <p>This route contributes a static title.</p>
+    </au-route>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

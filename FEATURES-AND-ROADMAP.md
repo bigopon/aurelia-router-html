@@ -549,41 +549,49 @@ Preliminary syntax for push behavior:
 
 Matcher coverage verifies that re-entrant redirect navigation cancels the stale matching pass. Node-based Aurelia coverage verifies static, parameterized, relative, nested-index, fallback, dynamically bound, replacement, push, and loop behavior. Browser coverage exercises direct loads, plain-anchor navigation, Back, and Forward in pathname, hash-only, and query-key modes.
 
+## 23. Route titles
+
+Static and bound route metadata composes into the browser document title after the active view tree is ready:
+
+```html
+<au-route path="products" title="Products">
+  <au-route path="camera" exact title.bind="product.name">
+    ...
+  </au-route>
+</au-route>
+```
+
+Dynamic titles require `title.bind`, `title.to-view`, or `:title`. Active titled contexts compose parent-first by default. `Routing.customize({ titles: { separator, fallback, compose } })` controls formatting, while `titles: false` disables browser title writes. The default browser adapter enables the title layer automatically; custom and memory adapters opt in with `titles: true` or an options object.
+
+`RouteContext` exposes normalized title metadata without touching browser globals. `BrowserRouteTitleService` owns `document.title`, coalesces matching changes, and waits for asynchronous routed content to attach before publishing the next title. Node tests cover static, nested, dynamic, fallback, and asynchronous behavior. Standalone browser tests cover pathname, hash-only, and query-key adapters.
+
 ---
 
 # Remaining proposed features
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. Proposal 6 remains.
+Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title layer of proposal 6 is implemented as feature 23; scrolling and focus policies remain.
 
-## Proposed 6. Navigation metadata and browser polish
+## Proposed 6. Browser navigation polish
 
 ### Problem
 
-Matching and rendering are functional, but production applications also need document titles, fragment scrolling, history scroll restoration, and predictable focus after navigation.
+Matching, rendering, and document titles are functional, but production applications also need fragment scrolling, history scroll restoration, and predictable focus after navigation.
 
 ### Design
 
 Deliver this feature in small optional layers rather than placing browser behavior in `RouteContext`.
 
-### Route metadata
-
-Allow static or bound route titles:
-
-```html
-<au-route path="products/:productId" title="Product details">
-  ...
-</au-route>
-
-<au-route path="products/:productId" title.bind="product.name">
-  ...
-</au-route>
-```
-
-Nested title composition belongs to a configurable browser metadata service. Route contexts may expose metadata, but they must not write to `document` directly.
-
 ### Hash scrolling
 
 After a successful navigation containing a hash, the browser layer locates the decoded target and scrolls it into view after the active branch is attached.
+
+URL-mode rules must remain unambiguous:
+
+- pathname mode uses `/products#details`;
+- query mode uses `?app=products#details`, leaving the normal browser fragment available;
+- hash routing uses `#products#details`: the first `#` starts the routed payload and the second separates the route fragment inside that payload;
+- in hash routing, `#details` means the route `/details`, not an in-page fragment. A fragment on the current route must be generated through `$route.href('.', {}, { hash: 'details' })` or the equivalent `au-link` instruction;
+- all modes expose only the decoded route fragment through `$hash`; the browser policy scrolls manually, so behavior does not depend on native fragment scrolling.
 
 ### Scroll restoration
 
@@ -599,19 +607,18 @@ After a successful navigation containing a hash, the browser layer locates the d
 
 ### Acceptance criteria
 
-- Route metadata updates after the matching view is ready.
-- Nested title composition and dynamic title updates are deterministic.
 - Hash scrolling waits for rendered content.
 - Back and Forward restore saved positions.
 - Keyboard focus moves only under the configured policy.
 - All browser behavior is implemented outside `RouteContext` and can be disabled.
-- Accessibility-focused browser tests cover focus and document-title behavior.
+- Accessibility-focused browser tests cover focus behavior.
 
 ---
 
 # Recommended implementation sequence
 
-1. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
+1. Finalize and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
+2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

@@ -64,6 +64,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A6',
   },
   {
+    id: 'titles',
+    title: 'Page Titles',
+    path: '/features/titles',
+    summary: 'Compose browser page titles from static or bound metadata on the active route tree.',
+    badge: 'A7',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

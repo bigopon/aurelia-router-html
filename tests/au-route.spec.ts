@@ -744,3 +744,133 @@ describe('au-route template lifecycle', function () {
     }
   });
 });
+
+describe('au-route document titles', function () {
+  it('composes static titles from the active nested route tree and restores the fallback', async function () {
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="products" title="Products">
+        <au-route path="camera" exact title="Camera details">
+          <span data-camera>Camera</span>
+        </au-route>
+      </au-route>
+      <au-route path="plain" exact><span data-plain>Plain</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter, titles: { separator: ' — ', fallback: 'Example store' } })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products/camera');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Products — Camera details');
+
+      router.load('/plain');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Example store');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('updates a bound title and supports custom composition', async function () {
+    class App {
+      public productTitle: string = 'Camera';
+    }
+
+    const adapter = new MemoryPathAdapter('/products/camera');
+    const fixture = await createFixture(
+      `<au-route path="products" title="Products">
+        <au-route path="camera" exact title.bind="productTitle"><span>Camera</span></au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({
+        adapter,
+        titles: {
+          compose: titles => [...titles].reverse().join(' | '),
+        },
+      })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Camera | Products');
+
+      fixture.component.productTitle = 'Mirrorless camera';
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Mirrorless camera | Products');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const syntax of ['title.to-view="pageTitle"', ':title="pageTitle"']) {
+    it(`updates a dynamic title using ${syntax}`, async function () {
+      class App {
+        public pageTitle: string = 'First title';
+      }
+
+      const adapter = new MemoryPathAdapter('/page');
+      const fixture = await createFixture(
+        `<au-route path="page" exact ${syntax}><span>Page</span></au-route>`,
+        App,
+        [Routing.customize({ adapter, titles: true })],
+      ).started;
+
+      try {
+        await tasksSettled();
+        assert.strictEqual(fixture.appHost.ownerDocument.title, 'First title');
+
+        fixture.component.pageTitle = 'Second title';
+        await tasksSettled();
+        assert.strictEqual(fixture.appHost.ownerDocument.title, 'Second title');
+      } finally {
+        await fixture.tearDown();
+      }
+    });
+  }
+
+  it('does not publish the matched title until async route content is ready', async function () {
+    let finishAttaching!: () => void;
+    const attaching = new Promise<void>(resolve => {
+      finishAttaching = resolve;
+    });
+
+    class AsyncTitleContent {
+      public attaching(): Promise<void> {
+        return attaching;
+      }
+    }
+
+    const AsyncTitleContentElement = CustomElement.define({
+      name: 'async-title-content',
+      template: '<span>Ready</span>',
+    }, AsyncTitleContent);
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      '<au-route path="async" exact title="Async page"><async-title-content></async-title-content></au-route>',
+      class App {},
+      [
+        Routing.customize({ adapter, titles: { fallback: 'Before navigation' } }),
+        AsyncTitleContentElement,
+      ],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/async');
+      await Promise.resolve();
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Before navigation');
+
+      finishAttaching();
+      for (let index = 0; index < 10 && fixture.appHost.ownerDocument.title !== 'Async page'; index++) {
+        await Promise.resolve();
+        await tasksSettled();
+      }
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Async page');
+    } finally {
+      finishAttaching();
+      await fixture.tearDown();
+    }
+  });
+});

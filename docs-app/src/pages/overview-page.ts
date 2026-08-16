@@ -68,6 +68,13 @@ export class OverviewPage {
       syntax: '<au-route\n  path="legacy/:productId"\n  exact\n  redirect-to="/products/:productId">\n</au-route>',
     },
     {
+      title: 'Page Titles',
+      summary: 'Compose browser metadata from the active nested routes, including values bound from application state.',
+      path: '/features/titles',
+      playgroundId: 'page-titles',
+      syntax: '<au-route path="products" title="Products">\n  <au-route\n    path="camera"\n    exact\n    title.bind="cameraTitle">\n    Camera\n  </au-route>\n</au-route>',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',

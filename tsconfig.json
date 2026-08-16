@@ -9,7 +9,7 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "noEmit": true,
-    "types": ["node", "@playwright/test"]
+    "types": ["node", "@playwright/test", "vite/client"]
   },
   "include": ["example", "router", "playwright"]
 }

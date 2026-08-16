@@ -4,6 +4,7 @@ import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOpt
 
 export interface RouteState {
   readonly active: boolean;
+  readonly title: string | null;
   readonly params: Readonly<Record<string, string>>;
   readonly residue: string;
   readonly path: string;
@@ -48,6 +49,7 @@ export interface IRouteContext {
   readonly $hash: string;
   readonly pattern: string;
   readonly fullPath: string;
+  readonly title: string | null;
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
   load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): void;
@@ -72,6 +74,7 @@ export class RouteContext implements IRouteContext {
   public $query: RouteQuery = emptyRouteQuery;
   public $hash: string = '';
   public pattern: string = '*';
+  public title: string | null = null;
 
   public get root(): IRouteContext {
     let context: IRouteContext = this;
@@ -230,6 +233,16 @@ export class RouteContext implements IRouteContext {
     const matcher = compilePattern(normalizedPattern, this._exact, this.parent === null);
     this.pattern = normalizedPattern;
     this._matcher = matcher;
+  }
+
+  /** @internal */
+  public _setTitle(title: string | null): void {
+    const normalized = title == null || title.trim() === '' ? null : title.trim();
+    if (this.title === normalized) {
+      return;
+    }
+    this.title = normalized;
+    this._notify();
   }
 
   public apply(path: string, location: Pick<RouteLocation, 'query' | 'hash'> = { query: emptyRouteQuery, hash: '' }): void {
@@ -489,6 +502,7 @@ export class RouteContext implements IRouteContext {
   private _currentState(): RouteState {
     return {
       active: this.active,
+      title: this.title,
       params: this.$params,
       residue: this.residue,
       path: this.$path,

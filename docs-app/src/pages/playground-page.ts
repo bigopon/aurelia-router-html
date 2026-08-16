@@ -41,6 +41,7 @@ export class PlaygroundPage {
   public compiling = false;
   public status = 'Ready to compile';
   public currentPreviewPath = this.project.initialPath;
+  public previewTitle = '';
   public viewMode: PlaygroundViewMode = 'split';
   public editorHost!: HTMLElement;
   public previewHost!: HTMLElement;
@@ -158,6 +159,7 @@ export class PlaygroundPage {
     this.status = 'Compiling…';
     this.diagnostics = [];
     this.consoleEntries = [];
+    this.previewTitle = '';
     const request: PlaygroundCompileRequest = {
       type: 'compile',
       id,
@@ -201,6 +203,8 @@ export class PlaygroundPage {
     const message = event.data;
     if (message.type === 'navigation' && message.path != null) {
       this.currentPreviewPath = message.path;
+    } else if (message.type === 'title') {
+      this.previewTitle = message.title ?? '';
     } else if (message.type === 'console' || message.type === 'runtime-error') {
       this.consoleEntries = [...this.consoleEntries, {
         level: message.level ?? 'error',
@@ -219,6 +223,7 @@ export class PlaygroundPage {
     this.project = cloneExample(example);
     this.selectedFile = this.project.initialFile ?? Object.keys(this.project.files)[0];
     this.currentPreviewPath = this.project.initialPath;
+    this.previewTitle = '';
     this.diagnostics = [];
     this.consoleEntries = [];
     if (this.editorHost != null) {
@@ -339,7 +344,10 @@ for (const level of ['log', 'info', 'warn', 'error']) {
   };
 }
 window.addEventListener('error', event => send('runtime-error', { level: 'error', message: event.message }));
-window.addEventListener('unhandledrejection', event => send('runtime-error', { level: 'error', message: stringify(event.reason) }));`;
+window.addEventListener('unhandledrejection', event => send('runtime-error', { level: 'error', message: stringify(event.reason) }));
+const sendTitle = () => send('title', { title: document.title });
+new MutationObserver(sendTitle).observe(document.head, { childList: true, subtree: true, characterData: true });
+sendTitle();`;
 
 function initialExample(): PlaygroundExample {
   const id = window.location.pathname.split('/').filter(Boolean).at(-1);

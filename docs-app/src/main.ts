@@ -10,6 +10,10 @@ void Aurelia
   .register(
     Routing.customize({
       animations: false,
+      titles: {
+        fallback: 'Aurelia Router HTML',
+        compose: titles => `${titles[0]} | Aurelia Router HTML`,
+      },
     }),
     SyntaxHtml,
     SyntaxTypeScript,

@@ -13,6 +13,7 @@ import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureRedirectsPage } from './feature-redirects-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
+import { FeatureTitlesPage } from './feature-titles-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
 import { FeatureWildcardPage } from './feature-wildcard-page';
 import { OverviewPage } from './overview-page';
@@ -33,6 +34,7 @@ export class DocsApp {
       FeatureActiveLinksPage,
       FeatureProgrammaticPage,
       FeatureRedirectsPage,
+      FeatureTitlesPage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,

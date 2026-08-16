@@ -32,10 +32,12 @@ for (const mode of modes) {
     await page.goto(mode.legacyUrl);
     await expect(page).toHaveURL(mode.reviewsUrl);
     await expect(page.getByRole('heading', { name: 'Adapter reviews' })).toBeVisible();
+    await expect(page).toHaveTitle('Adapter reviews');
 
     await page.goto(mode.productsUrl);
 
     await expect(page.getByRole('heading', { name: 'Adapter products' })).toBeVisible();
+    await expect(page).toHaveTitle('Adapter products');
     const reviews = page.locator('[data-e2e="reviews-link"]');
     await expect(reviews).toHaveAttribute('href', mode.reviewsHref);
     const legacy = page.locator('[data-e2e="legacy-link"]');
@@ -44,12 +46,15 @@ for (const mode of modes) {
     await legacy.click();
     await expect(page).toHaveURL(mode.reviewsUrl);
     await expect(page.getByRole('heading', { name: 'Adapter reviews' })).toBeVisible();
+    await expect(page).toHaveTitle('Adapter reviews');
 
     await page.goBack();
     await expect(page.getByRole('heading', { name: 'Adapter products' })).toBeVisible();
+    await expect(page).toHaveTitle('Adapter products');
 
     await page.goForward();
     await expect(page).toHaveURL(mode.reviewsUrl);
     await expect(page.getByRole('heading', { name: 'Adapter reviews' })).toBeVisible();
+    await expect(page).toHaveTitle('Adapter reviews');
   });
 }

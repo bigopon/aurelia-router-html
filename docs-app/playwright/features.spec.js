@@ -6,6 +6,9 @@ test.describe('router HTML docs features', () => {
 
     const preview = page.locator('[data-e2e="playground-preview"]');
     await expect(preview).toHaveAttribute('sandbox', 'allow-scripts');
+    expect(await preview.evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(650);
+    expect(await page.locator('.playground-workspace').evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(650);
+    expect(await page.locator('.playground-editor-panel').evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(650);
     await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
     const highlightedTokens = page.locator('.code-editor .cm-content span');
     await expect(highlightedTokens.first()).toBeVisible();
@@ -140,10 +143,11 @@ test.describe('router HTML docs features', () => {
     await expect(customization).toContainText('interceptLinks');
     await expect(customization).toContainText('swapOrder');
     await expect(customization).toContainText('animations');
+    await expect(customization).toContainText('titles');
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(16);
+    await expect(features).toHaveCount(17);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -176,9 +180,11 @@ test.describe('router HTML docs features', () => {
     await expect(programmaticSyntax).toContainText('this.route.load');
     const redirectSyntax = features.filter({ hasText: 'Declarative Redirects' }).locator('pre');
     await expect(redirectSyntax).toContainText('redirect-to="/products/:productId"');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(16);
+    const titleSyntax = features.filter({ hasText: 'Page Titles' }).locator('pre');
+    await expect(titleSyntax).toContainText('title.bind="cameraTitle"');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(17);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(16);
+    await expect(editLinks).toHaveCount(17);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -187,6 +193,7 @@ test.describe('router HTML docs features', () => {
       '/playground/active-links',
       '/playground/programmatic-navigation',
       '/playground/declarative-redirects',
+      '/playground/page-titles',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -314,6 +321,7 @@ test.describe('router HTML docs features', () => {
       ['active-links', 'au-link.bind'],
       ['programmatic', 'resolve(IRouteContext)', '/src/app.ts'],
       ['redirects', 'redirect-to.bind'],
+      ['titles', 'title.bind="cameraTitle"'],
       ['adapters', 'MemoryPathAdapter', '/src/main.ts'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
@@ -563,6 +571,25 @@ test.describe('router HTML docs features', () => {
     await expect(editor).toContainText('redirect-to.bind="legacyTarget"');
     await expect(editor).toContainText('redirect-to="products/:productId"');
     await expect(editor).toContainText('path="/" exact redirect-to="profile"');
+  });
+
+  test('page titles compose nested static and bound metadata in the real browser', async ({ page }) => {
+    await page.goto('/features/titles');
+    await expect(page).toHaveTitle('Page Titles | Aurelia Router HTML');
+
+    const guide = page.locator('[data-e2e="title-guide"]');
+    await expect(guide).toContainText('title.bind');
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('title.bind="cameraTitle"');
+    const preview = page.frames().find(frame => frame !== page.mainFrame());
+    expect(preview).toBeDefined();
+    const visibleTitle = playground.locator('[data-e2e="preview-title"]');
+    await expect(visibleTitle).toHaveText('Products · Camera details');
+    await preview.getByRole('button', { name: 'Change title' }).click();
+    await expect(visibleTitle).toHaveText('Products · Mirrorless camera');
+    await preview.getByRole('link', { name: 'Lens' }).click();
+    await expect(visibleTitle).toHaveText('Products · Lens details');
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

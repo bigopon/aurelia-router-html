@@ -1,0 +1,41 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Page Titles</h2>
+      <p class="page-copy">Describe each route where it is declared, then let the active nested tree produce one useful browser title.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="title-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="products" title="Products"&gt;
+  &lt;au-route
+    path="camera"
+    exact
+    title.bind="cameraTitle"&gt;
+    &lt;h1&gt;Camera&lt;/h1&gt;
+  &lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>Use <code>title</code> for fixed metadata. Dynamic values require <code>title.bind</code>, <code>title.to-view</code>, or <code>:title</code>.</p>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p>Every titled route in the active nested tree contributes one part. The default policy produces <code>Products · Camera details</code> in the editable example. Applications can instead select one title and append a fixed brand.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  titles: {
+    separator: ' — ',
+    fallback: 'Example store'
+  }
+});</pre>
+      <p>Browser pathname routing enables titles automatically. Set <code>titles: false</code> to opt out, or configure a separator, fallback, or custom <code>compose</code> function. A custom or memory adapter enables the browser title layer explicitly with <code>titles: true</code> or an options object.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="page-titles" embedded.bind="true"></playground-page>
+</section>

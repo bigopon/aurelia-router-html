@@ -721,6 +721,22 @@ run('S1 parallel swap updates sibling branches in one pass', () => {
   ]);
 });
 
+run('T1 route title metadata is normalized and included in subscription state', () => {
+  const route = new RouteContext(null, '/products');
+  let observedTitle: string | null = null;
+  route.subscribe(state => {
+    observedTitle = state.title;
+  });
+
+  route._setTitle('  Products  ');
+  assert.equal(route.title, 'Products');
+  assert.equal(observedTitle, 'Products');
+
+  route._setTitle('   ');
+  assert.equal(route.title, null);
+  assert.equal(observedTitle, null);
+});
+
 console.log('route-context tests passed');
 
 function run(name: string, fn: () => void): void {

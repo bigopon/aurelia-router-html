@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
+    "types": ["vite/client"],
     "noEmit": true
   },
   "include": ["src", "../router"]

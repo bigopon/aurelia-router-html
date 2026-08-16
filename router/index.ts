@@ -17,3 +17,5 @@ export { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRout
 export type { RouteHrefOptions, RouteLocation, RouteQuery, RouteQueryInput, RouteQueryValue } from './route-location';
 export { IRouteAnimationOptions } from './animation';
 export type { RouteAnimationOptions, RouteAnimationInput } from './animation';
+export { BrowserRouteTitleService, IRouteTitleService } from './title';
+export type { RouteTitleOptions } from './title';

@@ -63,7 +63,10 @@
     <section class="playground-preview-panel">
       <div class="panel-label preview-label">
         <span>Preview</span>
-        <code>${currentPreviewPath}</code>
+        <div class="preview-meta">
+          <span if.bind="previewTitle" class="preview-title" data-e2e="preview-title">${previewTitle}</span>
+          <code>${currentPreviewPath}</code>
+        </div>
       </div>
       <div class="preview-host" ref="previewHost"></div>
     </section>
