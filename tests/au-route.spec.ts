@@ -1,6 +1,7 @@
 import { IPlatform } from '@aurelia/kernel';
 import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
+import { CustomElement } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
@@ -400,6 +401,62 @@ describe('au-route animation scheduling', function () {
       await Promise.resolve();
       assert.strictEqual(element?.dataset.auRouteTransition, undefined);
     } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route template lifecycle', function () {
+  it('waits for an async child attaching lifecycle before deactivating its view', async function () {
+    const events: string[] = [];
+    let finishAttaching!: () => void;
+    const attaching = new Promise<void>(resolve => {
+      finishAttaching = resolve;
+    });
+
+    class AsyncContent {
+      public attaching(): Promise<void> {
+        events.push('attaching');
+        return attaching;
+      }
+
+      public attached(): void {
+        events.push('attached');
+      }
+
+      public detaching(): void {
+        events.push('detaching');
+      }
+    }
+
+    const AsyncContentElement = CustomElement.define({
+      name: 'async-content',
+      template: '<span data-async-content>Async content</span>',
+    }, AsyncContent);
+    const fixture = await createFixture(
+      '<au-route path="/async"><async-content></async-content></au-route>',
+      class App {},
+      [Routing, AsyncContentElement],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/async');
+      assert.deepStrictEqual(events, ['attaching']);
+
+      router.load('/other');
+      await Promise.resolve();
+      assert.deepStrictEqual(events, ['attaching']);
+
+      finishAttaching();
+      await tasksSettled();
+      for (let i = 0; i < 10 && !events.includes('detaching'); i++) {
+        await Promise.resolve();
+      }
+      assert.deepStrictEqual(events, ['attaching', 'attached', 'detaching']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-async-content]'), null);
+    } finally {
+      finishAttaching();
       await fixture.tearDown();
     }
   });

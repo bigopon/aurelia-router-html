@@ -23,6 +23,7 @@
 - [x] `S1` The opt-out swap order preserves detach-current-attach-next behavior when configured.
 - [x] `S1` Browser navigation between sibling product tabs avoids an empty child-stage gap.
 - [x] `S2` Animated sibling navigation applies route transition classes while the swap is in flight.
+- [x] `S2` Route view deactivation waits for async lifecycle work from content rendered inside the route template.
 - [x] `A1` `RouteContext` exact static match activates and leaves `/` residue when fully consumed.
 - [x] `A1` `RouteContext` parameter match extracts params and forwards remaining residue.
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.
