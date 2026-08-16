@@ -93,6 +93,10 @@ input {
   font-family: var(--font-display);
 }
 
+.brand-stack h1 {
+  font-size: 1.5rem;
+}
+
 .brand-mark,
 .badge {
   display: inline-flex;
@@ -102,11 +106,11 @@ input {
 }
 
 .brand-mark {
-  justify-content: center;
   width: 42px;
   height: 42px;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%);
-  color: white;
+  flex: 0 0 42px;
+  object-fit: contain;
+  image-rendering: pixelated;
 }
 
 .brand-row {
