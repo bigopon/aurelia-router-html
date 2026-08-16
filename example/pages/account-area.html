@@ -31,7 +31,7 @@
           </div>
         </au-route>
 
-        <au-route path="/orders/:orderId">
+        <au-route path="orders/:orderId">
           <au-compose
             component.bind="getOrderDetailComponent()"
             model.bind="{ orderId: $params.orderId }">

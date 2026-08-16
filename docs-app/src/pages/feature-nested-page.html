@@ -11,12 +11,12 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;au-route path="/products/:productId"&gt;
-  &lt;a href.bind="$route.href('.')"&gt;Overview&lt;/a&gt;
-  &lt;a href.bind="$route.href('/reviews')"&gt;Reviews&lt;/a&gt;
+      <pre class="code-block" syntax-html>&lt;au-route path="products/:productId"&gt;
+  &lt;a au-link="."&gt;Overview&lt;/a&gt;
+  &lt;a au-link="reviews"&gt;Reviews&lt;/a&gt;
 
   &lt;au-route path="."&gt;Product overview&lt;/au-route&gt;
-  &lt;au-route path="/reviews"&gt;Product reviews&lt;/au-route&gt;
+  &lt;au-route path="reviews"&gt;Product reviews&lt;/au-route&gt;
 &lt;/au-route&gt;</pre>
     </section>
     <section>
@@ -32,16 +32,16 @@
   <div class="feature-details" data-e2e="route-api-examples">
     <section>
       <h3>Build local and index links</h3>
-      <pre class="code-block" syntax-html>&lt;a href.bind="$route.href('.')"&gt;Current section&lt;/a&gt;
-&lt;a href.bind="$route.href('/reviews')"&gt;Reviews&lt;/a&gt;
-&lt;a href.bind="$route.href('/reviews', $params)"&gt;Reviews for this product&lt;/a&gt;</pre>
-      <p><code>href('.')</code> targets the current section's index route. A descendant pattern such as <code>/reviews</code> is resolved below the current context and inherits active ancestor parameters.</p>
+      <pre class="code-block" syntax-html>&lt;a au-link="."&gt;Current section&lt;/a&gt;
+&lt;a au-link="reviews"&gt;Reviews&lt;/a&gt;
+&lt;a au-link="./reviews"&gt;Reviews for this product&lt;/a&gt;</pre>
+      <p><code>.</code> targets the current section's index route. <code>reviews</code> and <code>./reviews</code> are equivalent descendant targets and inherit active ancestor parameters.</p>
     </section>
 
     <section>
       <h3>Build a link from anywhere</h3>
       <pre class="code-block" syntax-html>&lt;a href.bind="$route.root.href(
-  '/products/:productId/reviews',
+  'products/:productId/reviews',
   { productId: product.id }
 )"&gt;Read reviews&lt;/a&gt;</pre>
       <p>Start from <code>$route.root</code> when the target is outside the current subtree. Supply values for route parameters that are not available from the active context.</p>
@@ -59,10 +59,10 @@
 
     <section>
       <h3>Move through the route tree</h3>
-      <pre class="code-block" syntax-html>&lt;a href.bind="$route.parent.href('/specs')"&gt;Sibling specs&lt;/a&gt;
+      <pre class="code-block" syntax-html>&lt;a au-link="specs"&gt;Sibling specs&lt;/a&gt;
 &lt;span repeat.for="path of $route.getPaths(false)"&gt;$<span>{path}</span>&lt;/span&gt;
 &lt;span repeat.for="path of $route.root.getPaths()"&gt;$<span>{path}</span>&lt;/span&gt;</pre>
-      <p>Use <code>parent</code> to resolve a sibling from a nested view. <code>getPaths()</code> returns the registered subtree; pass <code>false</code> to omit the current context, or start at <code>root</code> to inspect the complete route registry.</p>
+      <p>A relative target resolves inside the current route subtree and inherits its active parameters. <code>getPaths()</code> returns the registered subtree; pass <code>false</code> to omit the current context, or start at <code>root</code> to inspect the complete route registry.</p>
     </section>
   </div>
 

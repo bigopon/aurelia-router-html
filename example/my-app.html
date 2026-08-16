@@ -60,7 +60,7 @@
 
     <div class="content-grid">
       <main class="panel route-stack" data-e2e="route-stage">
-        <au-route path="/products">
+        <au-route path="products">
           <section data-e2e="route-products">
             <div class="catalog-head">
               <div>
@@ -119,7 +119,7 @@
               Parent catalog markup remains mounted while nested product routes swap below.
             </div>
 
-            <au-route path="/:productId">
+            <au-route path=":productId">
               <section class="product-shell" data-e2e="product-shell">
                 <div class="detail-head">
                   <div>
@@ -199,26 +199,26 @@
                         </div>
                       </au-route>
 
-                      <au-route path="/overview">
+                      <au-route path="overview">
                         <div class="route-callout" data-e2e="product-overview">
                           <div class="eyebrow">Overview route</div>
                           <p>${detailProduct?.description}</p>
                         </div>
                       </au-route>
 
-                      <au-route path="/reviews">
+                      <au-route path="reviews">
                         <div class="route-callout" data-e2e="product-reviews-stage">
                           <au-compose component.bind="getReviewComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
                         </div>
                       </au-route>
 
-                      <au-route path="/specs">
+                      <au-route path="specs">
                         <div class="route-callout" data-e2e="product-specs-stage">
                           <au-compose component.bind="getSpecsComponent()" model.bind="{ productId: detailProduct?.id }"></au-compose>
                         </div>
                       </au-route>
 
-                      <au-route path="/related/:relatedId">
+                      <au-route path="related/:relatedId">
                         <div class="route-callout" data-e2e="product-related">
                           <div class="nested-head">
                             <div>
@@ -239,7 +239,7 @@
                         </div>
                       </au-route>
 
-                      <au-route if.bind="allowPromoRoute && detailProduct?.isOnSale" path="/promo">
+                      <au-route if.bind="allowPromoRoute && detailProduct?.isOnSale" path="promo">
                         <div class="route-callout" data-e2e="product-promo">
                           <div class="eyebrow">Conditional promo route</div>
                           <p>${detailProduct?.name} is on sale, so this branch appears only after async product data resolves.</p>
@@ -250,7 +250,7 @@
                       </div>
 
                       <template repeat.for="flashRoute of repeatedFlashRoutes">
-                        <au-route path.bind="'/' + flashRoute.id">
+                        <au-route path.bind="flashRoute.id">
                           <div class="route-callout" data-e2e="product-flash">
                             ${flashRoute.label}
                           </div>
@@ -264,7 +264,7 @@
           </section>
         </au-route>
 
-        <au-route path="/cart">
+        <au-route path="cart">
           <section data-e2e="route-cart">
             <div class="summary-head">
               <div>
@@ -298,26 +298,26 @@
           </section>
         </au-route>
 
-        <au-route path="/checkout">
+        <au-route path="checkout">
           <au-compose component.bind="getCheckoutComponent()"></au-compose>
         </au-route>
 
-        <au-route path="/account">
+        <au-route path="account">
           <au-compose component.bind="getAccountComponent()"></au-compose>
         </au-route>
 
-        <au-route path="/about" exact>
+        <au-route path="about" exact>
           <section class="route-callout" data-e2e="route-about-exact">
             Exact about route.
           </section>
         </au-route>
 
-        <au-route path="/matching">
+        <au-route path="matching">
           <section class="route-stack" data-e2e="route-matching">
-            <au-route path="/exact" exact>
+            <au-route path="exact" exact>
               <div class="route-callout" data-e2e="nested-exact">Nested exact route.</div>
             </au-route>
-            <au-route path="/known">
+            <au-route path="known">
               <div class="route-callout" data-e2e="nested-known">Nested prefix route.</div>
             </au-route>
             <au-route path="*" fallback>
@@ -326,14 +326,14 @@
           </section>
         </au-route>
 
-        <au-route path="/selection">
+        <au-route path="selection">
           <section class="route-stack" data-e2e="exact-fallback-selection">
-            <au-route path="/products" exact>
+            <au-route path="products" exact>
               <div class="route-callout" data-e2e="selection-products-index">Exact products index.</div>
             </au-route>
             <au-route path="*" fallback>
               <div class="route-stack" data-e2e="selection-products-fallback">
-                <au-route path="/abc" exact>
+                <au-route path="abc" exact>
                   <div class="route-callout" data-e2e="selection-product-abc">Exact ABC product.</div>
                 </au-route>
               </div>
@@ -341,31 +341,31 @@
           </section>
         </au-route>
 
-        <au-route path="/consume">
+        <au-route path="consume">
           <au-route path="**">
             <section class="route-stack" data-e2e="rest-wildcard">
               <div class="route-callout">The rest wildcard consumed the complete URL residue.</div>
               <au-route path="/" exact>
                 <div class="route-callout" data-e2e="rest-wildcard-index">Nested routes receive root residue.</div>
               </au-route>
-              <au-route path="/abc" exact>
+              <au-route path="abc" exact>
                 <div class="route-callout" data-e2e="rest-wildcard-consumed-child">This child cannot see a consumed segment.</div>
               </au-route>
             </section>
           </au-route>
         </au-route>
 
-        <au-route path="/parallel" swap-order="parallel">
+        <au-route path="parallel" swap-order="parallel">
           <section class="route-stack">
             <nav class="mini-list">
               <a href="/parallel/alpha" class="mini-chip">Parallel alpha</a>
               <a href="/parallel/beta" class="mini-chip">Parallel beta</a>
             </nav>
             <div class="route-stack" data-e2e="parallel-stage">
-              <au-route path="/alpha">
+              <au-route path="alpha">
                 <div class="route-callout" data-e2e="parallel-alpha">Parallel alpha branch</div>
               </au-route>
-              <au-route path="/beta">
+              <au-route path="beta">
                 <div class="route-callout" data-e2e="parallel-beta">Parallel beta branch</div>
               </au-route>
             </div>

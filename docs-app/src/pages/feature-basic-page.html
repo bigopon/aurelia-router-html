@@ -8,5 +8,43 @@
     </div>
   </header>
 
+  <div class="feature-details" data-e2e="path-syntax-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="products"&gt;...&lt;/au-route&gt;
+&lt;au-route path="./products"&gt;...&lt;/au-route&gt;
+&lt;au-route path="/"&gt;Index&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p>Every <code>au-route</code> declaration matches the URL remaining from its parent. <code>products</code> and <code>./products</code> mean the same contextual route. Only <code>/</code> has a special meaning: the current context's index.</p>
+      <p>A leading slash does not make an <code>au-route</code> declaration root-absolute. Prefer the slash-free form so declarations and navigation targets remain visually distinct.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-html>&lt;!-- A native anchor needs a complete browser URL. --&gt;
+&lt;a
+  href="/help"
+  class.bind="$route.isActive('/help', {}, { exact: true })
+    ? 'is-active'
+    : ''"&gt;
+  Root help
+&lt;/a&gt;
+
+&lt;!-- au-link accepts a registered route target. --&gt;
+&lt;au-route path="products"&gt;
+  &lt;a au-link="reviews"&gt;Local reviews&lt;/a&gt;
+  &lt;a au-link="./reviews"&gt;Local reviews&lt;/a&gt;
+  &lt;a au-link="/help"&gt;Root help&lt;/a&gt;
+
+  &lt;au-route path="reviews"&gt;...&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>A native <code>&lt;a href&gt;</code> uses the URL exactly as written, so bind <code>$route.isActive()</code> when it needs selected feedback. <code>au-link</code> resolves a registered route target and performs that active-state work automatically.</p>
+      <p>For route-link targets, <code>reviews</code> and <code>./reviews</code> resolve from the current route context, while <code>/help</code> starts from the root context.</p>
+    </section>
+  </div>
+
   <playground-page example-id="basic-routes" embedded.bind="true"></playground-page>
 </section>

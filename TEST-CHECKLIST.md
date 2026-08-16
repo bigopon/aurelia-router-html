@@ -28,6 +28,7 @@
 - [x] `A1` `RouteContext` non-match deactivates the branch and clears params.
 - [x] `A1` Child contexts update when the parent residue changes across successive `apply()` calls.
 - [x] `A1` `.` and `./` both match only the current parent index in matcher and node-based Aurelia tests.
+- [x] `A1` Relative route declarations `product` and `./product` normalize and match identically below their parent.
 - [x] `A1` An `au-route` introduced later via `if/else` becomes active immediately when the current residue already matches it.
 - [x] `A1` Removing an active conditional `au-route` tears down its branch cleanly and restores the `else` branch.
 - [x] `A1` Removing a repeated-template `au-route` tears down its active branch cleanly.
@@ -36,6 +37,7 @@
 - [x] `A2` Disposed child contexts stop receiving parent updates.
 - [x] `A2` An individual exact route activates only when its complete path is consumed.
 - [x] `A2` A nested exact route matches the complete residue supplied by its parent rather than the full URL.
+- [x] `A2` `:id` requires its segment while `:id?` matches and generates hrefs with or without the optional segment.
 - [x] `A2` An individual fallback route activates only when no regular sibling route matches.
 - [x] `A2` A nested fallback route uses sibling matches from its parent context and deactivates with that parent.
 - [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
@@ -50,6 +52,11 @@
 - [x] `A4` Active links use pathname prefix matching by default, support exact matching, and treat `/` as an exact target.
 - [x] `A4` Query and hash comparisons are independently opt-in and react in Aurelia template bindings.
 - [x] `A4` Disposed dynamic route contexts cannot remain active-link targets.
+- [x] `A4` A concrete active link generates immediately before its target route registers and updates after registration.
+- [x] `A4` Adding and removing declarative routes notifies active-link subscribers to regenerate link state.
+- [x] `A4` Link targets distinguish context-relative `product` and `./product` from root-absolute `/product`.
+- [x] `A4` Concrete `au-link` targets resolve parameter, prefix-residue, terminal, and fallback route patterns.
+- [x] `A4` `au-link` generates native hrefs and reactively owns its active class and exact `aria-current` state.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -64,8 +71,10 @@
 - [x] A detached and reattached embedded playground recreates its compiler worker and iframe preview.
 - [x] The matching docs present terminal `**` paths alongside exact and fallback behavior and run a nested index child after the residue is consumed.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
+- [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
+- [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.
 - [x] Every focused feature page embeds its matching playground project and has no separate show-source control.
-- [x] The active-links example updates selected classes and `aria-current`, and the docs sidebar uses the public `isActive()` API.
+- [x] The active-links example and docs sidebar use `au-link` to update selected classes and `aria-current`.
 - [x] Playground fixtures format nested markup and CSS vertically instead of compressing complete examples onto single lines.
 - [x] Virtual paths normalize Windows separators, dot segments, extensionless imports, and index imports.
 - [x] A conventional `main.ts`, `app.ts`, `app.html`, and `app.css` project compiles in the browser worker.

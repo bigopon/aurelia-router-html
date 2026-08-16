@@ -9,26 +9,33 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;a
-  href.bind="$route.href('/reviews')"
-  class.bind="$route.isActive('/reviews') ? 'selected' : ''"
-  aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null"&gt;
-  Reviews
-&lt;/a&gt;</pre>
+      <pre class="code-block" syntax-html>&lt;a au-link="reviews"&gt;Reviews&lt;/a&gt;
+&lt;a au-link="./reviews"&gt;Reviews&lt;/a&gt;
+&lt;a au-link="/products"&gt;All products&lt;/a&gt;</pre>
     </section>
     <section>
       <h3>Meaning</h3>
-      <p><code>isActive()</code> resolves registered targets exactly like <code>href()</code>. Prefix matching keeps a parent link selected on deeper pages; <code>exact</code> limits selection to one complete pathname.</p>
+      <p><code>reviews</code> and <code>./reviews</code> resolve below the current route context. A leading slash starts from the root route context. The attribute generates <code>href</code>, uses <code>$route.isActive()</code> to toggle <code>is-active</code>, and applies exact <code>aria-current</code> automatically.</p>
+      <pre class="code-block" syntax-html>&lt;a
+  href.bind="$route.href('reviews')"
+  class.bind="$route.isActive('reviews') ? 'is-active' : ''"&gt;
+  Reviews without au-link
+&lt;/a&gt;</pre>
     </section>
     <section>
       <h3>Apply it</h3>
       <p>Pathname matching is the default. Enable query or hash comparison only when that URL state represents a distinct navigation choice.</p>
-      <pre class="code-block" syntax-typescript>$route.isActive('/reviews', {}, {
-  query: { sort: 'recent' },
-  matchQuery: true,
-  hash: 'comments',
-  matchHash: true
-});</pre>
+      <pre class="code-block" syntax-html>&lt;a au-link.bind="{
+  target: 'reviews',
+  params: { productId: product.id },
+  options: {
+    query: { sort: 'recent' },
+    matchQuery: true
+  },
+  activeClass: 'selected'
+}"&gt;
+  Recent reviews
+&lt;/a&gt;</pre>
     </section>
   </div>
 

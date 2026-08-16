@@ -11,11 +11,13 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;au-route path="/settings" exact&gt;...&lt;/au-route&gt;
+      <pre class="code-block" syntax-html>&lt;au-route path="settings" exact&gt;...&lt;/au-route&gt;
+&lt;au-route path="products/:id" exact&gt;ID required&lt;/au-route&gt;
+&lt;au-route path="offers/:id?" exact&gt;ID optional&lt;/au-route&gt;
 &lt;au-route path="*" fallback&gt;
-  &lt;au-route path="/details" exact&gt;...&lt;/au-route&gt;
+  &lt;au-route path="details" exact&gt;...&lt;/au-route&gt;
 &lt;/au-route&gt;
-&lt;au-route path="/files/**"&gt;
+&lt;au-route path="files/**"&gt;
   Path presented: $<span>{$route.$path}</span>
   Terminal segment: $<span>{$params['**']}</span>
   Residue after **: $<span>{$route.residue}</span>
@@ -24,11 +26,13 @@
     </section>
     <section>
       <h3>Meaning</h3>
-      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches. A terminal <code>**</code> path consumes the complete remaining residue, exposes that segment as <code>$params['**']</code>, and gives its children <code>/</code>.</p>
+      <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>:id</code> requires a segment, while <code>:id?</code> makes that segment optional. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches. A terminal <code>**</code> path consumes the complete remaining residue, exposes that segment as <code>$params['**']</code>, and gives its children <code>/</code>.</p>
     </section>
     <section>
       <h3>Apply it</h3>
-      <p>Add <code>exact</code> where extra child segments must not be accepted. Use <code>fallback</code> for a branch that appears only after regular siblings miss. End a path with <code>**</code> when that route should terminally own every remaining segment. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent to <code>*</code> and <code>**</code>.</p>
+      <pre class="code-block" syntax-html>&lt;a au-link="products/camera"&gt;Camera&lt;/a&gt;
+&lt;a au-link="files/guides/router/start.html"&gt;Router guide&lt;/a&gt;</pre>
+      <p>Add <code>exact</code> where extra child segments must not be accepted. Add <code>?</code> only when a named parameter may be omitted. Use <code>fallback</code> for a branch that appears only after regular siblings miss. End a path with <code>**</code> when that route should terminally own every remaining segment. Leading-slash forms <code>/*</code> and <code>/**</code> are equivalent to <code>*</code> and <code>**</code>.</p>
     </section>
   </div>
 

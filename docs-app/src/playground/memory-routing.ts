@@ -2,6 +2,7 @@ import { IContainer, Registration } from '@aurelia/kernel';
 import { AppTask } from 'aurelia';
 import { IRouteAnimationOptions, normalizeRouteAnimationOptions, type RouteAnimationInput } from '../../../router/animation';
 import { AuRoute } from '../../../router/au-route';
+import { AuLink } from '../../../router/au-link';
 import { IRouteCoordinator, RouteCoordinator } from '../../../router/coordinator';
 import type { PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
@@ -141,6 +142,7 @@ export function createPlaygroundRouting() {
     const coordinator = new RouteCoordinator(root, adapter);
     container.register(
       AuRoute,
+    AuLink,
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
       Registration.instance(IRouteContext, root),
       Registration.instance(IRouteCoordinator, coordinator),

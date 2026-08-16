@@ -3,6 +3,7 @@ import { IWindow } from '@aurelia/runtime-html';
 import { AppTask } from 'aurelia';
 import { normalizeRouteAnimationOptions, IRouteAnimationOptions, type RouteAnimationInput } from './animation';
 import { AuRoute } from './au-route';
+import { AuLink } from './au-link';
 import { BrowserPathAdapter, type BrowserAdapterOptions } from './browser-path-adapter';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
@@ -24,6 +25,7 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
 
   c.register(
     AuRoute,
+    AuLink,
     Registration.instance(IRouteAnimationOptions, animationOptions),
     Registration.instance(IRouteContext, rootContext),
     Registration.instance(IRouteCoordinator, coordinator),

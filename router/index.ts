@@ -1,4 +1,6 @@
 export { AuRoute } from './au-route';
+export { AuLink } from './au-link';
+export type { LinkInstruction } from './au-link';
 export { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from './browser-path-adapter';
 export type { BrowserAdapterOptions, BrowserRoutingMode } from './browser-path-adapter';
 export { RouteCoordinator, IRouteCoordinator } from './coordinator';

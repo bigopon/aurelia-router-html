@@ -32,15 +32,15 @@ Routes are authored with nested `<au-route>` elements.
 Example:
 
 ```html
-<au-route path="/store">
+<au-route path="store">
   <au-route path="/">
     Store index
   </au-route>
 
-  <au-route path="/:storeId">
+  <au-route path=":storeId">
     Store id: ${$params.storeId}
 
-    <au-route path="/order">
+    <au-route path="order">
       Order page
     </au-route>
   </au-route>

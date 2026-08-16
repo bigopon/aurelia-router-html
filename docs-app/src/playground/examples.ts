@@ -58,6 +58,12 @@ a {
   text-decoration: none;
 }
 
+a.is-active {
+  border-color: #075f57;
+  color: white;
+  background: #075f57;
+}
+
 main,
 .stage,
 .room-shell {
@@ -81,15 +87,15 @@ const featureExamples: PlaygroundExample[] = [
     description: 'Map simple URLs directly to their rendered markup.',
     initialPath: '/welcome',
     appHtml: `<nav>
-  <a href="/welcome">Welcome</a>
-  <a href="/about">About</a>
+  <a au-link="/welcome">Welcome</a>
+  <a au-link="/about">About</a>
 </nav>
 <main>
-  <au-route path="/welcome">
+  <au-route path="welcome">
     <h1>Welcome</h1>
     <p>Your first declarative route is running.</p>
   </au-route>
-  <au-route path="/about">
+  <au-route path="about">
     <h1>About</h1>
     <p>Each URL owns the markup it displays.</p>
   </au-route>
@@ -100,17 +106,17 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Nested routes',
     description: 'Keep an account layout mounted while its child route changes.',
     initialPath: '/account/profile',
-    appHtml: `<au-route path="/account">
+    appHtml: `<au-route path="account">
   <h1>Account</h1>
   <nav>
-    <a href="/account/profile">Profile</a>
-    <a href="/account/security">Security</a>
+    <a au-link="profile">Profile</a>
+    <a au-link="security">Security</a>
   </nav>
-  <au-route path="/profile">
+  <au-route path="profile">
     <h2>Profile</h2>
     <p>Update your public details.</p>
   </au-route>
-  <au-route path="/security">
+  <au-route path="security">
     <h2>Security</h2>
     <p>Review your sign-in settings.</p>
   </au-route>
@@ -122,13 +128,23 @@ const featureExamples: PlaygroundExample[] = [
     description: 'Keep each route parameter local and reach parent parameters explicitly when a child needs them.',
     initialPath: '/users/ada/posts/routing-basics',
     appHtml: `<nav>
-  <a href="/users/ada/posts/routing-basics">Ada / Routing</a>
-  <a href="/users/grace/posts/compiler-design">Grace / Compilers</a>
+  <a au-link.bind="{
+    target: '/users/:userId/posts/:postId',
+    params: { userId: 'ada', postId: 'routing-basics' }
+  }">
+    Ada / Routing
+  </a>
+  <a au-link.bind="{
+    target: '/users/:userId/posts/:postId',
+    params: { userId: 'grace', postId: 'compiler-design' }
+  }">
+    Grace / Compilers
+  </a>
 </nav>
-<au-route path="/users/:userId">
+<au-route path="users/:userId">
   <h1>Parent user: \${$params.userId}</h1>
   <p>This view owns <code>$params.userId</code>.</p>
-  <au-route path="/posts/:postId">
+  <au-route path="posts/:postId">
     <h2>Child post: \${$params.postId}</h2>
     <p>This view owns <code>$params.postId</code>.</p>
     <p>Parent user from child: \${$route.parent.$params.userId}</p>
@@ -140,12 +156,26 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Path mode with URL state',
     description: 'Change query and fragment state without changing the matched product route.',
     initialPath: '/products/ice-cream?sort=popular#reviews',
-    appHtml: `<au-route path="/products/:productId" exact>
+    appHtml: `<au-route path="products/:productId" exact>
   <nav>
-    <a href.bind="$route.href($route, $params, { query: { sort: 'popular' }, hash: 'reviews' })">
+    <a
+      href.bind="$route.href($route, $params, { query: { sort: 'popular' }, hash: 'reviews' })"
+      class.bind="$route.isActive($route, $params, {
+        query: { sort: 'popular' },
+        hash: 'reviews',
+        matchQuery: true,
+        matchHash: true
+      }) ? 'is-active' : ''">
       Popular reviews
     </a>
-    <a href.bind="$route.href($route, $params, { query: { sort: 'price' }, hash: 'details' })">
+    <a
+      href.bind="$route.href($route, $params, { query: { sort: 'price' }, hash: 'details' })"
+      class.bind="$route.isActive($route, $params, {
+        query: { sort: 'price' },
+        hash: 'details',
+        matchQuery: true,
+        matchHash: true
+      }) ? 'is-active' : ''">
       Price details
     </a>
   </nav>
@@ -161,16 +191,16 @@ const featureExamples: PlaygroundExample[] = [
     description: 'Keep the complete application route after the browser hash for static hosting.',
     initialPath: '#products/ice-cream/overview',
     routingMode: 'hash',
-    appHtml: `<au-route path="/products/:productId">
+    appHtml: `<au-route path="products/:productId">
   <h1>Product: \${$params.productId}</h1>
   <nav>
-    <a href.bind="$route.href('/overview')">Overview</a>
-    <a href.bind="$route.href('/reviews')">Reviews</a>
+    <a au-link="overview">Overview</a>
+    <a au-link="./reviews">Reviews</a>
   </nav>
-  <au-route path="/overview" exact>
+  <au-route path="overview" exact>
     <p>Ice cream overview</p>
   </au-route>
-  <au-route path="/reviews" exact>
+  <au-route path="reviews" exact>
     <p>Ice cream reviews</p>
   </au-route>
 </au-route>`,
@@ -182,16 +212,16 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '?app=products/ice-cream/overview',
     routingMode: 'query',
     routeQueryKey: 'app',
-    appHtml: `<au-route path="/products/:productId">
+    appHtml: `<au-route path="products/:productId">
   <h1>Product: \${$params.productId}</h1>
   <nav>
-    <a href.bind="$route.href('/overview')">Overview</a>
-    <a href.bind="$route.href('/reviews')">Reviews</a>
+    <a au-link="overview">Overview</a>
+    <a au-link="./reviews">Reviews</a>
   </nav>
-  <au-route path="/overview" exact>
+  <au-route path="overview" exact>
     <p>Ice cream overview</p>
   </au-route>
-  <au-route path="/reviews" exact>
+  <au-route path="reviews" exact>
     <p>Ice cream reviews</p>
   </au-route>
 </au-route>`,
@@ -201,14 +231,14 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Active links',
     description: 'Generate link URLs and selected navigation state from the same route targets.',
     initialPath: '/products/ice-cream/reviews?sort=recent#comments',
-    appHtml: `<au-route path="/products/:productId">
+    appHtml: `<au-route path="products/:productId">
   <section class="active-link-demo">
-    <au-route path="/overview" exact>
+    <au-route path="overview" exact>
       <article>
         <h1>\${$params.productId} overview</h1>
       </article>
     </au-route>
-    <au-route path="/reviews" exact>
+    <au-route path="./reviews" exact>
       <article>
         <h1>\${$params.productId} reviews</h1>
         <p>Sort: \${$query.get('sort') || 'default'}</p>
@@ -216,26 +246,32 @@ const featureExamples: PlaygroundExample[] = [
       </article>
     </au-route>
     <nav>
-      <a
-        href.bind="$route.href('/overview')"
-        class.bind="$route.isActive('/overview', {}, { exact: true }) ? 'selected' : ''"
-        aria-current.bind="$route.isActive('/overview', {}, { exact: true }) ? 'page' : null">
+      <a au-link.bind="{
+        target: 'overview',
+        options: { exact: true },
+        activeClass: 'selected'
+      }">
         Overview
       </a>
-      <a
-        href.bind="$route.href('/reviews')"
-        class.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'selected' : ''"
-        aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null">
+      <a au-link.bind="{
+        target: './reviews',
+        options: { exact: true },
+        activeClass: 'selected'
+      }">
         Reviews
       </a>
-      <a
-        href.bind="$route.href('/reviews', {}, { query: { sort: 'recent' } })"
-        class.bind="$route.isActive('/reviews', {}, { query: { sort: 'recent' }, matchQuery: true }) ? 'selected' : ''">
+      <a au-link.bind="{
+        target: 'reviews',
+        options: { query: { sort: 'recent' }, matchQuery: true },
+        activeClass: 'selected'
+      }">
         Recent reviews
       </a>
-      <a
-        href.bind="$route.href('/reviews', {}, { hash: 'comments' })"
-        class.bind="$route.isActive('/reviews', {}, { hash: 'comments', matchHash: true }) ? 'selected' : ''">
+      <a au-link.bind="{
+        target: 'reviews',
+        options: { hash: 'comments', matchHash: true },
+        activeClass: 'selected'
+      }">
         Review comments
       </a>
     </nav>
@@ -265,13 +301,13 @@ const featureExamples: PlaygroundExample[] = [
 }`,
     appHtml: `<button click.trigger="canEdit = !canEdit">\${canEdit ? 'Disable' : 'Enable'} editing</button>
 <nav>
-  <a href="/view">View</a>
-  <a href="/edit">Edit</a>
+  <a au-link="/view">View</a>
+  <a au-link="/edit">Edit</a>
 </nav>
-<au-route path="/view">
+<au-route path="view">
   <h1>Read-only view</h1>
 </au-route>
-<au-route if.bind="canEdit" path="/edit">
+<au-route if.bind="canEdit" path="edit">
   <h1>Editor enabled</h1>
 </au-route>
 <au-route path="*" fallback>
@@ -285,13 +321,13 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/overview',
     appTs: `export class App {
   public tabs = [
-    { path: '/overview', label: 'Overview' },
-    { path: '/activity', label: 'Activity' },
-    { path: '/settings', label: 'Settings' },
+    { path: 'overview', label: 'Overview' },
+    { path: 'activity', label: 'Activity' },
+    { path: 'settings', label: 'Settings' },
   ];
 }`,
     appHtml: `<nav>
-  <a repeat.for="tab of tabs" href.bind="tab.path">\${tab.label}</a>
+  <a repeat.for="tab of tabs" au-link.bind="tab.path">\${tab.label}</a>
 </nav>
 <template repeat.for="tab of tabs">
   <au-route path.bind="tab.path">
@@ -306,23 +342,28 @@ const featureExamples: PlaygroundExample[] = [
     description: 'Choose complete matches, recover from misses, or consume every remaining URL segment.',
     initialPath: '/products',
     appHtml: `<nav>
-  <a href="/products">Products</a>
-  <a href="/products/camera">Camera</a>
-  <a href="/known/details">Known details</a>
-  <a href="/files/guides/router/start.html">Terminal file path</a>
-  <a href="/missing">Missing</a>
+  <a au-link="products">Products</a>
+  <a au-link="products/camera">Camera</a>
+  <a au-link="known/details">Known details</a>
+  <a au-link="files/guides/router/start.html">Terminal file path</a>
+  <a au-link="offers">Offers</a>
+  <a au-link="offers/summer">Summer offer</a>
+  <a au-link="missing">Missing</a>
 </nav>
-<au-route path="/products" exact>
+<au-route path="products" exact>
   <h1>Product catalog</h1>
 </au-route>
-<au-route path="/products/:productId" exact>
+<au-route path="products/:productId" exact>
   <h1>Product: \${$params.productId}</h1>
 </au-route>
-<au-route path="/known">
+<au-route path="offers/:offerId?" exact>
+  <h1>Offer: \${$params.offerId || 'all offers'}</h1>
+</au-route>
+<au-route path="known">
   <h1>Known prefix matched</h1>
   <p>The remaining <code>/details</code> residue can be handled by a nested route.</p>
 </au-route>
-<au-route path="/files/**">
+<au-route path="files/**">
   <h1>Terminal file route</h1>
   <p>Path presented: <code>\${$route.$path}</code></p>
   <p>Terminal segment: <code>\${$params['**']}</code></p>
@@ -340,18 +381,18 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Parallel swap order',
     description: 'Coordinate outgoing and incoming sibling product views in parallel.',
     initialPath: '/products/camera/specs',
-    appHtml: `<au-route path="/products/:productId" swap-order="parallel">
+    appHtml: `<au-route path="products/:productId" swap-order="parallel">
   <h1>Camera</h1>
   <nav>
-    <a href="/products/camera/specs">Specs</a>
-    <a href="/products/camera/reviews">Reviews</a>
+    <a au-link="specs">Specs</a>
+    <a au-link="reviews">Reviews</a>
   </nav>
   <div class="stage">
-    <au-route path="/specs" animate>
+    <au-route path="specs" animate>
       <h2>Specs</h2>
       <p>24 MP · 4K video · 410 g</p>
     </au-route>
-    <au-route path="/reviews" animate>
+    <au-route path="reviews" animate>
       <h2>Reviews</h2>
       <p>Customers rate this camera 4.8/5.</p>
     </au-route>
@@ -372,18 +413,18 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Route animations',
     description: 'Opt sibling routes into CSS-driven enter and leave transitions.',
     initialPath: '/rooms/sunny',
-    appHtml: `<au-route path="/rooms" swap-order="parallel">
+    appHtml: `<au-route path="rooms" swap-order="parallel">
   <nav>
-    <a href="/rooms/sunny">Sunny room</a>
-    <a href="/rooms/moon">Moon room</a>
+    <a au-link="sunny">Sunny room</a>
+    <a au-link="moon">Moon room</a>
   </nav>
   <div class="stage animated-stage">
-    <au-route path="/sunny" animate>
+    <au-route path="sunny" animate>
       <article class="room sunny">
         <h1>Sunny room</h1>
       </article>
     </au-route>
-    <au-route path="/moon" animate>
+    <au-route path="moon" animate>
       <article class="room moon">
         <h1>Moon room</h1>
       </article>
@@ -429,15 +470,15 @@ const featureExamples: PlaygroundExample[] = [
   };
 }`,
     appHtml: `<nav>
-  <a href="/shop">Shop</a>
-  <a href="/cart">Cart (\${state.totalQty})</a>
+  <a au-link="/shop">Shop</a>
+  <a au-link="/cart">Cart (\${state.totalQty})</a>
 </nav>
 <button click.trigger="state.totalQty = state.totalQty + 1">Add item</button>
-<au-route path="/shop">
+<au-route path="shop">
   <h1>Shop</h1>
   <p>Your cart already has \${state.totalQty} items.</p>
 </au-route>
-<au-route path="/cart">
+<au-route path="cart">
   <h1>Cart</h1>
   <p>Items: \${state.totalQty}</p>
 </au-route>`,
@@ -449,13 +490,13 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/sunny',
     appTs: `export class App {
   public rooms = [
-    { path: '/sunny', name: 'Sunny room', visits: 0 },
-    { path: '/moon', name: 'Moon room', visits: 0 },
+    { path: 'sunny', name: 'Sunny room', visits: 0 },
+    { path: 'moon', name: 'Moon room', visits: 0 },
   ];
 }`,
     appHtml: `<import from="./room-shell"></import>
 <nav>
-  <a repeat.for="room of rooms" href.bind="room.path">\${room.name}</a>
+  <a repeat.for="room of rooms" au-link.bind="'/' + room.path">\${room.name}</a>
 </nav>
 <template repeat.for="room of rooms">
   <au-route path.bind="room.path">
@@ -506,9 +547,16 @@ export const playgroundExamples: PlaygroundExample[] = [
 </header>
 
 <nav>
-  <a href="/">Home</a>
-  <a repeat.for="product of products" href="/products/\${product.id}">\${product.name}</a>
-  <a href="/missing">Missing route</a>
+  <a au-link="/">Home</a>
+  <a
+    repeat.for="product of products"
+    au-link.bind="{
+      target: '/products/:productId',
+      params: { productId: product.id }
+    }">
+    \${product.name}
+  </a>
+  <a href="/missing" class.bind="$route.isActive('/missing') ? 'is-active' : ''">Missing route</a>
 </nav>
 
 <main>
@@ -517,7 +565,7 @@ export const playgroundExamples: PlaygroundExample[] = [
     <p>Edit any file, then run the project again.</p>
   </au-route>
 
-  <au-route path="/products/:productId" exact>
+  <au-route path="products/:productId" exact>
     <h2>Product: \${$params.productId}</h2>
     <p>The URL parameter is available directly in the routed template scope.</p>
   </au-route>
@@ -609,16 +657,16 @@ void Aurelia.register(Routing, UpperValueConverter).app({
       '/src/app.html': `<import from="./status-card"></import>
 <import from="./status-badge.html"></import>
 <nav>
-  <a href="/status">Status</a>
-  <a href="/about">About</a>
+  <a au-link="/status">Status</a>
+  <a au-link="/about">About</a>
 </nav>
-<au-route path="/status">
+<au-route path="status">
   <div class="cards">
     <status-card repeat.for="service of services" name.bind="service | upper"></status-card>
     <status-badge></status-badge>
   </div>
 </au-route>
-<au-route path="/about">
+<au-route path="about">
   <h2>Everything here compiled in your browser.</h2>
 </au-route>`,
       '/src/status-card.ts': `export class StatusCard {

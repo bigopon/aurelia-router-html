@@ -21,7 +21,7 @@
     </div>
   </au-route>
 
-  <au-route path="/shipping">
+  <au-route path="shipping">
     <div class="editor-card" data-e2e="checkout-shipping">
       <div class="form-grid two-col">
         <label>
@@ -54,7 +54,7 @@
     </div>
   </au-route>
 
-  <au-route if.bind="state.canOpenPayment" path="/payment">
+  <au-route if.bind="state.canOpenPayment" path="payment">
     <div class="editor-card" data-e2e="checkout-payment">
       <div class="form-grid two-col">
         <label>
@@ -80,7 +80,7 @@
     Payment unlocks after the shipping form is complete.
   </div>
 
-  <au-route if.bind="state.canOpenReview" path="/review">
+  <au-route if.bind="state.canOpenReview" path="review">
     <div class="editor-card" data-e2e="checkout-review">
       <h4>Review your order</h4>
       <div class="stack-list">

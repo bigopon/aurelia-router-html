@@ -89,6 +89,7 @@ export class RouteContext implements IRouteContext {
 
   private _matcher: RegExp = /^(?<rest__>\/.*|\/)?$/;
   private readonly _subscriptions = new Set<RouteContextCallback>();
+  private readonly _registrySubscriptions = new Set<() => void>();
   private _disposed: boolean = false;
   private readonly _exact: boolean;
   private readonly _fallback: boolean;
@@ -122,7 +123,12 @@ export class RouteContext implements IRouteContext {
       return false;
     }
 
-    const targetLocation = parseRouteLocation(this._createHref(target, params, options));
+    const href = this._tryCreateHref(target, params, options);
+    if (href == null) {
+      return false;
+    }
+
+    const targetLocation = parseRouteLocation(href);
     const currentPath = this.root.$path;
     const pathMatches = options.exact || targetLocation.pathname === '/'
       ? currentPath === targetLocation.pathname
@@ -137,13 +143,14 @@ export class RouteContext implements IRouteContext {
   }
 
   private _createHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string {
-    const targetContext = typeof target === 'string'
-      ? this._findContext(target)
-      : target;
-    if (targetContext == null) {
+    const href = this._tryCreateHref(target, params, options);
+    if (href == null) {
       throw new Error(`No route matching "${target}" is registered below "${this.fullPath}".`);
     }
+    return href;
+  }
 
+  private _tryCreateHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string | null {
     const resolvedParams: Record<string, string | number> = Object.create(null);
     const ancestry: IRouteContext[] = [];
     let context: IRouteContext | null = this;
@@ -155,6 +162,19 @@ export class RouteContext implements IRouteContext {
       Object.assign(resolvedParams, ancestor.$params);
     }
     Object.assign(resolvedParams, params);
+
+    const targetContext = typeof target === 'string'
+      ? this._findContext(target)
+      : target;
+    if (targetContext == null) {
+      const pathname = typeof target === 'string'
+        ? this._createConcretePath(target, resolvedParams)
+        : null;
+      return pathname == null
+        ? null
+        : createRouteHref(pathname, this.$query, this.$hash, options);
+    }
+
     const pathname = generateHref(targetContext.fullPath, resolvedParams);
     return createRouteHref(pathname, this.$query, this.$hash, options);
   }
@@ -278,6 +298,7 @@ export class RouteContext implements IRouteContext {
     } else {
       child.apply('/__inactive__', { query: this.$query, hash: this.$hash });
     }
+    this._notifyRegistryChanged();
     return child;
   }
 
@@ -286,6 +307,14 @@ export class RouteContext implements IRouteContext {
     callback(this._currentState());
     return () => {
       this._subscriptions.delete(callback);
+    };
+  }
+
+  /** @internal */
+  public _subscribeRegistry(callback: () => void): () => void {
+    this._registrySubscriptions.add(callback);
+    return () => {
+      this._registrySubscriptions.delete(callback);
     };
   }
 
@@ -299,13 +328,28 @@ export class RouteContext implements IRouteContext {
       this.children.pop()!.dispose();
     }
     this._subscriptions.clear();
+    this._registrySubscriptions.clear();
 
     const parent = this.parent;
     if (parent instanceof RouteContext) {
       const index = parent.children.indexOf(this);
       if (index >= 0) {
         parent.children.splice(index, 1);
+        parent._notifyRegistryChanged();
       }
+    }
+  }
+
+  /** @internal */
+  private _notifyRegistryChanged(): void {
+    let context: RouteContext | null = this;
+    while (context != null) {
+      if (!context._disposed) {
+        for (const callback of context._registrySubscriptions) {
+          callback();
+        }
+      }
+      context = context.parent instanceof RouteContext ? context.parent : null;
     }
   }
 
@@ -348,12 +392,31 @@ export class RouteContext implements IRouteContext {
   }
 
   private _findContext(path: string): IRouteContext | null {
-    const normalizedPattern = normalizePattern(path);
-    const normalizedPath = normalizePath(path);
-    const contexts = this._getContexts();
+    const trimmed = path.trim();
+    const searchContext = trimmed.startsWith('/') && this.root instanceof RouteContext
+      ? this.root
+      : this;
+    const target = stripCurrentPrefix(trimmed);
+    const normalizedPattern = normalizePattern(target);
+    const normalizedPath = normalizePath(target);
+    const contexts = searchContext._getContexts();
     return contexts.find(context => context.fullPath === normalizedPath)
       ?? contexts.find(context => context.pattern === normalizedPattern)
       ?? null;
+  }
+
+  private _createConcretePath(path: string, params: RouteParams): string | null {
+    if (/[:*]/.test(path)) {
+      return null;
+    }
+
+    const trimmed = path.trim();
+    const searchContext = trimmed.startsWith('/') && this.root instanceof RouteContext
+      ? this.root
+      : this;
+    return trimmed.startsWith('/')
+      ? normalizePath(trimmed)
+      : normalizePath(`${generateHref(searchContext.fullPath, params)}/${stripCurrentPrefix(trimmed)}`);
   }
 
   private _getContexts(): IRouteContext[] {
@@ -408,26 +471,35 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
     throw new Error(`The rest wildcard must be the final segment in route pattern "${pattern}".`);
   }
   const consumesRest = restIndex >= 0;
-  const compiled = (consumesRest ? parts.slice(0, -1) : parts).map(part => {
+  const routeParts = consumesRest ? parts.slice(0, -1) : parts;
+  let compiled = '';
+  for (const part of routeParts) {
     if (part === '*') {
-      return '[^/]+';
+      compiled += '/[^/]+';
+      continue;
     }
     if (part.startsWith(':')) {
-      const name = part.slice(1);
-      return `(?<${escapeGroupName(name)}>[^/]+)`;
+      const optional = part.endsWith('?');
+      const name = part.slice(1, optional ? -1 : undefined);
+      const parameter = `(?<${escapeGroupName(name)}>[^/]+)`;
+      compiled += optional ? `(?:/${parameter})?` : `/${parameter}`;
+      continue;
     }
-    return escapeRegex(part);
-  });
-
-  if (consumesRest) {
-    return compiled.length === 0
-      ? /^\/(?<restWildcard__>.*)$/
-      : new RegExp(`^/${compiled.join('/')}(?:/(?<restWildcard__>.*))?$`);
+    compiled += `/${escapeRegex(part)}`;
   }
 
+  if (consumesRest) {
+    return routeParts.length === 0
+      ? /^\/(?<restWildcard__>.*)$/
+      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`);
+  }
+
+  const pathExpression = routeParts.every(part => part.startsWith(':') && part.endsWith('?'))
+    ? `(?:${compiled}|/)`
+    : compiled;
   return exact
-    ? new RegExp(`^/${compiled.join('/')}$`)
-    : new RegExp(`^/${compiled.join('/')}(?<rest__>/.*)?$`);
+    ? new RegExp(`^${pathExpression}$`)
+    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`);
 }
 
 function extractParams(groups: Record<string, string | undefined>): Record<string, string> {
@@ -453,7 +525,7 @@ function freezeParams(params: Record<string, string>): Readonly<Record<string, s
 }
 
 function normalizePattern(pattern: string): string {
-  const trimmed = pattern.trim();
+  const trimmed = stripCurrentPrefix(pattern.trim());
   if (trimmed === '') {
     return '/';
   }
@@ -471,6 +543,14 @@ function normalizePattern(pattern: string): string {
   return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
     ? withLeadingSlash.slice(0, -1)
     : withLeadingSlash;
+}
+
+function stripCurrentPrefix(value: string): string {
+  let result = value;
+  while (result.startsWith('./')) {
+    result = result.slice(2);
+  }
+  return result === '' ? '.' : result;
 }
 
 function normalizePath(path: string): string {
@@ -499,17 +579,21 @@ function normalizeResidue(value: string | undefined): string {
 }
 
 function generateHref(pattern: string, params: RouteParams): string {
-  const segments = pattern.split('/').filter(Boolean).map(segment => {
+  const segments = pattern.split('/').filter(Boolean).flatMap(segment => {
     if (segment.startsWith(':')) {
-      return encodeRouteParam(segment.slice(1), params, false);
+      const optional = segment.endsWith('?');
+      const name = segment.slice(1, optional ? -1 : undefined);
+      return optional && params[name] == null
+        ? []
+        : [encodeRouteParam(name, params, false)];
     }
     if (segment === '*') {
-      return encodeRouteParam('*', params, false);
+      return [encodeRouteParam('*', params, false)];
     }
     if (segment === '**') {
-      return encodeRouteParam('**', params, true);
+      return [encodeRouteParam('**', params, true)];
     }
-    return segment;
+    return [segment];
   });
   return normalizePath(segments.join('/'));
 }

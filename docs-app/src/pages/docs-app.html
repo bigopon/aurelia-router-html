@@ -5,55 +5,55 @@
         <overview-page></overview-page>
       </au-route>
 
-      <au-route path="/features/basic">
+      <au-route path="features/basic">
         <feature-basic-page></feature-basic-page>
       </au-route>
 
-      <au-route path="/features/nested">
+      <au-route path="features/nested">
         <feature-nested-page></feature-nested-page>
       </au-route>
 
-      <au-route path="/features/params">
+      <au-route path="features/params">
         <feature-params-page></feature-params-page>
       </au-route>
 
-      <au-route path="/features/url-state">
+      <au-route path="features/url-state">
         <feature-url-state-page></feature-url-state-page>
       </au-route>
 
-      <au-route path="/features/active-links">
+      <au-route path="features/active-links">
         <feature-active-links-page></feature-active-links-page>
       </au-route>
 
-      <au-route path="/features/conditional">
+      <au-route path="features/conditional">
         <feature-conditional-page></feature-conditional-page>
       </au-route>
 
-      <au-route path="/features/repeated">
+      <au-route path="features/repeated">
         <feature-repeated-page></feature-repeated-page>
       </au-route>
 
-      <au-route path="/features/matching">
+      <au-route path="features/matching">
         <feature-matching-page></feature-matching-page>
       </au-route>
 
-      <au-route path="/features/swap">
+      <au-route path="features/swap">
         <feature-swap-page></feature-swap-page>
       </au-route>
 
-      <au-route path="/features/animation">
+      <au-route path="features/animation">
         <feature-animation-page></feature-animation-page>
       </au-route>
 
-      <au-route path="/features/shared-state">
+      <au-route path="features/shared-state">
         <feature-shared-state-page></feature-shared-state-page>
       </au-route>
 
-      <au-route path="/features/kitchen-sink">
+      <au-route path="features/kitchen-sink">
         <feature-kitchen-sink-page></feature-kitchen-sink-page>
       </au-route>
 
-      <au-route path="/playground">
+      <au-route path="playground">
         <playground-page></playground-page>
       </au-route>
     </main>
@@ -61,7 +61,7 @@
     <aside class="sidebar">
       <div class="brand-stack">
         <div class="brand-row">
-          <img class="brand-mark" src="/router-html-icon-128.png" alt="Router HTML" />
+          <img class="brand-mark" src="/router-html-icon-128-v2.png" alt="Router HTML" />
           <div>
             <h1>Router HTML</h1>
             <div class="muted">A html based router for Aurelia</div>
@@ -72,9 +72,8 @@
       <nav class="nav-list">
         <a
           repeat.for="item of nav"
-          href.bind="item.path"
-          class.bind="route.isActive(item.path) ? 'nav-item is-active' : 'nav-item'"
-          aria-current.bind="route.isActive(item.path, {}, { exact: true }) ? 'page' : null">
+          au-link.bind="item.path"
+          class="nav-item">
           <strong>${item.title}</strong>
         </a>
       </nav>

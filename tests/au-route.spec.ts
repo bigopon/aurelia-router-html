@@ -49,7 +49,7 @@ describe('au-route dynamic path binding', function () {
     const fixture = await createFixture(
       `<au-route path="/products/:productId">
         <au-route path="/reviews">
-          <a data-link href.bind="$route.parent.href('/specs', $route.parent.$params)">Specs</a>
+          <a data-link href.bind="$route.parent.href('./specs', $route.parent.$params)">Specs</a>
           <span data-paths>\${$route.parent.getPaths(false).join('|')}</span>
         </au-route>
         <au-route path="/specs"><span data-specs>Specs route</span></au-route>
@@ -116,6 +116,61 @@ describe('au-route index path aliases', function () {
       }
     });
   }
+});
+
+describe('au-route relative path aliases', function () {
+  it('matches product and ./product identically below a parent route', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/shop">
+        <au-route path="product"><span data-plain>Plain</span></au-route>
+        <au-route path="./product"><span data-dotted>Dotted</span></au-route>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/shop/product');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-plain]')?.textContent, 'Plain');
+      assert.strictEqual(fixture.appHost.querySelector('[data-dotted]')?.textContent, 'Dotted');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route optional parameters', function () {
+  it('requires :id and allows :id? to omit its segment', async function () {
+    const fixture = await createFixture(
+      `<au-route path="products/:id" exact><span data-required>\${$params.id}</span></au-route>
+      <au-route path="offers/:id?" exact><span data-optional>\${$params.id || 'none'}</span></au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-required]'), null);
+
+      router.load('/products/camera');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-required]')?.textContent, 'camera');
+
+      router.load('/offers');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-optional]')?.textContent, 'none');
+
+      router.load('/offers/summer');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-optional]')?.textContent, 'summer');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
 });
 
 describe('au-route terminal path capture', function () {
@@ -203,13 +258,13 @@ describe('active route links', function () {
         <nav>
           <a data-parent class.bind="$route.isActive($route) ? 'is-active' : ''">Product</a>
           <a data-reviews-link
-            class.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'is-active' : ''"
-            aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null">Reviews</a>
-          <a data-query-link class.bind="$route.isActive('/reviews', {}, {
+            class.bind="$route.isActive('./reviews', {}, { exact: true }) ? 'is-active' : ''"
+            aria-current.bind="$route.isActive('./reviews', {}, { exact: true }) ? 'page' : null">Reviews</a>
+          <a data-query-link class.bind="$route.isActive('reviews', {}, {
             query: { sort: 'recent' },
             matchQuery: true
           }) ? 'is-active' : ''">Recent</a>
-          <a data-hash-link class.bind="$route.isActive('/reviews', {}, {
+          <a data-hash-link class.bind="$route.isActive('reviews', {}, {
             hash: 'comments',
             matchHash: true
           }) ? 'is-active' : ''">Comments</a>
@@ -241,6 +296,74 @@ describe('active route links', function () {
       assert.strictEqual(reviews.hasAttribute('aria-current'), false);
       assert.strictEqual(query.classList.contains('is-active'), false);
       assert.strictEqual(hash.classList.contains('is-active'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-link', function () {
+  it('generates relative and absolute hrefs and maintains active anchor state', async function () {
+    const fixture = await createFixture(
+      `<a data-early au-link="/help">Early help</a>
+      <au-route path="/help"><span data-help>Help</span></au-route>
+      <au-route path="/products/:productId">
+        <nav>
+          <a data-overview au-link="./overview">Overview</a>
+          <a data-reviews au-link="reviews">Reviews</a>
+          <a data-help-link au-link="/help">Help</a>
+          <a data-concrete au-link="/products/coffee/reviews">Concrete coffee reviews</a>
+          <a data-recent au-link.bind="recentLink">Recent</a>
+          <a data-coffee au-link.bind="coffeeLink">Coffee reviews</a>
+        </nav>
+        <au-route path="overview"><span data-overview-view>Overview view</span></au-route>
+        <au-route path="./reviews"><span data-reviews-view>Reviews view</span></au-route>
+      </au-route>`,
+      class App {
+        public recentLink = {
+          target: 'reviews',
+          options: { query: { sort: 'recent' }, matchQuery: true },
+          activeClass: 'selected',
+        };
+        public coffeeLink = {
+          target: '/products/:productId/reviews',
+          params: { productId: 'coffee' },
+        };
+      },
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products/ice-cream/overview');
+      await tasksSettled();
+
+      const overview = fixture.appHost.querySelector('[data-overview]')!;
+      const early = fixture.appHost.querySelector('[data-early]')!;
+      const reviews = fixture.appHost.querySelector('[data-reviews]')!;
+      const help = fixture.appHost.querySelector('[data-help-link]')!;
+      const concrete = fixture.appHost.querySelector('[data-concrete]')!;
+      const recent = fixture.appHost.querySelector('[data-recent]')!;
+      const coffee = fixture.appHost.querySelector('[data-coffee]')!;
+      assert.strictEqual(overview.getAttribute('href'), '/products/ice-cream/overview');
+      assert.strictEqual(early.getAttribute('href'), '/help');
+      assert.strictEqual(reviews.getAttribute('href'), '/products/ice-cream/reviews');
+      assert.strictEqual(help.getAttribute('href'), '/help');
+      assert.strictEqual(concrete.getAttribute('href'), '/products/coffee/reviews');
+      assert.strictEqual(recent.getAttribute('href'), '/products/ice-cream/reviews?sort=recent');
+      assert.strictEqual(coffee.getAttribute('href'), '/products/coffee/reviews');
+      assert.strictEqual(overview.classList.contains('is-active'), true);
+      assert.strictEqual(overview.getAttribute('aria-current'), 'page');
+      assert.strictEqual(reviews.classList.contains('is-active'), false);
+
+      router.load('/products/ice-cream/reviews?sort=recent');
+      await tasksSettled();
+      assert.strictEqual(overview.classList.contains('is-active'), false);
+      assert.strictEqual(overview.hasAttribute('aria-current'), false);
+      assert.strictEqual(reviews.classList.contains('is-active'), true);
+      assert.strictEqual(reviews.getAttribute('aria-current'), 'page');
+      assert.strictEqual(recent.classList.contains('selected'), true);
+      assert.strictEqual(coffee.classList.contains('is-active'), false);
     } finally {
       await fixture.tearDown();
     }

@@ -11,9 +11,9 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;au-route path="/users/:userId"&gt;
+      <pre class="code-block" syntax-html>&lt;au-route path="users/:userId"&gt;
   Parent: $<span>{$params.userId}</span>
-  &lt;au-route path="/posts/:postId"&gt;
+  &lt;au-route path="posts/:postId"&gt;
     Child: $<span>{$params.postId}</span>
     Parent from child: $<span>{$route.parent.$params.userId}</span>
   &lt;/au-route&gt;

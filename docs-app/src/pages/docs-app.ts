@@ -1,5 +1,3 @@
-import { resolve } from 'aurelia';
-import { IRouteCoordinator } from '../../../router/coordinator';
 import { docNav } from '../data/docs-nav';
 import { FeatureActiveLinksPage } from './feature-active-links-page';
 import { FeatureAnimationPage } from './feature-animation-page';
@@ -39,5 +37,4 @@ export class DocsApp {
   } as const;
 
   public readonly nav = docNav;
-  public readonly route = resolve(IRouteCoordinator).root;
 }

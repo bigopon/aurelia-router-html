@@ -64,6 +64,22 @@ for (const pattern of ['.', './']) {
   });
 }
 
+run('A1 product and ./product are equivalent context-relative route patterns', () => {
+  const root = new RouteContext(null, '*');
+  const section = root.createChild('section') as RouteContext;
+  const plain = section.createChild('product') as RouteContext;
+  const dotted = section.createChild('./product') as RouteContext;
+
+  root.apply('/section/product');
+
+  assert.equal(plain.pattern, '/product');
+  assert.equal(dotted.pattern, '/product');
+  assert.equal(plain.fullPath, '/section/product');
+  assert.equal(dotted.fullPath, '/section/product');
+  assert.equal(plain.active, true);
+  assert.equal(dotted.active, true);
+});
+
 run('A2 trailing slash normalizes to same state', () => {
   const route = new RouteContext(null, '/store/:storeId');
   route.apply('/store/123/');
@@ -108,11 +124,11 @@ run('A3 href generation adds and preserves query and hash state before adapter f
   });
 
   assert.equal(
-    products.href('/reviews', {}, { query: { page: 2, tag: ['cold', 'sale'] }, hash: 'top' }),
+    products.href('./reviews', {}, { query: { page: 2, tag: ['cold', 'sale'] }, hash: 'top' }),
     'route:/products/ice-cream/reviews?page=2&tag=cold&tag=sale#top',
   );
   assert.equal(
-    products.href('/reviews', {}, { preserveQuery: true, preserveHash: true }),
+    products.href('reviews', {}, { preserveQuery: true, preserveHash: true }),
     'route:/products/ice-cream/reviews?sort=recent#comments',
   );
 });
@@ -189,6 +205,58 @@ run('A4 disposed route contexts cannot remain active link targets', () => {
   assert.equal(root.isActive(generated), false);
 });
 
+run('A4 an unregistered active-link target is inactive instead of throwing', () => {
+  const root = new RouteContext(null, '*');
+
+  assert.equal(root.href('/later'), '/later');
+  assert.equal(root.isActive('/later'), false);
+  root.apply('/later');
+  assert.equal(root.isActive('/later', {}, { exact: true }), true);
+});
+
+run('A4 route registry changes notify link subscribers', () => {
+  const root = new RouteContext(null, '*');
+  let notifications = 0;
+  root._subscribeRegistry(() => notifications++);
+
+  const later = root.createChild('/later');
+  assert.equal(notifications, 1);
+
+  later.dispose();
+  assert.equal(notifications, 2);
+});
+
+run('A4 link targets distinguish context-relative and root-absolute paths', () => {
+  const root = new RouteContext(null, '*');
+  root.createChild('/product');
+  const section = root.createChild('/section') as RouteContext;
+  section.createChild('product');
+  root.apply('/section/product');
+
+  assert.equal(section.href('product'), '/section/product');
+  assert.equal(section.href('./product'), '/section/product');
+  assert.equal(section.href('/product'), '/product');
+  assert.equal(section.isActive('product', {}, { exact: true }), true);
+  assert.equal(section.isActive('./product', {}, { exact: true }), true);
+  assert.equal(section.isActive('/product', {}, { exact: true }), false);
+});
+
+run('A4 concrete links resolve parameter, prefix, terminal, and fallback routes', () => {
+  const root = new RouteContext(null, '*');
+  root.createChild('/products/:productId', { exact: true });
+  root.createChild('/known');
+  root.createChild('/files/**');
+  root.createChild('*', { fallback: true });
+
+  assert.equal(root.href('/products/camera'), '/products/camera');
+  assert.equal(root.href('/known/details'), '/known/details');
+  assert.equal(root.href('/files/guides/router/start.html'), '/files/guides/router/start.html');
+  assert.equal(root.href('/missing'), '/missing');
+
+  root.apply('/files/guides/router/start.html');
+  assert.equal(root.isActive('/files/guides/router/start.html', {}, { exact: true }), true);
+});
+
 run('A2 disposed children stop receiving updates', () => {
   const root = new RouteContext(null, '*');
   const store = root.createChild('/store') as RouteContext;
@@ -242,15 +310,12 @@ run('A2 href generation resolves descendants and active route parameters', () =>
   );
 
   root.apply('/products/aster-pack/reviews');
-  assert.equal(products.href('/specs'), '/products/aster-pack/specs');
+  assert.equal(products.href('./specs'), '/products/aster-pack/specs');
   assert.throws(
     () => root.href('/products/:productId/specs'),
     /Route parameter "productId" is required/,
   );
-  assert.throws(
-    () => products.href('/missing'),
-    /No route matching "\/missing" is registered/,
-  );
+  assert.equal(products.href('missing'), '/products/aster-pack/missing');
 });
 
 run('A2 newly added non-matching route leaves the active sibling unchanged', () => {
@@ -283,6 +348,30 @@ run('A2 exact route matches only an individual complete path', () => {
 
   settings.apply('/settings/profile');
   assert.equal(settings.active, false);
+});
+
+run('A2 required and optional parameters differ at the missing segment', () => {
+  const root = new RouteContext(null, '*');
+  const required = root.createChild('/products/:id', { exact: true }) as RouteContext;
+  const optional = root.createChild('/offers/:id?', { exact: true }) as RouteContext;
+
+  root.apply('/products');
+  assert.equal(required.active, false);
+
+  root.apply('/products/camera');
+  assert.equal(required.active, true);
+  assert.deepEqual({ ...required.$params }, { id: 'camera' });
+
+  root.apply('/offers');
+  assert.equal(optional.active, true);
+  assert.deepEqual({ ...optional.$params }, {});
+
+  root.apply('/offers/summer');
+  assert.equal(optional.active, true);
+  assert.deepEqual({ ...optional.$params }, { id: 'summer' });
+  assert.equal(root.href('/offers/:id?'), '/offers');
+  assert.equal(optional.href(optional), '/offers/summer');
+  assert.equal(root.href('/offers/:id?', { id: 'winter' }), '/offers/winter');
 });
 
 run('A2 nested exact route matches only the residue from its parent', () => {

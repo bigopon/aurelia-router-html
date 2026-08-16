@@ -39,11 +39,11 @@ Routes are declared next to the markup they render.
   <a href="/about">About</a>
 </nav>
 
-<au-route path="/welcome">
+<au-route path="welcome">
   <h1>Welcome</h1>
 </au-route>
 
-<au-route path="/about">
+<au-route path="about">
   <h1>About</h1>
 </au-route>
 ```
@@ -55,14 +55,14 @@ The browser adapter can intercept same-origin anchors and update the active rout
 A parent route consumes its matching prefix and supplies the unmatched residue to its children.
 
 ```html
-<au-route path="/account">
+<au-route path="account">
   <h1>Account</h1>
 
-  <au-route path="/profile">
+  <au-route path="profile">
     <h2>Profile</h2>
   </au-route>
 
-  <au-route path="/security">
+  <au-route path="security">
     <h2>Security</h2>
   </au-route>
 </au-route>
@@ -74,27 +74,34 @@ Markup belonging to the parent remains rendered while sibling child routes swap.
 
 ## 3. Index routes
 
-`/`, `.`, and `./` represent the current parent index.
+In route declarations, `/`, `.`, and `./` represent the current parent index.
 
 ```html
-<au-route path="/products">
+<au-route path="products">
   <au-route path="/">
     Product catalog
   </au-route>
 </au-route>
 ```
 
-The `.` and `./` aliases behave like `/` when matching and when passed to `$route.href()`.
+For non-index declarations, a plain relative pattern and its `./` form are equivalent:
+
+```html
+<au-route path="product">...</au-route>
+<au-route path="./product">...</au-route>
+```
+
+Both consume `product` from the residue supplied by their parent. A leading slash on an `au-route` declaration remains contextual as well; route declarations always match parent residue.
 
 ## 4. Route parameters and scoped `$params`
 
 Named segments are exposed to the view owned by the route that declared them.
 
 ```html
-<au-route path="/users/:userId">
+<au-route path="users/:userId">
   Parent user: ${$params.userId}
 
-  <au-route path="/posts/:postId">
+  <au-route path="posts/:postId">
     Child post: ${$params.postId}
     Parent user: ${$route.parent.$params.userId}
   </au-route>
@@ -104,6 +111,15 @@ Named segments are exposed to the view owned by the route that declared them.
 Each `<au-route>` creates its own parameter scope. Child `$params` does not silently merge ancestor parameters. Ancestor parameters remain available through the route-context tree.
 
 Parameter values are decoded when matched and encoded when used for href generation.
+
+Named parameters are required by default. Add `?` to make only that segment optional:
+
+```html
+<au-route path="products/:id">ID required</au-route>
+<au-route path="offers/:id?">ID optional</au-route>
+```
+
+The first route requires `/products/123`. The second accepts both `/offers` and `/offers/summer`; href generation omits the optional segment when no `id` is supplied.
 
 ## 5. Dynamic route paths
 
@@ -124,7 +140,7 @@ A static `path` that resembles interpolation produces a development warning beca
 Routes can be created and removed with Aurelia template controllers.
 
 ```html
-<au-route if.bind="canEdit" path="/edit">
+<au-route if.bind="canEdit" path="edit">
   <h1>Editor</h1>
 </au-route>
 ```
@@ -156,7 +172,7 @@ Adding a matching item activates the new route immediately. Removing an active i
 Routes normally accept a matching prefix and forward residue to children. `exact` requires the complete path presented by the parent to be consumed.
 
 ```html
-<au-route path="/products" exact>
+<au-route path="products" exact>
   Product catalog only
 </au-route>
 ```
@@ -181,7 +197,7 @@ Fallback selection is evaluated in the current parent context. A nested fallback
 
 ```html
 <au-route path="*" fallback>
-  <au-route path="/details" exact>
+  <au-route path="details" exact>
     Unknown item details
   </au-route>
 </au-route>
@@ -194,7 +210,7 @@ The optional leading slash does not change wildcard behavior.
 `**` and `/**` consume the complete remaining path. A static prefix can precede the terminal wildcard.
 
 ```html
-<au-route path="/files/**">
+<au-route path="files/**">
   Path presented: ${$route.$path}
   Terminal segment: ${$params['**']}
   Remaining path: ${$route.residue}
@@ -230,16 +246,30 @@ Available state includes:
 ### Href generation
 
 ```html
-<a href.bind="$route.href('.')">Current index</a>
-<a href.bind="$route.parent.href('/reviews', $route.parent.$params)">
-  Reviews
-</a>
-<a href.bind="$route.root.href('/products/:productId', { productId: product.id })">
+<a au-link=".">Current index</a>
+<a au-link="reviews">Reviews</a>
+<a au-link="./reviews">Reviews</a>
+<a au-link="/products">All products</a>
+<a au-link="products/camera">Camera</a>
+<a au-link="files/guides/router/start.html">Router guide</a>
+```
+
+`reviews` and `./reviews` resolve below the current context. `/products` resolves from the root route context. Concrete paths can directly satisfy required parameters, prefix residue, terminal `**` segments, and fallback routes. Active ancestor parameters are reused automatically.
+
+The custom attribute generates the native `href`, toggles `is-active` using prefix matching, and sets `aria-current="page"` for an exact match. Use an instruction object when generating from a registered pattern and separate application data, or when supplying matching options:
+
+```html
+<a au-link.bind="{
+  target: '/products/:productId',
+  params: { productId: product.id },
+  options: { exact: true },
+  activeClass: 'selected'
+}">
   Product
 </a>
 ```
 
-Active ancestor parameters are reused automatically. Explicit parameters can supply values for inactive targets.
+`$route.href()` remains the lower-level API for non-anchor use cases. Its string targets follow the same rule: no leading slash is context-relative, `./` is an equivalent explicit relative form, and `/` starts from the root context.
 
 Terminal href generation uses the same key as terminal matching:
 
@@ -265,9 +295,9 @@ Sibling view replacement supports three orders:
 - `parallel` — begin incoming and outgoing work together.
 
 ```html
-<au-route path="/products/:productId" swap-order="parallel">
-  <au-route path="/specs">Specs</au-route>
-  <au-route path="/reviews">Reviews</au-route>
+<au-route path="products/:productId" swap-order="parallel">
+  <au-route path="specs">Specs</au-route>
+  <au-route path="reviews">Reviews</au-route>
 </au-route>
 ```
 
@@ -278,7 +308,7 @@ The default avoids an empty child-stage gap. Swap order can be configured global
 Animation is disabled unless configured or requested by a route.
 
 ```html
-<au-route path="/reviews" animate>
+<au-route path="reviews" animate>
   Reviews
 </au-route>
 ```
@@ -391,17 +421,13 @@ The query-mode key is reserved for the route pathname. Other query values remain
 
 Production browser tests cover direct loading, generated hrefs, intercepted links, Back, and Forward in pathname, hash-only, and configurable query-key modes.
 
-## 19. Active-link matching
+## 19. Active links
 
 `IRouteContext.isActive()` resolves the same registered route targets and parameters as `href()`, so navigation URLs and selected state share one source of truth.
 
 ```html
-<a
-  href.bind="$route.href('/reviews')"
-  class.bind="$route.isActive('/reviews') ? 'selected' : ''"
-  aria-current.bind="$route.isActive('/reviews', {}, { exact: true }) ? 'page' : null">
-  Reviews
-</a>
+<a au-link="reviews">Reviews</a>
+<a au-link="/products">All products</a>
 ```
 
 ```ts
@@ -418,6 +444,7 @@ interface RouteActiveOptions extends RouteHrefOptions {
 - Static, parameterized, nested, index, and terminal targets use the same parameter inheritance as href generation.
 - Disposed route-context targets return false.
 - The method is marked with Aurelia's `computed` metadata through a lightweight manual decorator call. Template bindings react to pathname, query, and hash changes without emitted decorator scaffolding.
+- `au-link` layers native anchor href generation, active-class updates, and exact `aria-current` state on the context APIs.
 
 The docs sidebar and focused playground example use the public API instead of comparing URL strings locally. Matcher, Aurelia/node, and browser tests cover exact and prefix behavior, URL-state comparison, reactive classes, `aria-current`, and navigation updates.
 
@@ -438,7 +465,7 @@ Terminal `**` matching and href generation are symmetrical through `$params['**'
 Expose the segment consumed by a single wildcard as `$params['*']`.
 
 ```html
-<au-route path="/files/*">
+<au-route path="files/*">
   Folder: ${$params['*']}
 </au-route>
 ```
@@ -473,7 +500,7 @@ Add redirect-only route declarations:
 
 ```html
 <au-route path="/" redirect-to="/welcome"></au-route>
-<au-route path="/legacy/:id" redirect-to.bind="legacyTarget"></au-route>
+<au-route path="legacy/:id" redirect-to.bind="legacyTarget"></au-route>
 ```
 
 Rules:
@@ -490,7 +517,7 @@ Rules:
 Preliminary syntax for push behavior:
 
 ```html
-<au-route path="/offer" redirect-to="/products/sale" redirect-mode="push"></au-route>
+<au-route path="offer" redirect-to="/products/sale" redirect-mode="push"></au-route>
 ```
 
 ### Acceptance criteria
@@ -556,11 +583,11 @@ Deliver this feature in small optional layers rather than placing browser behavi
 Allow static or bound route titles:
 
 ```html
-<au-route path="/products/:productId" title="Product details">
+<au-route path="products/:productId" title="Product details">
   ...
 </au-route>
 
-<au-route path="/products/:productId" title.bind="product.name">
+<au-route path="products/:productId" title.bind="product.name">
   ...
 </au-route>
 ```

@@ -124,18 +124,24 @@ test.describe('router HTML docs features', () => {
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
     await expect(features).toHaveCount(12);
+    const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
+    await expect(basicSyntax).toContainText('<au-route path="products">');
+    await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
+    await expect(basicSyntax).toContainText('au-link="products"');
+    await expect(basicSyntax).toContainText('au-link="/products"');
     const matchingSyntax = features.filter({ hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
-    await expect(matchingSyntax).toContainText('<au-route path="/products" exact>');
-    await expect(matchingSyntax).toContainText('<au-route path="/files/**">');
+    await expect(matchingSyntax).toContainText('<au-route path="products/:id" exact>');
+    await expect(matchingSyntax).toContainText('<au-route path="offers/:id?" exact>');
+    await expect(matchingSyntax).toContainText('<au-route path="files/**">');
     const paramsSyntax = features
       .filter({ has: page.getByRole('heading', { name: 'Params', exact: true }) })
       .locator('pre');
-    await expect(paramsSyntax).toContainText('<au-route path="/posts/:postId">');
+    await expect(paramsSyntax).toContainText('<au-route path="posts/:postId">');
     await expect(paramsSyntax).toContainText('$route.parent.$params.userId');
     const swapSyntax = features.filter({ hasText: 'Swap Order' }).locator('pre');
     await expect(swapSyntax).toContainText('swap-order="parallel"');
-    await expect(swapSyntax).toContainText('<au-route path="/specs">Specs</au-route>');
-    await expect(swapSyntax).toContainText('<au-route path="/reviews">Reviews</au-route>');
+    await expect(swapSyntax).toContainText('<au-route path="specs">Specs</au-route>');
+    await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
     await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(12);
@@ -171,17 +177,17 @@ test.describe('router HTML docs features', () => {
     const sourceLines = await editor.locator('.cm-line').allTextContents();
     expect(sourceLines.slice(0, 4)).toEqual([
       '<nav>',
-      '  <a href="/welcome">Welcome</a>',
-      '  <a href="/about">About</a>',
+      '  <a au-link="/welcome">Welcome</a>',
+      '  <a au-link="/about">About</a>',
       '</nav>',
     ]);
-    const welcomeRoute = sourceLines.indexOf('  <au-route path="/welcome">');
+    const welcomeRoute = sourceLines.indexOf('  <au-route path="welcome">');
     expect(sourceLines.slice(welcomeRoute, welcomeRoute + 5)).toEqual([
-      '  <au-route path="/welcome">',
+      '  <au-route path="welcome">',
       '    <h1>Welcome</h1>',
       '    <p>Your first declarative route is running.</p>',
       '  </au-route>',
-      '  <au-route path="/about">',
+      '  <au-route path="about">',
     ]);
     await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
   });
@@ -191,7 +197,7 @@ test.describe('router HTML docs features', () => {
 
     const matchingSyntax = page.locator('.overview-feature', { hasText: 'Exact, Fallback & Terminal Paths' }).locator('pre');
     const pathAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^path$/ }).first();
-    const exactAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^exact$/ });
+    const exactAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^exact$/ }).first();
     const fallbackAttribute = matchingSyntax.locator('.syntax-attribute').filter({ hasText: /^fallback$/ });
 
     await expect(pathAttribute).toBeVisible();
@@ -226,11 +232,22 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Activity' })).toBeVisible();
 
     await playground.getByRole('textbox', { name: 'Editing /src/app.html' }).fill(
-      '<au-route path="/overview"><h1>Edited embedded preview</h1></au-route>',
+      '<au-route path="overview"><h1>Edited embedded preview</h1></au-route>',
     );
     await playground.getByRole('button', { name: 'Run' }).click();
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     await expect(frame.getByRole('heading', { name: 'Edited embedded preview' })).toBeVisible();
+  });
+
+  test('basic routes makes relative declarations and root-absolute links explicit', async ({ page }) => {
+    await page.goto('/features/basic');
+
+    const guide = page.locator('[data-e2e="path-syntax-guide"]');
+    await expect(guide).toContainText('products and ./products mean the same contextual route');
+    await expect(guide).toContainText('A leading slash does not make an au-route declaration root-absolute');
+    await expect(guide.locator('pre').nth(1)).toContainText("$route.isActive('/help', {}, { exact: true })");
+    await expect(guide.locator('pre').nth(1)).toContainText('au-link="reviews"');
+    await expect(guide.locator('pre').nth(1)).toContainText('au-link="/help"');
   });
 
   test('an embedded playground recreates its compiler and preview after reattachment', async ({ page }) => {
@@ -253,14 +270,14 @@ test.describe('router HTML docs features', () => {
 
   test('every focused feature uses its matching embedded project without a source toggle', async ({ page }) => {
     const features = [
-      ['basic', 'path="/welcome"'],
-      ['nested', 'path="/account"'],
+      ['basic', 'path="welcome"'],
+      ['nested', 'path="account"'],
       ['params', ':userId'],
       ['url-state', "$query.get('sort')"],
-      ['active-links', "$route.isActive('/reviews'"],
+      ['active-links', 'au-link.bind'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
-      ['matching', 'path="/files/**"'],
+      ['matching', 'path="files/**"'],
       ['swap', 'swap-order="parallel"'],
       ['animation', 'animate'],
       ['shared-state', 'state.totalQty'],
@@ -280,13 +297,13 @@ test.describe('router HTML docs features', () => {
     await page.goto('/features/nested');
 
     const apiExamples = page.locator('[data-e2e="route-api-examples"]');
-    await expect(apiExamples).toContainText("$route.href('.')");
+    await expect(apiExamples).toContainText('au-link="."');
     await expect(apiExamples).toContainText('$route.root.href(');
     await expect(apiExamples).toContainText('$route.fullPath');
     await expect(apiExamples).toContainText('$route.root.getPaths()');
 
     const playground = page.locator('.playground-page.is-embedded');
-    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('path="/account"');
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('path="account"');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     const frame = playground.frameLocator('[data-e2e="playground-preview"]');
     await expect(frame.getByRole('heading', { name: 'Profile' })).toBeVisible();
@@ -405,6 +422,10 @@ test.describe('router HTML docs features', () => {
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     let frame = playground.frameLocator('[data-e2e="playground-preview"]');
     await expect(frame.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Offers', exact: true }).click();
+    await expect(frame.getByRole('heading', { name: 'Offer: all offers' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Summer offer' }).click();
+    await expect(frame.getByRole('heading', { name: 'Offer: summer' })).toBeVisible();
     await frame.getByRole('link', { name: 'Missing' }).click();
     await expect(frame.getByRole('heading', { name: 'Nothing matched this URL' })).toBeVisible();
     await frame.getByRole('link', { name: 'Terminal file path' }).click();
@@ -440,9 +461,13 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('button', { name: 'Visits: 1' })).toBeVisible();
 
     for (let index = 0; index < 4; index++) {
-      await frame.getByRole('link', { name: 'Moon room' }).click();
+      const moonLink = frame.getByText('Moon room', { exact: true });
+      await expect(moonLink).toHaveAttribute('href', '/moon');
+      await moonLink.click();
       await expect(frame.getByText('Welcome to Moon room')).toBeVisible();
-      await frame.getByRole('link', { name: 'Sunny room' }).click();
+      const sunnyLink = frame.getByText('Sunny room', { exact: true });
+      await expect(sunnyLink).toHaveAttribute('href', '/sunny');
+      await sunnyLink.click();
       await expect(frame.getByText('Welcome to Sunny room')).toBeVisible();
     }
     await expect(playground.locator('.console-entry.error')).toHaveCount(0);
