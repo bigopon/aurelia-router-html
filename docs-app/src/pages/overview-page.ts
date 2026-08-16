@@ -53,6 +53,14 @@ export class OverviewPage {
       syntax: '<a au-link="reviews">Reviews</a>\n<a au-link="/products">All products</a>',
     },
     {
+      title: 'Programmatic Navigation',
+      summary: 'Navigate from application logic through the same contextual API available as $route.',
+      path: '/features/programmatic',
+      playgroundId: 'programmatic-navigation',
+      language: 'typescript',
+      syntax: 'private readonly route = resolve(IRouteContext);\n\nthis.route.load(\n  \'/products/:id/reviews\',\n  { id },\n  { query: { sort: \'recent\' } }\n);',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',

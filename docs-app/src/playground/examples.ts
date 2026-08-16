@@ -294,6 +294,58 @@ const featureExamples: PlaygroundExample[] = [
 }`,
   }),
   routerExample({
+    id: 'programmatic-navigation',
+    title: 'Programmatic navigation',
+    description: 'Load relative and root-absolute targets from the current route context.',
+    initialPath: '/home',
+    initialFile: '/src/app.ts',
+    appTs: `import { resolve } from '@aurelia/kernel';
+import { IRouteContext } from 'aurelia-v2-router-html';
+
+export class App {
+  private readonly route = resolve(IRouteContext);
+
+  public openReviews(productId: string): void {
+    this.route.load(
+      '/products/:productId/reviews',
+      { productId },
+      {
+        query: { sort: 'recent' },
+        hash: 'comments'
+      }
+    );
+  }
+
+  public replaceWithHelp(): void {
+    this.route.load('/help', {}, { replace: true });
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <button click.trigger="openReviews('camera')">
+    Open camera reviews
+  </button>
+  <button click.trigger="replaceWithHelp()">
+    Replace with help
+  </button>
+</nav>
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+    <p>Choose a programmatic navigation action.</p>
+  </au-route>
+  <au-route path="products/:productId/reviews" exact>
+    <h1>\${$params.productId} reviews</h1>
+    <p>Sort: \${$query.get('sort')}</p>
+    <p>Section: \${$hash}</p>
+  </au-route>
+  <au-route path="help" exact>
+    <h1>Help</h1>
+    <p>This navigation replaced the previous history entry.</p>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

@@ -8,6 +8,7 @@ import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
+import { FeatureProgrammaticPage } from './feature-programmatic-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
@@ -29,6 +30,7 @@ export class DocsApp {
       FeatureParamsPage,
       FeatureUrlStatePage,
       FeatureActiveLinksPage,
+      FeatureProgrammaticPage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,

@@ -50,6 +50,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'programmatic',
+    title: 'Programmatic Navigation',
+    path: '/features/programmatic',
+    summary: 'Navigate from templates or view-model logic through the current route context.',
+    badge: 'A4',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

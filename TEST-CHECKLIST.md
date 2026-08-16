@@ -64,6 +64,7 @@
 - [x] `A4` Concrete `au-link` targets resolve parameter, prefix-residue, terminal, and fallback route patterns.
 - [x] `A4` `au-link` generates native hrefs and reactively owns its active class and exact `aria-current` state.
 - [x] `A4` Explicit `au-link` clicks load through their local route context with browser, memory, or custom adapters.
+- [x] `A4` Programmatic navigation resolves relative, absolute, parameterized, query, hash, and replacement targets through `IRouteContext.load()`.
 - [x] `A5` `IPathAdapter` can be supplied as an instance, a registered DI key, a pre-registered interface implementation, or an adapter factory.
 - [x] `A5` `MemoryPathAdapter` normalizes complete route locations and supports push, replace, Back, Forward, and external navigation notifications without browser globals.
 - [x] `A5` Custom adapter configuration does not resolve `IWindow`.
@@ -85,6 +86,7 @@
 - [x] The wildcard playground renders decoded `$params['*']` values captured at the end and in the middle of a pattern.
 - [x] Routing adapters have an overview card, focused API page, and editable memory-adapter project.
 - [x] The memory-adapter project navigates with ordinary `au-link` anchors without injecting the coordinator.
+- [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

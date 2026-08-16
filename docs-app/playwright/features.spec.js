@@ -134,7 +134,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(14);
+    await expect(features).toHaveCount(15);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -162,15 +162,19 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(14);
+    const programmaticSyntax = features.filter({ hasText: 'Programmatic Navigation' }).locator('pre');
+    await expect(programmaticSyntax).toContainText('resolve(IRouteContext)');
+    await expect(programmaticSyntax).toContainText('this.route.load');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(15);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(14);
+    await expect(editLinks).toHaveCount(15);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
       '/playground/url-state',
       '/playground/active-links',
+      '/playground/programmatic-navigation',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -295,6 +299,7 @@ test.describe('router HTML docs features', () => {
       ['params', ':userId'],
       ['url-state', "$query.get('sort')"],
       ['active-links', 'au-link.bind'],
+      ['programmatic', 'resolve(IRouteContext)', '/src/app.ts'],
       ['adapters', 'MemoryPathAdapter', '/src/main.ts'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
@@ -506,6 +511,23 @@ test.describe('router HTML docs features', () => {
     await expect(reports).toHaveClass(/is-active/);
     await frame.getByRole('button', { name: 'Back' }).click();
     await expect(frame.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  });
+
+  test('programmatic navigation uses the contextual route API', async ({ page }) => {
+    await page.goto('/features/programmatic');
+    const guide = page.locator('[data-e2e="programmatic-navigation-guide"]');
+    await expect(guide).toContainText('IRouteContext is the view-model form of template $route');
+    await expect(guide).toContainText("this.route.load('/products/:id'");
+    await expect(guide).toContainText("$route.load('/login')");
+    await expect(guide).toContainText('does not need IRouteCoordinator');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await frame.getByRole('button', { name: 'Open camera reviews' }).click();
+    await expect(frame.getByRole('heading', { name: 'camera reviews' })).toBeVisible();
+    await expect(frame.getByText('Sort: recent')).toBeVisible();
+    await expect(frame.getByText('Section: comments')).toBeVisible();
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

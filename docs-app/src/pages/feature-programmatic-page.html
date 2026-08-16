@@ -1,0 +1,70 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Programmatic Navigation</h2>
+      <p class="page-copy">Navigate from application logic with the same route context used by <code>au-link</code> and template <code>$route</code>.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="programmatic-navigation-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-typescript>import { resolve } from '@aurelia/kernel';
+import { IRouteContext } from 'aurelia-v2-router-html';
+
+export class ProductPage {
+  private readonly route = resolve(IRouteContext);
+
+  public openReviews(): void {
+    this.route.load('reviews');
+  }
+}</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>IRouteContext</code> is the view-model form of template <code>$route</code>. Aurelia resolves the context nearest to the component: root components navigate from the root, while components rendered inside an <code>au-route</code> navigate relative to that branch.</p>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th>Target</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>reviews</code> or <code>./reviews</code></td><td>Resolve below the injected route context.</td></tr>
+            <tr><td><code>/products/:id</code></td><td>Resolve from the root and fill required parameters.</td></tr>
+            <tr><td>A registered <code>IRouteContext</code></td><td>Navigate directly to that route context.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>public openProduct(id: string): void {
+  this.route.load('/products/:id', { id });
+}
+
+public openRecentReviews(id: string): void {
+  this.route.load(
+    '/products/:id/reviews',
+    { id },
+    {
+      query: { sort: 'recent' },
+      hash: 'comments'
+    }
+  );
+}
+
+public replaceWithLogin(): void {
+  this.route.load('/login', {}, { replace: true });
+}</pre>
+      <p>The third argument uses the same query and hash options as <code>$route.href()</code>. Set <code>replace</code> when the new location should replace the current history entry. Application code does not need <code>IRouteCoordinator</code> or a path adapter.</p>
+      <pre class="code-block" syntax-html>&lt;button click.trigger="$route.load('/login')"&gt;
+  Sign in
+&lt;/button&gt;</pre>
+      <p>Use <code>au-link</code> whenever an interaction represents a normal destination. Use <code>load()</code> when navigation follows application logic, such as completing a workflow or selecting a result in code.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="programmatic-navigation" embedded.bind="true"></playground-page>
+</section>
