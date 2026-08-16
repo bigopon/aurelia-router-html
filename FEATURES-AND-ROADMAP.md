@@ -338,11 +338,11 @@ The browser adapter provides:
 - hash-only routing such as `#products/ice-cream/reviews`;
 - query-key routing such as `?app=products/ice-cream/reviews`.
 
-Programmatic navigation is available through `IRouteCoordinator`:
+Programmatic navigation is available through the current route context:
 
 ```ts
-router.load('/products');
-router.load('/products', { replace: true });
+$route.load('/products');
+$route.load('/products', {}, { replace: true });
 ```
 
 In every mode, matching receives only the route pathname. Route query values and the route hash remain available as URL state without changing which route matches.
@@ -478,11 +478,39 @@ route.href('/folders/*', { '*': 'guides' });
 route.href('/files/**', { '**': 'guides/router/start.html' });
 ```
 
+## 21. Injectable path adapters
+
+`IPathAdapter` is the public environment boundary used by the coordinator. Browser history remains the default, while applications can supply an adapter instance, a DI key, a pre-registered `IPathAdapter`, or an adapter factory without resolving `IWindow`.
+
+```ts
+const adapter = new MemoryPathAdapter('/dashboard');
+
+Routing.customize({ adapter });
+
+Aurelia.register(
+  Registration.singleton(MyPathAdapter, MyPathAdapter),
+  Routing.customize({ adapter: MyPathAdapter }),
+);
+
+Routing.customize({
+  adapterFactory: container => container.get(MyPathAdapter),
+});
+```
+
+The exported `MemoryPathAdapter` stores complete route locations without `window`, `document`, or global history. Explicit `au-link` clicks load through their local route context, which calls `push()` or `replace()` and applies the route directly. Memory `navigate()`, `back()`, `forward()`, and `go()` represent external location changes and notify subscribers.
+
+Coordinator lifecycle owns the adapter subscription:
+
+- `start()` subscribes and applies the adapter's current location;
+- repeated `start()` calls are inert;
+- `stop()` unsubscribes idempotently;
+- a later `start()` creates a fresh subscription and reapplies the current location.
+
 ---
 
 # Remaining proposed features
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 3 are implemented as features 18 through 20 above, so the remaining list begins with proposal 4.
+Proposal numbers preserve their original design identifiers. Proposals 1, 2, 3, and 5 are implemented as features 18 through 21 above. The remaining proposals are 4 and 6.
 
 ## Proposed 4. Declarative redirects
 
@@ -523,46 +551,6 @@ Preliminary syntax for push behavior:
 - Redirect loops fail with a useful development error.
 - A redirect never briefly renders stale branch content.
 - Browser tests cover direct loading, anchor navigation, Back, and Forward.
-
-## Proposed 5. Configurable path adapter
-
-### Problem
-
-`Routing` currently constructs `BrowserPathAdapter` directly. `RouteContext` itself is environment-neutral, but default configuration prevents straightforward SSR, memory routing, WebViews, and application-specific location policies.
-
-### Design
-
-Promote the adapter contract to a public injectable interface.
-
-```ts
-export interface IPathAdapter {
-  getCurrentPath(): string;
-  push(path: string): void;
-  replace(path: string): void;
-  subscribe(callback: (path: string) => void): () => void;
-}
-```
-
-The final contract will evolve to complete location values when query/hash support is implemented.
-
-Registration options should support either DI registration or an explicit adapter factory:
-
-```ts
-Aurelia.register(
-  MyPathAdapter,
-  Routing.customize({ adapter: MyPathAdapter }),
-);
-```
-
-The browser adapter remains the default when `IWindow` is available. A memory adapter should be exported for tests, playgrounds, and non-browser hosts.
-
-### Acceptance criteria
-
-- Browser behavior remains unchanged with default configuration.
-- A memory adapter runs without `window`, `document`, or global history.
-- Server-side creation does not resolve `IWindow` unless the browser adapter is selected.
-- Start, stop, push, replace, and subscription ownership are clearly defined.
-- Adapter teardown is idempotent and restarting a coordinator resubscribes correctly.
 
 ## Proposed 6. Navigation metadata and browser polish
 
@@ -620,11 +608,10 @@ After a successful navigation containing a hash, the browser layer locates the d
 
 # Recommended implementation sequence
 
-1. Implement proposal 5: make the path/location adapter injectable and export a memory adapter.
-2. Implement proposal 4: add redirects using the coordinator and generated-target APIs.
-3. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
+1. Implement proposal 4: add redirects using the coordinator and generated-target APIs.
+2. Implement proposal 6: add title, scroll, hash, and focus services as optional browser policies.
 
-The complete location model and active-link API are now in place. Adapter injection should precede browser polish so those policies stay outside the matching tree.
+The complete location model, active-link API, and injectable adapter boundary are now in place. Redirects can use the coordinator without introducing browser dependencies, and later browser polish can remain outside the matching tree.
 
 # Deferred features
 

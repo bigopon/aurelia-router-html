@@ -133,6 +133,22 @@ run('A3 href generation adds and preserves query and hash state before adapter f
   );
 });
 
+run('A4 route contexts load resolved targets before adapter href formatting', () => {
+  const navigations: Array<{ path: string; replace: boolean | undefined }> = [];
+  const root = new RouteContext(null, '*', { hrefFormatter: href => `memory:${href}` });
+  const products = root.createChild('/products/:productId') as RouteContext;
+  products.createChild('reviews');
+  root.apply('/products/ice-cream');
+  root._setNavigator((path, options) => navigations.push({ path, replace: options.replace }));
+
+  products.load('reviews', {}, { query: { sort: 'recent' }, replace: true });
+
+  assert.deepEqual(navigations, [{
+    path: '/products/ice-cream/reviews?sort=recent',
+    replace: true,
+  }]);
+});
+
 run('A3 route locations round-trip repeated and encoded URL state', () => {
   const location = parseRouteLocation('/search?tag=ice%20cream&tag=caf%C3%A9#customer%20reviews');
 

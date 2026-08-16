@@ -1,4 +1,5 @@
 import { docNav } from '../data/docs-nav';
+import { FeatureAdaptersPage } from './feature-adapters-page';
 import { FeatureActiveLinksPage } from './feature-active-links-page';
 import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
@@ -22,6 +23,7 @@ export class DocsApp {
     template,
     dependencies: [
       OverviewPage,
+      FeatureAdaptersPage,
       FeatureBasicPage,
       FeatureNestedPage,
       FeatureParamsPage,

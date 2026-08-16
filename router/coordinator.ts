@@ -1,6 +1,6 @@
 import { DI } from '@aurelia/kernel';
-import type { PathAdapter } from './path-adapter';
-import type { IRouteContext } from './route-context';
+import type { IPathAdapter } from './path-adapter';
+import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
 
 export interface LoadOptions {
@@ -24,17 +24,16 @@ export class RouteCoordinator implements IRouteCoordinator {
   public currentPath: string = '/';
   public currentLocation: RouteLocation = parseRouteLocation('/');
   private readonly subscribers = new Set<(path: string) => void>();
-  private readonly stopListening: () => void;
+  private stopListening: (() => void) | null = null;
   private started: boolean = false;
 
   public constructor(
     public readonly root: IRouteContext,
-    private readonly adapter: PathAdapter,
+    private readonly adapter: IPathAdapter,
   ) {
-    this.stopListening = this.adapter.subscribe(path => {
-      this.applyLocation(path);
-      this.notify();
-    });
+    if (root instanceof RouteContext) {
+      root._setNavigator((path, options) => this.load(path, options));
+    }
   }
 
   public start(): void {
@@ -43,12 +42,20 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
 
     this.started = true;
+    this.stopListening = this.adapter.subscribe(path => {
+      this.applyLocation(path);
+      this.notify();
+    });
     this.applyLocation(this.adapter.getCurrentPath());
     this.notify();
   }
 
   public stop(): void {
-    this.stopListening();
+    if (!this.started) {
+      return;
+    }
+    this.stopListening?.();
+    this.stopListening = null;
     this.started = false;
   }
 

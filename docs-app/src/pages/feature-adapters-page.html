@@ -1,0 +1,137 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Routing Adapters</h2>
+      <p class="page-copy">
+        Keep the route tree independent from browser history with an injectable location boundary.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>What an adapter changes</h3>
+      <p>An adapter is the boundary between the route tree and its host location. It decides where the current route is read, how <code>au-link</code> formats an href, where programmatic navigation is stored, and which host navigation events enter the router.</p>
+      <p>It does not change route matching, parameters, nesting, fallback behavior, swap order, or view rendering. The same <code>au-route</code> templates work with every adapter.</p>
+    </section>
+
+    <section>
+      <h3>Choose an adapter</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th>Choice</th><th>What it provides</th><th>Use it for</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Default browser adapter</td><td>Pathname, hash, or query-key URLs plus optional anchor interception</td><td>Normal browser applications</td></tr>
+            <tr><td><code>MemoryPathAdapter</code></td><td>An in-process history stack with no browser globals</td><td>Tests, SSR setup, previews, workers, and non-browser hosts</td></tr>
+            <tr><td>Custom <code>IPathAdapter</code></td><td>Application-defined storage, formatting, and external navigation events</td><td>WebViews, native shells, micro-frontends, or custom URL policies</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>If no custom adapter is configured, Router HTML creates the browser adapter and applies <code>routingMode</code>, <code>routeQueryKey</code>, and <code>interceptLinks</code>. Supplying a custom adapter skips <code>IWindow</code> resolution; that adapter owns its URL and click policy.</p>
+    </section>
+
+    <section>
+      <h3>The adapter contract</h3>
+      <pre class="code-block" syntax-typescript>interface IPathAdapter {
+  getCurrentPath(): string;
+  formatHref(path: string): string;
+  push(path: string): void;
+  replace(path: string): void;
+  subscribe(callback: (path: string) =&gt; void): () =&gt; void;
+}</pre>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th>Method</th><th>Responsibility</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>getCurrentPath()</code></td><td>Return the complete internal route location used when the coordinator starts or restarts.</td></tr>
+            <tr><td><code>formatHref()</code></td><td>Convert an internal route into the href format exposed by <code>au-link</code>.</td></tr>
+            <tr><td><code>push()</code></td><td>Store a new location requested through <code>au-link</code> or <code>$route.load()</code>. Do not notify the subscription again; the route tree already applies that navigation.</td></tr>
+            <tr><td><code>replace()</code></td><td>Replace the current stored location without creating another history entry.</td></tr>
+            <tr><td><code>subscribe()</code></td><td>Report navigation initiated outside the route context, such as browser Back, Forward, plain intercepted anchors, or native-host messages.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The coordinator subscribes during <code>start()</code>, unsubscribes during <code>stop()</code>, and creates a fresh subscription after restart. Adapter teardown must therefore be safe to call once per subscription.</p>
+    </section>
+
+    <section>
+      <h3>Pass an adapter instance</h3>
+      <pre class="code-block" syntax-typescript>const adapter = new MemoryPathAdapter('/dashboard');
+
+void Aurelia
+  .register(Routing.customize({
+    adapter,
+    animations: false
+  }))
+  .app({ host, component: App })
+  .start();</pre>
+      <p>This is the smallest setup when the application creates and owns the adapter. The same instance is registered as <code>IPathAdapter</code> for injection into application code.</p>
+    </section>
+
+    <section>
+      <h3>Resolve an adapter through DI</h3>
+      <pre class="code-block" syntax-typescript>void Aurelia
+  .register(
+    Registration.singleton(MyPathAdapter, MyPathAdapter),
+    Routing.customize({ adapter: MyPathAdapter })
+  )
+  .app({ host, component: App })
+  .start();
+
+// A pre-registered IPathAdapter is selected automatically.
+void Aurelia.register(
+  Registration.singleton(IPathAdapter, MyPathAdapter),
+  Routing
+);</pre>
+      <p>Use a DI key when the adapter has injected dependencies or a lifecycle shared with other services. Registering <code>IPathAdapter</code> directly also works without an <code>adapter</code> option.</p>
+    </section>
+
+    <section>
+      <h3>Create an adapter with a factory</h3>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  adapterFactory: container =&gt; new NativeShellAdapter(
+    container.get(NativeNavigationBridge)
+  )
+});</pre>
+      <p>The factory receives the application container. Use it when construction needs runtime values or cannot be expressed as a normal DI registration. Supplying both <code>adapter</code> and <code>adapterFactory</code> is rejected.</p>
+    </section>
+
+    <section>
+      <h3>Use memory history</h3>
+      <pre class="code-block" syntax-html>&lt;nav&gt;
+  &lt;a au-link="dashboard"&gt;Dashboard&lt;/a&gt;
+  &lt;a au-link="reports"&gt;Reports&lt;/a&gt;
+&lt;/nav&gt;</pre>
+      <pre class="code-block" syntax-typescript>const adapter = new MemoryPathAdapter('/dashboard');
+
+adapter.back();    // restores the previous route
+adapter.forward(); // restores the next route
+adapter.go(-2);    // moves through memory history</pre>
+      <p><code>au-link</code> asks its local route context to resolve and load the target, so application code does not need the coordinator. The coordinator stores the resolved location through <code>push()</code> or <code>replace()</code>. Adapter <code>back()</code>, <code>forward()</code>, and <code>go()</code> represent history movement originating from the host and notify the route tree.</p>
+    </section>
+
+    <section>
+      <h3>Options with custom adapters</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th>Option</th><th>With a custom adapter</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>routingMode</code></td><td>Ignored by Router HTML; implement the required formatting in the adapter.</td></tr>
+            <tr><td><code>routeQueryKey</code></td><td>Used only by the default browser query adapter.</td></tr>
+            <tr><td><code>interceptLinks</code></td><td>Used only by the default browser adapter. A custom host decides how navigation events enter <code>subscribe()</code>.</td></tr>
+            <tr><td><code>swapOrder</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>
+            <tr><td><code>animations</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <playground-page example-id="memory-adapter" embedded.bind="true"></playground-page>
+</section>

@@ -5,6 +5,7 @@ import { CustomElement } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
+import { MemoryPathAdapter } from '../router/memory-path-adapter';
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [
@@ -397,6 +398,32 @@ describe('active route links', function () {
 });
 
 describe('au-link', function () {
+  it('loads through its route context with a custom adapter', async function () {
+    const adapter = new MemoryPathAdapter('/dashboard');
+    const fixture = await createFixture(
+      `<nav>
+        <a data-dashboard au-link="dashboard">Dashboard</a>
+        <a data-reports au-link="reports">Reports</a>
+      </nav>
+      <au-route path="dashboard" exact><span data-view>Dashboard</span></au-route>
+      <au-route path="reports" exact><span data-view>Reports</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const reports = fixture.appHost.querySelector<HTMLElement>('[data-reports]')!;
+      reports.click();
+      await tasksSettled();
+
+      assert.strictEqual(adapter.getCurrentPath(), '/reports');
+      assert.strictEqual(fixture.appHost.querySelector('[data-view]')?.textContent, 'Reports');
+      assert.strictEqual(reports.classList.contains('is-active'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('generates relative and absolute hrefs and maintains active anchor state', async function () {
     const fixture = await createFixture(
       `<a data-early au-link="/help">Early help</a>

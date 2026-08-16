@@ -6,6 +6,7 @@ interface OverviewFeature {
   path: string;
   playgroundId: string;
   syntax: string;
+  language?: 'html' | 'typescript';
 }
 
 export class OverviewPage {
@@ -50,6 +51,14 @@ export class OverviewPage {
       path: '/features/active-links',
       playgroundId: 'active-links',
       syntax: '<a au-link="reviews">Reviews</a>\n<a au-link="/products">All products</a>',
+    },
+    {
+      title: 'Routing Adapters',
+      summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
+      path: '/features/adapters',
+      playgroundId: 'memory-adapter',
+      language: 'typescript',
+      syntax: 'const adapter = new MemoryPathAdapter(\'/dashboard\');\n\nRouting.customize({\n  adapter\n});',
     },
     {
       title: 'Conditional Routes',

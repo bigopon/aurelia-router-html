@@ -1,4 +1,4 @@
-import type { PathAdapter } from './path-adapter';
+import type { IPathAdapter } from './path-adapter';
 import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
 
 export type BrowserRoutingMode = 'path' | 'hash' | 'query';
@@ -9,7 +9,7 @@ export interface BrowserAdapterOptions {
   routeQueryKey?: string;
 }
 
-export class BrowserPathAdapter implements PathAdapter {
+export class BrowserPathAdapter implements IPathAdapter {
   protected readonly routingMode: BrowserRoutingMode;
   protected readonly routeQueryKey: string;
 

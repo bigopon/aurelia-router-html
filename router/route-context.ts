@@ -20,6 +20,10 @@ export interface RouteActiveOptions extends RouteHrefOptions {
   matchHash?: boolean;
 }
 
+export interface RouteLoadOptions extends RouteHrefOptions {
+  replace?: boolean;
+}
+
 export interface RouteContextOptions {
   exact?: boolean;
   fallback?: boolean;
@@ -41,6 +45,7 @@ export interface IRouteContext {
   readonly fullPath: string;
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
+  load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): void;
   isActive(target?: string | IRouteContext, params?: RouteParams, options?: RouteActiveOptions): boolean;
   getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
@@ -95,6 +100,7 @@ export class RouteContext implements IRouteContext {
   private readonly _fallback: boolean;
   private readonly _swapOrder: SwapOrder;
   private readonly _hrefFormatter: (path: string) => string;
+  private _navigator: ((path: string, options: Pick<RouteLoadOptions, 'replace'>) => void) | null = null;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -116,6 +122,20 @@ export class RouteContext implements IRouteContext {
 
   public href(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteHrefOptions = {}): string {
     return this._hrefFormatter(this._createHref(target, params, options));
+  }
+
+  public load(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteLoadOptions = {}): void {
+    const { replace, ...hrefOptions } = options;
+    const root = this.root as RouteContext;
+    if (root._navigator == null) {
+      throw new Error('The route context is not connected to a navigation adapter.');
+    }
+    root._navigator(this._createHref(target, params, hrefOptions), { replace });
+  }
+
+  /** @internal */
+  public _setNavigator(navigator: (path: string, options: Pick<RouteLoadOptions, 'replace'>) => void): void {
+    this._navigator = navigator;
   }
 
   public isActive(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteActiveOptions = {}): boolean {

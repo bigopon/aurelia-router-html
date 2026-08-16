@@ -50,6 +50,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'adapters',
+    title: 'Routing Adapters',
+    path: '/features/adapters',
+    summary: 'Inject browser, memory, or host-specific location behavior without changing the route tree.',
+    badge: 'A5',
+  },
+  {
     id: 'conditional',
     title: 'Conditional',
     path: '/features/conditional',

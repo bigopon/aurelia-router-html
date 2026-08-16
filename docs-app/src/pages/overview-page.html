@@ -8,6 +8,62 @@
     </div>
   </header>
 
+  <section class="customization-overview" data-e2e="routing-customization">
+    <header>
+      <h3>Choose how routing integrates with the host</h3>
+      <p>Route templates stay the same while configuration selects the URL strategy, navigation behavior, and location adapter. Path, hash, and query modes are ready-made browser adapter strategies; memory and custom adapters replace the browser boundary.</p>
+    </header>
+
+    <div class="customization-grid">
+      <section>
+        <h4>Location options</h4>
+        <div class="option-table-wrap">
+          <table class="option-table">
+            <thead>
+              <tr><th>Option</th><th>Best for</th><th>Configuration</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Pathname<br><code>/products/ice-cream</code></td><td>Normal application and server URLs</td><td><code>routingMode: 'path'</code></td></tr>
+              <tr><td>Hash<br><code>#products/ice-cream</code></td><td>Static hosts without rewrite rules</td><td><code>routingMode: 'hash'</code></td></tr>
+              <tr><td>Query key<br><code>?app=products/ice-cream</code></td><td>Embedding a routed app under one query parameter</td><td><code>routingMode: 'query'</code></td></tr>
+              <tr><td>Memory</td><td>Tests, SSR setup, previews, and non-browser hosts</td><td><code>adapter: new MemoryPathAdapter('/')</code></td></tr>
+              <tr><td>Custom adapter</td><td>WebViews or application-specific location policies</td><td><code>adapter</code>, DI key, or <code>adapterFactory</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h4>Behavior options</h4>
+        <div class="option-table-wrap">
+          <table class="option-table">
+            <thead>
+              <tr><th>Option</th><th>Controls</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>interceptLinks</code></td><td>Whether the default browser adapter handles same-origin anchor clicks.</td></tr>
+              <tr><td><code>swapOrder</code></td><td>Whether incoming and outgoing sibling views attach first, detach first, or run in parallel.</td></tr>
+              <tr><td><code>animations</code></td><td>Global route-transition behavior; animation remains opt-in by default.</td></tr>
+              <tr><td><code>routeQueryKey</code></td><td>The query-string key used by query routing mode; it defaults to <code>app</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'path',
+  interceptLinks: true,
+  swapOrder: 'parallel',
+  animations: false
+});</pre>
+
+    <div class="overview-links">
+      <a class="example-jump" href="/features/url-state">Compare browser URL modes</a>
+      <a class="example-jump" href="/features/adapters">Choose or build an adapter</a>
+    </div>
+  </section>
+
   <div class="feature-catalog" data-e2e="overview-features">
     <article class="overview-feature" repeat.for="feature of features">
       <div class="overview-feature-copy">
@@ -18,7 +74,8 @@
           <a class="example-jump" href.bind="playgroundPath(feature)">Edit in playground</a>
         </div>
       </div>
-      <pre class="code-block overview-syntax" syntax-html>${feature.syntax}</pre>
+      <pre if.bind="feature.language === 'typescript'" class="code-block overview-syntax" syntax-typescript>${feature.syntax}</pre>
+      <pre else class="code-block overview-syntax" syntax-html>${feature.syntax}</pre>
     </article>
   </div>
 </section>

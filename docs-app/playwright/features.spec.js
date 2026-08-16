@@ -122,8 +122,19 @@ test.describe('router HTML docs features', () => {
   test('overview presents static feature syntax with links to focused examples', async ({ page }) => {
     await page.goto('/');
 
+    const customization = page.locator('[data-e2e="routing-customization"]');
+    await expect(customization).toContainText('Pathname');
+    await expect(customization).toContainText('Hash');
+    await expect(customization).toContainText('Query key');
+    await expect(customization).toContainText('Memory');
+    await expect(customization).toContainText('Custom adapter');
+    await expect(customization).toContainText('interceptLinks');
+    await expect(customization).toContainText('swapOrder');
+    await expect(customization).toContainText('animations');
+    await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
+
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(13);
+    await expect(features).toHaveCount(14);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -137,6 +148,9 @@ test.describe('router HTML docs features', () => {
     await expect(wildcardSyntax).toContainText('<au-route path="date/*/summary" exact>');
     await expect(wildcardSyntax).toContainText("Date: ${$params['*']}");
     await expect(wildcardSyntax).toContainText('<au-route path="files/**">');
+    const adapterSyntax = features.filter({ hasText: 'Routing Adapters' }).locator('pre');
+    await expect(adapterSyntax).toContainText("new MemoryPathAdapter('/dashboard')");
+    await expect(adapterSyntax).toContainText('Routing.customize');
     const paramsSyntax = features
       .filter({ has: page.getByRole('heading', { name: 'Params', exact: true }) })
       .locator('pre');
@@ -148,15 +162,16 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(13);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(14);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(13);
+    await expect(editLinks).toHaveCount(14);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
       '/playground/url-state',
       '/playground/active-links',
+      '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
       '/playground/exact-fallback',
@@ -280,6 +295,7 @@ test.describe('router HTML docs features', () => {
       ['params', ':userId'],
       ['url-state', "$query.get('sort')"],
       ['active-links', 'au-link.bind'],
+      ['adapters', 'MemoryPathAdapter', '/src/main.ts'],
       ['conditional', 'if.bind="canEdit"'],
       ['repeated', 'repeat.for="tab of tabs"'],
       ['matching', 'fallback'],
@@ -290,11 +306,11 @@ test.describe('router HTML docs features', () => {
       ['kitchen-sink', 'au-slot="title"'],
     ];
 
-    for (const [path, source] of features) {
+    for (const [path, source, file = '/src/app.html'] of features) {
       await page.goto(`/features/${path}`);
       const playground = page.locator('.playground-page.is-embedded');
       await expect(playground).toHaveCount(path === 'url-state' ? 3 : 1);
-      await expect(playground.first().getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText(source);
+      await expect(playground.first().getByRole('textbox', { name: `Editing ${file}` })).toContainText(source);
       await expect(page.getByRole('button', { name: /show source/i })).toHaveCount(0);
     }
   });
@@ -465,6 +481,31 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByText('Terminal segment: guides/router/start.html')).toBeVisible();
     await expect(frame.getByText('Residue after **: /')).toBeVisible();
     await expect(frame.getByText('The nested route receives /')).toBeVisible();
+  });
+
+  test('memory adapter fixture navigates and restores history without browser URLs', async ({ page }) => {
+    await page.goto('/features/adapters');
+    const details = page.locator('.feature-details');
+    await expect(details).toContainText('getCurrentPath()');
+    await expect(details).toContainText('formatHref()');
+    await expect(details).toContainText('Do not notify');
+    await expect(details).toContainText('adapterFactory');
+    await expect(details).toContainText('pre-registered IPathAdapter');
+    await expect(details).toContainText('Ignored by Router HTML');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+
+    await expect(frame.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    const dashboard = frame.getByRole('link', { name: 'Dashboard' });
+    const reports = frame.getByRole('link', { name: 'Reports' });
+    await expect(dashboard).toHaveClass(/is-active/);
+    await reports.click();
+    await expect(frame.getByRole('heading', { name: 'Reports' })).toBeVisible();
+    await expect(reports).toHaveClass(/is-active/);
+    await frame.getByRole('button', { name: 'Back' }).click();
+    await expect(frame.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

@@ -4,7 +4,7 @@ import { IRouteAnimationOptions, normalizeRouteAnimationOptions, type RouteAnima
 import { AuRoute } from '../../../router/au-route';
 import { AuLink } from '../../../router/au-link';
 import { IRouteCoordinator, RouteCoordinator } from '../../../router/coordinator';
-import type { PathAdapter } from '../../../router/path-adapter';
+import { IPathAdapter, type PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
 import type { BrowserRoutingMode } from '../../../router/browser-path-adapter';
 import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from '../../../router/route-location';
@@ -15,6 +15,8 @@ interface PlaygroundRoutingOptions {
   interceptLinks?: boolean;
   routingMode?: BrowserRoutingMode;
   routeQueryKey?: string;
+  adapter?: PathAdapter;
+  adapterFactory?: (container: IContainer) => PathAdapter;
 }
 
 class MemoryPathAdapter implements PathAdapter {
@@ -134,7 +136,12 @@ class MemoryPathAdapter implements PathAdapter {
 
 export function createPlaygroundRouting() {
   const register = (options: PlaygroundRoutingOptions = {}) => (container: IContainer) => {
-    const adapter = new MemoryPathAdapter({ ...options, interceptLinks: options.interceptLinks ?? true });
+    if (options.adapter != null && options.adapterFactory != null) {
+      throw new Error('Routing options cannot specify both adapter and adapterFactory.');
+    }
+    const adapter = options.adapterFactory?.(container)
+      ?? options.adapter
+      ?? new MemoryPathAdapter({ ...options, interceptLinks: options.interceptLinks ?? true });
     const root = new RouteContext(null, '*', {
       swapOrder: options.swapOrder,
       hrefFormatter: path => adapter.formatHref(path),
@@ -142,7 +149,8 @@ export function createPlaygroundRouting() {
     const coordinator = new RouteCoordinator(root, adapter);
     container.register(
       AuRoute,
-    AuLink,
+      AuLink,
+      Registration.instance(IPathAdapter, adapter),
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
       Registration.instance(IRouteContext, root),
       Registration.instance(IRouteCoordinator, coordinator),

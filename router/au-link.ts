@@ -5,12 +5,14 @@ import {
   type ICustomAttributeViewModel,
   type INode as INodeType,
 } from '@aurelia/runtime-html';
-import { IRouteContext, RouteContext, type RouteActiveOptions, type RouteParams } from './route-context';
+import { IRouteContext, RouteContext, type RouteActiveOptions, type RouteLoadOptions, type RouteParams } from './route-context';
+
+export interface RouteLinkOptions extends RouteActiveOptions, RouteLoadOptions {}
 
 export interface LinkInstruction {
   readonly target: string | IRouteContext;
   readonly params?: RouteParams;
-  readonly options?: RouteActiveOptions;
+  readonly options?: RouteLinkOptions;
   readonly activeClass?: string;
 }
 
@@ -33,6 +35,7 @@ export class AuLink implements ICustomAttributeViewModel {
 
   public attaching(): void {
     this.isAttached = true;
+    this.element.addEventListener('click', this.onClick);
     this.unsubscribeState = this.route.subscribe(() => this.update());
     this.unsubscribeRegistry = this.route.root instanceof RouteContext
       ? this.route.root._subscribeRegistry(() => this.update())
@@ -41,6 +44,7 @@ export class AuLink implements ICustomAttributeViewModel {
 
   public detaching(): void {
     this.isAttached = false;
+    this.element.removeEventListener('click', this.onClick);
     this.unsubscribeState?.();
     this.unsubscribeState = null;
     this.unsubscribeRegistry?.();
@@ -52,6 +56,25 @@ export class AuLink implements ICustomAttributeViewModel {
       this.update();
     }
   }
+
+  private readonly onClick = (event: MouseEvent): void => {
+    if (event.defaultPrevented || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    if (this.element.tagName !== 'A' || !this.element.hasAttribute('href') || this.element.hasAttribute('download') || this.element.hasAttribute('external') || this.element.hasAttribute('data-external')) {
+      return;
+    }
+    const target = this.element.getAttribute('target');
+    if (target != null && target !== '' && target !== '_self') {
+      return;
+    }
+    const instruction = this.getInstruction();
+    if (instruction == null) {
+      return;
+    }
+    event.preventDefault();
+    this.route.load(instruction.target, instruction.params, instruction.options);
+  };
 
   private update(): void {
     const instruction = this.getInstruction();

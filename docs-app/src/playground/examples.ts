@@ -13,9 +13,11 @@ interface RouterExampleOptions {
   title: string;
   description: string;
   initialPath: string;
+  initialFile?: string;
   appHtml: string;
   appTs?: string;
   appCss?: string;
+  mainTs?: string;
   extraFiles?: Record<string, string>;
   routingMode?: 'path' | 'hash' | 'query';
   routeQueryKey?: string;
@@ -411,6 +413,54 @@ const featureExamples: PlaygroundExample[] = [
 </au-route>`,
   }),
   routerExample({
+    id: 'memory-adapter',
+    title: 'Memory adapter',
+    description: 'Use ordinary route links while an in-memory adapter stores navigation without browser history.',
+    initialPath: '/dashboard',
+    initialFile: '/src/main.ts',
+    mainTs: `import Aurelia from 'aurelia';
+import { MemoryPathAdapter, Routing } from 'aurelia-v2-router-html';
+import { App } from './app';
+
+const adapter = new MemoryPathAdapter('/dashboard');
+
+void Aurelia
+  .register(Routing.customize({
+    adapter,
+    animations: false
+  }))
+  .app({ host: document.querySelector('#app')!, component: App })
+  .start();`,
+    appTs: `import { resolve } from '@aurelia/kernel';
+import {
+  IPathAdapter,
+  MemoryPathAdapter
+} from 'aurelia-v2-router-html';
+
+export class App {
+  private readonly adapter = resolve(IPathAdapter) as MemoryPathAdapter;
+
+  public back(): void {
+    this.adapter.back();
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="dashboard">Dashboard</a>
+  <a au-link="reports">Reports</a>
+  <button click.trigger="back()">Back</button>
+</nav>
+<main>
+  <au-route path="dashboard" exact>
+    <h1>Dashboard</h1>
+    <p>This route started from memory.</p>
+  </au-route>
+  <au-route path="reports" exact>
+    <h1>Reports</h1>
+    <p>No browser location was required.</p>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'swap-order',
     title: 'Parallel swap order',
     description: 'Coordinate outgoing and incoming sibling product views in parallel.',
@@ -783,10 +833,10 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
     title: options.title,
     description: options.description,
     entry: '/src/main.ts',
-    initialFile: '/src/app.html',
+    initialFile: options.initialFile ?? '/src/app.html',
     initialPath: options.initialPath,
     files: {
-      '/src/main.ts': createMainSource(options.routingMode, options.routeQueryKey),
+      '/src/main.ts': options.mainTs ?? createMainSource(options.routingMode, options.routeQueryKey),
       '/src/app.ts': options.appTs ?? 'export class App {}',
       '/src/app.html': options.appHtml,
       '/src/app.css': `${baseCss}\n${options.appCss ?? ''}`,
