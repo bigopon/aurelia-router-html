@@ -20,8 +20,17 @@ export default defineConfig(({ command }) => ({
       name: 'base-path-browser-fixture',
       configureServer(server) {
         server.middlewares.use((request, _response, next) => {
-          if (request.url != null && /^\/base-app(?:\/|$)/.test(new URL(request.url, 'http://localhost').pathname)) {
-            request.url = '/base-path.html';
+          if (request.url != null) {
+            const pathname = new URL(request.url, 'http://localhost').pathname;
+            const fixture = [
+              ['/base-app', '/base-path.html'],
+              ['/base-explicit', '/base-explicit.html'],
+              ['/base-hash', '/base-hash.html'],
+              ['/base-query', '/base-query.html'],
+            ].find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+            if (fixture != null) {
+              request.url = fixture[1];
+            }
           }
           next();
         });

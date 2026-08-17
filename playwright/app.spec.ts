@@ -407,4 +407,83 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="current-path"]')).toContainText('/products/aster-pack/overview');
     await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
   });
+
+  test('A5 explicit basePath overrides an unrelated base element and excludes outside links', async ({ page }) => {
+    await page.goto('/base-explicit/guard/home');
+
+    await expect(page.locator('base')).toHaveAttribute('href', '/assets/');
+    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/guard/home');
+    const editor = page.getByRole('link', { name: 'Guard editor' });
+    await expect(editor).toHaveAttribute('href', '/base-explicit/guard/editor');
+
+    await page.goto('/base-explicit/base-redirect/start');
+    await expect(page).toHaveURL(/\/base-explicit\/products\/aster-pack\/overview$/);
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+
+    await page.goto('/base-explicit/guard/home');
+    await page.evaluate(() => {
+      (window as Window & { __baseDocumentMarker?: boolean }).__baseDocumentMarker = true;
+      const anchor = document.createElement('a');
+      anchor.href = '/other-app/products';
+      anchor.textContent = 'Outside application';
+      anchor.dataset.e2e = 'outside-base-link';
+      document.body.append(anchor);
+    });
+    await page.locator('[data-e2e="outside-base-link"]').click();
+    await expect(page).toHaveURL(/\/other-app\/products$/);
+    expect(await page.evaluate(() => (window as Window & { __baseDocumentMarker?: boolean }).__baseDocumentMarker)).toBeUndefined();
+    await expect(page.locator('[data-e2e="route-fallback"]')).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/base-explicit\/guard\/home$/);
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+  });
+
+  for (const fixture of [
+    {
+      mode: 'hash',
+      start: '/base-hash/#guard/home',
+      editor: '/base-hash/#guard/editor',
+      redirect: '/base-hash/#base-redirect/start',
+      destination: '/base-hash/#products/aster-pack/overview',
+    },
+    {
+      mode: 'query',
+      start: '/base-query/?app=guard/home',
+      editor: '/base-query/?app=guard/editor',
+      redirect: '/base-query/?app=base-redirect/start',
+      destination: '/base-query/?app=products/aster-pack/overview',
+    },
+  ]) {
+    test(`A5 mounted ${fixture.mode} mode preserves links, redirects, reload, and history`, async ({ page }) => {
+      await page.goto(fixture.start);
+      await expect(page.locator('[data-e2e="current-path"]')).toContainText('/guard/home');
+      await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+
+      const editor = page.getByRole('link', { name: 'Guard editor' });
+      await expect(editor).toHaveAttribute('href', fixture.editor);
+      await editor.click();
+      await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+      expect(await page.evaluate(() => location.pathname + location.search + location.hash)).toBe(fixture.editor);
+
+      await page.goBack();
+      await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+      expect(await page.evaluate(() => location.pathname + location.search + location.hash)).toBe(fixture.start);
+      await page.goForward();
+      await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+      expect(await page.evaluate(() => location.pathname + location.search + location.hash)).toBe(fixture.editor);
+
+      await page.goto(fixture.redirect);
+      await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+      expect(await page.evaluate(() => location.pathname + location.search + location.hash)).toBe(fixture.destination);
+
+      await page.reload();
+      await expect(page.locator('[data-e2e="current-path"]')).toContainText('/products/aster-pack/overview');
+      await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+
+      await page.goBack();
+      await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+      expect(await page.evaluate(() => location.pathname + location.search + location.hash)).toBe(fixture.editor);
+    });
+  }
 });

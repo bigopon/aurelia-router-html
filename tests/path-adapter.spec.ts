@@ -458,6 +458,27 @@ describe('browser base paths', function () {
     }
   });
 
+  it('accepts an absolute same-origin base and ignores a cross-origin base', function () {
+    const sameOriginDom = new JSDOM(
+      '<!doctype html><base href="https://example.test/store/"><body></body>',
+      { url: 'https://example.test/store/products' },
+    );
+    const crossOriginDom = new JSDOM(
+      '<!doctype html><base href="https://cdn.example.test/assets/"><body></body>',
+      { url: 'https://example.test/products' },
+    );
+    const sameOrigin = new BrowserPathAdapter(sameOriginDom.window as unknown as Window);
+    const crossOrigin = new BrowserPathAdapter(crossOriginDom.window as unknown as Window);
+
+    assert.strictEqual(sameOrigin.getCurrentPath(), '/products');
+    assert.strictEqual(sameOrigin.formatHref('/products'), '/store/products');
+    assert.strictEqual(crossOrigin.getCurrentPath(), '/products');
+    assert.strictEqual(crossOrigin.formatHref('/products'), '/products');
+
+    sameOriginDom.window.close();
+    crossOriginDom.window.close();
+  });
+
   it('uses an explicit normalized base path and rejects pathname lookalikes', function () {
     const dom = new JSDOM('<!doctype html><base href="/ignored/"><body></body>', {
       url: 'https://example.test/application/products',

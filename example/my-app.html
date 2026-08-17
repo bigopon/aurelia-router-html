@@ -355,6 +355,9 @@
           </au-route>
         </au-route>
 
+        <au-route path="base-redirect/start" exact redirect-to="/base-redirect/middle"></au-route>
+        <au-route path="base-redirect/middle" exact redirect-to="/products/aster-pack/overview"></au-route>
+
         <au-route path="parallel" swap-order="parallel">
           <section class="route-stack">
             <nav class="mini-list">

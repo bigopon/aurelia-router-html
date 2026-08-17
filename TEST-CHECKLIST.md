@@ -117,6 +117,9 @@
 - [x] Production pathname, hash-only, and configurable query-key adapters load direct URLs, intercept generated links, and restore routed views through browser Back and Forward.
 - [x] Browser adapters prepend and strip an explicit base path in pathname, hash, and query modes without exposing the deployment prefix to route matching.
 - [x] A same-origin `<base href>` supplies the default base path; native relative links, `au-link`, deep reloads, and Back/Forward work from a real mounted browser fixture.
+- [x] Absolute same-origin document bases are discovered, cross-origin document bases are ignored, and explicit `basePath` overrides an unrelated document base.
+- [x] Mounted pathname, hash, and query-key browser fixtures preserve generated links, redirect chains, reloads, and Back/Forward while keeping internal route paths prefix-free.
+- [x] Plain links outside an explicit browser mount retain native document navigation instead of entering the router.
 - [x] Editing source queues an automatic run with a visible countdown while the explicit Run action remains available.
 - [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.
