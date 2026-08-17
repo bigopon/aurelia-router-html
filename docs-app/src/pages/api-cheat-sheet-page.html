@@ -168,6 +168,7 @@ export class ProductPage {
     <pre class="code-block" syntax-typescript>Routing.customize({
   routingMode: 'path', // 'path' | 'hash' | 'query'
   routeQueryKey: 'app',
+  basePath: '/my-app', // or derive it from &lt;base href="/my-app/"&gt;
   interceptLinks: true,
   swapOrder: 'parallel',
   animations: {
@@ -220,6 +221,6 @@ export class ProductPage {
     </div>
     <p>Query-only and hash-only updates do not focus an unchanged route. When nested incoming views mark targets, the last attached marker wins.</p>
     <h4>Adapters and link interception</h4>
-    <p>Supply <code>adapter</code> or <code>adapterFactory</code> for memory, WebView, SSR, or host-specific locations. Plain links need <code>interceptLinks</code> for client-side navigation; <code>au-link</code> does not.</p>
+    <p>Supply <code>adapter</code> or <code>adapterFactory</code> for memory, WebView, SSR, or host-specific locations. Plain links need <code>interceptLinks</code> for client-side navigation; <code>au-link</code> does not. The default browser adapter accepts <code>basePath</code>, or derives it from a same-origin <code>&lt;base href&gt;</code>, when the application is mounted below the origin root.</p>
   </section>
 </section>

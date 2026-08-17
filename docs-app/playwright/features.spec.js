@@ -147,13 +147,16 @@ test.describe('router HTML docs features', () => {
     await expect(customization).toContainText('titles');
     await expect(customization).toContainText('scrolling');
     await expect(customization).toContainText('focus');
+    await expect(customization).toContainText('basePath');
+    await expect(customization).toContainText('<base href>');
     const modeSnippets = customization.locator('[data-e2e="routing-mode-snippets"] article');
-    await expect(modeSnippets).toHaveCount(3);
+    await expect(modeSnippets).toHaveCount(4);
     await expect(modeSnippets.nth(0).locator('pre')).toContainText("routingMode: 'path'");
-    await expect(modeSnippets.nth(1).locator('pre')).toContainText("routingMode: 'hash'");
-    await expect(modeSnippets.nth(2).locator('pre')).toContainText("routingMode: 'query'");
-    await expect(modeSnippets.nth(2).locator('pre')).toContainText("routeQueryKey: 'app'");
-    expect(await modeSnippets.nth(2).locator('.copy-code-source').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(modeSnippets.nth(1).locator('pre')).toContainText("basePath: '/my-app'");
+    await expect(modeSnippets.nth(2).locator('pre')).toContainText("routingMode: 'hash'");
+    await expect(modeSnippets.nth(3).locator('pre')).toContainText("routingMode: 'query'");
+    await expect(modeSnippets.nth(3).locator('pre')).toContainText("routeQueryKey: 'app'");
+    expect(await modeSnippets.nth(3).locator('.copy-code-source').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 
     const codeBlocks = page.locator('pre.code-block');
     await expect(page.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
@@ -369,6 +372,8 @@ test.describe('router HTML docs features', () => {
     await expect(sheet).toContainText(':id{{^\\d+$}}');
     await expect(sheet).toContainText('A target without a leading slash is contextual');
     await expect(sheet).toContainText('A leading slash is root-absolute');
+    await expect(sheet).toContainText("basePath: '/my-app'");
+    await expect(sheet).toContainText('<base href="/my-app/">');
     await expect(sheet).toContainText('every au-route path declaration matches the residue supplied by its parent');
     const codeBlocks = sheet.locator('pre.code-block');
     await expect(sheet.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
@@ -720,6 +725,7 @@ test.describe('router HTML docs features', () => {
     await expect(details).toContainText('adapterFactory');
     await expect(details).toContainText('pre-registered IPathAdapter');
     await expect(details).toContainText('Ignored by Router HTML');
+    await expect(details).toContainText('Compare base path configurations');
     const interceptGuide = page.locator('[data-e2e="intercept-links-guide"]');
     await expect(interceptGuide).toContainText('Yes—required');
     await expect(interceptGuide).toContainText('Often useful');
@@ -740,6 +746,35 @@ test.describe('router HTML docs features', () => {
     await expect(reports).toHaveClass(/is-active/);
     await frame.getByRole('button', { name: 'Back' }).click();
     await expect(frame.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  });
+
+  test('base path guide compares document, explicit, override, and URL-mode configurations', async ({ page }) => {
+    await page.goto('/features/base-path');
+
+    await expect(page.getByRole('heading', { name: 'Base Path Hosting' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Base Path Hosting', exact: true })).toHaveClass(/is-active/);
+    await expect(page).toHaveTitle('Base Path Hosting | Aurelia Router HTML');
+
+    const guide = page.locator('[data-e2e="base-path-page"]');
+    await expect(guide).toContainText('How Router HTML chooses the base');
+    await expect(guide).toContainText('Derive the mount from HTML');
+    await expect(guide).toContainText('Configure the mount explicitly');
+    await expect(guide).toContainText('Override an unrelated document base');
+    await expect(guide).toContainText('Combine a base with each URL mode');
+    await expect(guide).toContainText('Align the build and the router');
+    await expect(guide).toContainText('/my-app/#products');
+    await expect(guide).toContainText('/my-app/?app=products');
+    await expect(guide).toContainText("base: '/my-app/'");
+    await expect(guide).toContainText("basePath: '/my-app'");
+    await expect(guide).toContainText('https://cdn.example.com/assets/');
+    await expect(guide).toContainText('Ignored: browser history cannot route into another origin');
+    await expect(guide).toContainText("basePath: '/my-app?tenant=one'");
+    await expect(guide).toContainText("basePath: '/my-app#shell'");
+    await expect(guide).toContainText('/other-app/products');
+    await expect(guide).toContainText('https://store.example.net/products');
+
+    const codeBlocks = guide.locator('pre.code-block');
+    await expect(guide.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
   });
 
   test('programmatic navigation uses the contextual route API', async ({ page }) => {

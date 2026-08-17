@@ -70,6 +70,7 @@ void Aurelia
             </thead>
             <tbody>
               <tr><td>Pathname<br><code>/products/ice-cream</code></td><td>Normal application and server URLs</td><td><code>routingMode: 'path'</code></td></tr>
+              <tr><td>Mounted pathname<br><code>/my-app/products</code></td><td>Applications deployed below the origin root</td><td><code>basePath: '/my-app'</code> or <code>&lt;base href&gt;</code></td></tr>
               <tr><td>Hash<br><code>#products/ice-cream</code></td><td>Static hosts without rewrite rules</td><td><code>routingMode: 'hash'</code></td></tr>
               <tr><td>Query key<br><code>?app=products/ice-cream</code></td><td>Embedding a routed app under one query parameter</td><td><code>routingMode: 'query'</code></td></tr>
               <tr><td>Memory</td><td>Tests, SSR setup, previews, and non-browser hosts</td><td><code>adapter: new MemoryPathAdapter('/')</code></td></tr>
@@ -94,6 +95,7 @@ void Aurelia
               <tr><td><code>scrolling</code></td><td>Post-render hash targets, new-navigation position, and Back/Forward restoration. The default browser adapter enables it automatically.</td></tr>
               <tr><td><code>focus</code></td><td>Opt-in keyboard focus for newly attached route targets marked with <code>au-route-focus</code>.</td></tr>
               <tr><td><code>routeQueryKey</code></td><td>The query-string key used by query routing mode; it defaults to <code>app</code>.</td></tr>
+              <tr><td><code>basePath</code></td><td>The browser mount path. When omitted, a same-origin <code>&lt;base href&gt;</code> supplies it automatically.</td></tr>
             </tbody>
           </table>
         </div>
@@ -114,6 +116,16 @@ void Aurelia
           </div>
           <pre class="code-block" syntax-typescript>Routing.customize({
   routingMode: 'path'
+});</pre>
+        </article>
+
+        <article>
+          <div>
+            <h5>Mounted pathname</h5>
+            <code>/my-app/products/ice-cream</code>
+          </div>
+          <pre class="code-block" syntax-typescript>Routing.customize({
+  basePath: '/my-app'
 });</pre>
         </article>
 

@@ -370,4 +370,41 @@ test.describe.serial('html-router example app', () => {
     await page.locator('[data-e2e="toggle-account"]').click();
     await expect(page.locator('[data-e2e="account-order-detail"]')).toContainText('ord-4102');
   });
+
+  test('A5 base-path fixture derives its mount from base href across links, reload, and history', async ({ page }) => {
+    await page.goto('/base-app/guard/home');
+
+    await expect(page.locator('base')).toHaveAttribute('href', '/base-app/');
+    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/guard/home');
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+
+    const editor = page.getByRole('link', { name: 'Guard editor' });
+    await expect(editor).toHaveAttribute('href', '/base-app/guard/editor');
+    await editor.click();
+    await expect(page).toHaveURL(/\/base-app\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/base-app\/guard\/home$/);
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/base-app\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
+    await page.evaluate(() => {
+      const anchor = document.createElement('a');
+      anchor.href = 'products/aster-pack/overview';
+      anchor.textContent = 'Base-relative product';
+      anchor.dataset.e2e = 'base-relative-link';
+      document.body.append(anchor);
+    });
+    await page.locator('[data-e2e="base-relative-link"]').click();
+    await expect(page).toHaveURL(/\/base-app\/products\/aster-pack\/overview$/);
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator('base')).toHaveAttribute('href', '/base-app/');
+    await expect(page.locator('[data-e2e="current-path"]')).toContainText('/products/aster-pack/overview');
+    await expect(page.locator('[data-e2e="product-overview"]')).toBeVisible();
+  });
 });

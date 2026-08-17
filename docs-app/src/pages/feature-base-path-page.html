@@ -1,0 +1,164 @@
+<section class="route-stack base-path-page" data-e2e="base-path-page">
+  <header class="page-header">
+    <div>
+      <h2>Base Path Hosting</h2>
+      <p class="page-copy">Deploy below the origin root without adding the hosting folder to route declarations, links, parameters, or redirects.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>How Router HTML chooses the base</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Priority</th><th>Source</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Explicit <code>basePath</code></td><td>Always wins, including when the document has a <code>&lt;base&gt;</code> element.</td></tr>
+            <tr><td>2</td><td>Same-origin <code>&lt;base href&gt;</code></td><td>Used when <code>basePath</code> is omitted.</td></tr>
+            <tr><td>3</td><td>No configured or document base</td><td>Routes are hosted from <code>/</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The base belongs to the browser adapter. Internally, the route tree continues to see paths such as <code>/products</code>, never <code>/my-app/products</code>.</p>
+    </section>
+
+    <section>
+      <h3>Root-hosted application</h3>
+      <p>No base configuration is needed when the application owns the origin root.</p>
+      <pre class="code-block" syntax-typescript>void Aurelia
+  .register(Routing)
+  .app({ host, component: App })
+  .start();</pre>
+      <pre class="code-block" syntax-html>&lt;a au-link="/products"&gt;Products&lt;/a&gt;
+&lt;au-route path="products"&gt;...&lt;/au-route&gt;</pre>
+      <p>Both the browser URL and internal route are <code>/products</code>.</p>
+    </section>
+
+    <section>
+      <h3>Derive the mount from HTML</h3>
+      <p>The HTML <code>&lt;base&gt;</code> element defines how the browser resolves relative URLs throughout the document. In an Aurelia application it can also be the single source for the router mount.</p>
+      <pre class="code-block" syntax-html>&lt;head&gt;
+  &lt;base href="/my-app/"&gt;
+&lt;/head&gt;</pre>
+      <pre class="code-block" syntax-typescript>// No basePath is needed.
+void Aurelia
+  .register(Routing)
+  .app({ host, component: App })
+  .start();</pre>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <tbody>
+            <tr><th><code>au-link="/products"</code></th><td><code>/my-app/products</code></td></tr>
+            <tr><th><code>href="products"</code></th><td><code>/my-app/products</code>, resolved natively by the browser</td></tr>
+            <tr><th>Internal route</th><td><code>/products</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Use this form when the same directory is the base for application routes and document-relative resources.</p>
+    </section>
+
+    <section>
+      <h3>Configure the mount explicitly</h3>
+      <p>Use <code>basePath</code> when routing needs an explicit deployment contract or the document cannot declare a base element.</p>
+      <pre class="code-block" syntax-typescript>void Aurelia
+  .register(Routing.customize({
+    basePath: '/my-app'
+  }))
+  .app({ host, component: App })
+  .start();</pre>
+      <p>The trailing slash is optional. Router HTML normalizes <code>/my-app</code> and <code>/my-app/</code> to the same mount.</p>
+    </section>
+
+    <section>
+      <h3>Override an unrelated document base</h3>
+      <p>Some hosts use <code>&lt;base&gt;</code> for document-relative assets rather than application routing. An explicit router base keeps those concerns separate.</p>
+      <pre class="code-block" syntax-html>&lt;head&gt;
+  &lt;base href="/assets/"&gt;
+&lt;/head&gt;</pre>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  basePath: '/my-app'
+});</pre>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <tbody>
+            <tr><th><code>au-link="/products"</code></th><td><code>/my-app/products</code></td></tr>
+            <tr><th><code>href="products"</code></th><td><code>/assets/products</code>, because native relative URLs still follow HTML <code>&lt;base&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Prefer <code>au-link</code> or root-qualified native anchors when the document base and router base intentionally differ.</p>
+    </section>
+
+    <section>
+      <h3>Combine a base with each URL mode</h3>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  basePath: '/my-app',
+  routingMode: 'path' // or 'hash' or 'query'
+});</pre>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Mode</th><th>Internal route</th><th>Browser URL</th></tr></thead>
+          <tbody>
+            <tr><td>Path</td><td><code>/products</code></td><td><code>/my-app/products</code></td></tr>
+            <tr><td>Hash</td><td><code>/products</code></td><td><code>/my-app/#products</code></td></tr>
+            <tr><td>Query</td><td><code>/products</code></td><td><code>/my-app/?app=products</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h3>Align the build and the router</h3>
+      <p>A build tool's public base controls emitted asset URLs. Router HTML's <code>basePath</code> controls application locations. Subdirectory deployments commonly give them the same value, but they remain independent settings.</p>
+      <pre class="code-block" syntax-typescript>// vite.config.ts
+export default defineConfig({
+  base: '/my-app/'
+});</pre>
+      <pre class="code-block" syntax-typescript>// main.ts
+Routing.customize({
+  basePath: '/my-app'
+});</pre>
+      <p>The production server must also return the application entry document for deep requests such as <code>/my-app/products</code>. A router base cannot replace the host's SPA fallback or rewrite rule.</p>
+    </section>
+
+    <section>
+      <h3>Boundaries and validation</h3>
+      <h4>Document base discovery</h4>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Document at</th><th>Base element</th><th>Router result</th></tr></thead>
+          <tbody>
+            <tr><td><code>https://example.com</code></td><td><code>&lt;base href="/my-app/"&gt;</code></td><td>Valid: derives <code>/my-app</code>.</td></tr>
+            <tr><td><code>https://example.com</code></td><td><code>&lt;base href="https://example.com/my-app/"&gt;</code></td><td>Valid: the absolute URL has the same origin.</td></tr>
+            <tr><td><code>https://example.com</code></td><td><code>&lt;base href="https://cdn.example.com/assets/"&gt;</code></td><td>Ignored: browser history cannot route into another origin.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A cross-origin base can still control native relative assets and anchors. Router HTML simply does not treat its pathname as the application mount.</p>
+
+      <h4>Explicit base paths</h4>
+      <pre class="code-block" syntax-typescript>// Valid pathname-only values
+Routing.customize({ basePath: '/my-app' });
+Routing.customize({ basePath: '/my-app/' });
+Routing.customize({ basePath: '/' });
+
+// Invalid: query and fragment state do not belong to the mount path
+Routing.customize({ basePath: '/my-app?tenant=one' });
+Routing.customize({ basePath: '/my-app#shell' });</pre>
+      <p>The invalid forms throw during router registration. Query and fragment values belong to navigation targets, not the deployment prefix.</p>
+
+      <h4>Plain-link interception</h4>
+      <pre class="code-block" syntax-html>&lt;!-- With basePath: '/my-app' --&gt;
+
+&lt;!-- Valid internal URL: intercepted when interceptLinks is enabled. --&gt;
+&lt;a href="/my-app/products"&gt;Products&lt;/a&gt;
+
+&lt;!-- Outside the mount: left to normal browser navigation. --&gt;
+&lt;a href="/other-app/products"&gt;Other application&lt;/a&gt;
+
+&lt;!-- Different origin: always left to normal browser navigation. --&gt;
+&lt;a href="https://store.example.net/products"&gt;External store&lt;/a&gt;</pre>
+      <p><code>au-link="/products"</code> remains root-absolute inside the application and generates <code>/my-app/products</code> after browser formatting.</p>
+    </section>
+  </div>
+</section>

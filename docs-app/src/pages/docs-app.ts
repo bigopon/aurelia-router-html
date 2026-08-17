@@ -3,6 +3,7 @@ import { ApiCheatSheetPage } from './api-cheat-sheet-page';
 import { FeatureAdaptersPage } from './feature-adapters-page';
 import { FeatureActiveLinksPage } from './feature-active-links-page';
 import { FeatureAnimationPage } from './feature-animation-page';
+import { FeatureBasePathPage } from './feature-base-path-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
 import { FeatureErrorRecoveryPage } from './feature-error-recovery-page';
@@ -38,6 +39,7 @@ export class DocsApp {
       WhyRouterHtmlPage,
       ApiCheatSheetPage,
       FeatureAdaptersPage,
+      FeatureBasePathPage,
       FeatureBasicPage,
       FeatureNestedPage,
       FeatureParamsPage,

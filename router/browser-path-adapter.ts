@@ -7,11 +7,13 @@ export interface BrowserAdapterOptions {
   interceptLinks?: boolean;
   routingMode?: BrowserRoutingMode;
   routeQueryKey?: string;
+  basePath?: string;
 }
 
 export class BrowserPathAdapter implements IPathAdapter {
   protected readonly routingMode: BrowserRoutingMode;
   protected readonly routeQueryKey: string;
+  protected readonly basePath: string;
 
   public constructor(
     protected readonly window: Window,
@@ -19,6 +21,7 @@ export class BrowserPathAdapter implements IPathAdapter {
   ) {
     this.routingMode = options.routingMode ?? 'path';
     this.routeQueryKey = options.routeQueryKey?.trim() || 'app';
+    this.basePath = this.resolveBasePath(options.basePath);
   }
 
   public getCurrentPath(): string {
@@ -29,7 +32,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     const location = parseRouteLocation(path);
     switch (this.routingMode) {
       case 'hash':
-        return `#${stringifyRouteLocation(location).replace(/^\//, '') || '/'}`;
+        return `${this.baseDocumentPath()}#${stringifyRouteLocation(location).replace(/^\//, '') || '/'}`;
       case 'query': {
         const routeValue = location.pathname
           .replace(/^\//, '')
@@ -38,11 +41,11 @@ export class BrowserPathAdapter implements IPathAdapter {
           .join('/');
         const query = location.query.toString();
         const routeEntry = `${encodeURIComponent(this.routeQueryKey)}=${routeValue}`;
-        return `?${routeEntry}${query === '' ? '' : `&${query}`}${location.hash === '' ? '' : `#${location.hash}`}`;
+        return `${this.baseDocumentPath()}?${routeEntry}${query === '' ? '' : `&${query}`}${location.hash === '' ? '' : `#${location.hash}`}`;
       }
       case 'path':
       default:
-        return stringifyRouteLocation(location);
+        return `${this.pathWithBase(location.pathname)}${location.query.toString() === '' ? '' : `?${location.query}`}${location.hash === '' ? '' : `#${location.hash}`}`;
     }
   }
 
@@ -65,15 +68,15 @@ export class BrowserPathAdapter implements IPathAdapter {
       }
 
       const target = event.target;
-      if (!(target instanceof Node)) {
+      if (target == null || !('nodeType' in target)) {
         return;
       }
 
-      const anchor = target instanceof Element
-        ? target.closest('a[href]')
-        : null;
+      const node = target as Node;
+      const element = node.nodeType === 1 ? node as Element : node.parentElement;
+      const anchor = element?.closest<HTMLAnchorElement>('a[href]');
 
-      if (!(anchor instanceof HTMLAnchorElement)) {
+      if (anchor == null) {
         return;
       }
 
@@ -115,6 +118,11 @@ export class BrowserPathAdapter implements IPathAdapter {
   }
 
   protected routeFromUrl(url: URL): string | null {
+    const pathname = this.pathWithoutBase(url.pathname);
+    if (pathname == null) {
+      return null;
+    }
+
     switch (this.routingMode) {
       case 'hash': {
         if (url.hash === '') {
@@ -138,11 +146,54 @@ export class BrowserPathAdapter implements IPathAdapter {
       case 'path':
       default:
         return stringifyRouteLocation({
-          pathname: normalizeRoutePath(url.pathname),
+          pathname,
           query: createRouteQuery(url.search),
           hash: url.hash.slice(1),
         });
     }
+  }
+
+  private resolveBasePath(configured: string | undefined): string {
+    if (configured != null) {
+      if (configured.includes('?') || configured.includes('#')) {
+        throw new Error('Browser router basePath must contain only a URL pathname.');
+      }
+      return normalizeRoutePath(configured);
+    }
+
+    const base = this.window.document?.querySelector<HTMLBaseElement>('base[href]');
+    if (base == null) {
+      return '/';
+    }
+
+    const url = new URL(base.href, this.window.location.href);
+    return url.origin === this.window.location.origin
+      ? normalizeRoutePath(url.pathname)
+      : '/';
+  }
+
+  private baseDocumentPath(): string {
+    return this.basePath === '/' ? '' : `${this.basePath}/`;
+  }
+
+  private pathWithBase(pathname: string): string {
+    if (this.basePath === '/') {
+      return pathname;
+    }
+    return pathname === '/' ? `${this.basePath}/` : `${this.basePath}${pathname}`;
+  }
+
+  private pathWithoutBase(pathname: string): string | null {
+    const normalized = normalizeRoutePath(pathname);
+    if (this.basePath === '/') {
+      return normalized;
+    }
+    if (normalized === this.basePath) {
+      return '/';
+    }
+    return normalized.startsWith(`${this.basePath}/`)
+      ? normalizeRoutePath(normalized.slice(this.basePath.length))
+      : null;
   }
 }
 

@@ -16,6 +16,17 @@ export default defineConfig(({ command }) => ({
     target: 'es2022',
   },
   plugins: [
+    {
+      name: 'base-path-browser-fixture',
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (request.url != null && /^\/base-app(?:\/|$)/.test(new URL(request.url, 'http://localhost').pathname)) {
+            request.url = '/base-path.html';
+          }
+          next();
+        });
+      },
+    },
     aurelia({ enableConventions: true, hmr: true }),
   ],
 }));

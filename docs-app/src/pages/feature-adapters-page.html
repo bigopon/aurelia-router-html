@@ -59,6 +59,12 @@
     </section>
 
     <section>
+      <h3>Host below the origin root</h3>
+      <p>The browser adapter can remove a deployment prefix before matching and restore it in generated links. Explicit configuration and document-base combinations are covered separately.</p>
+      <a class="example-jump" au-link="/features/base-path">Compare base path configurations →</a>
+    </section>
+
+    <section>
       <h3>Pass an adapter instance</h3>
       <pre class="code-block" syntax-typescript>const adapter = new MemoryPathAdapter('/dashboard');
 
@@ -149,6 +155,7 @@ adapter.go(-2);    // moves through memory history</pre>
           <tbody>
             <tr><td><code>routingMode</code></td><td>Ignored by Router HTML; implement the required formatting in the adapter.</td></tr>
             <tr><td><code>routeQueryKey</code></td><td>Used only by the default browser query adapter.</td></tr>
+            <tr><td><code>basePath</code></td><td>Used only by the default browser adapter; custom adapters own deployment-prefix formatting.</td></tr>
             <tr><td><code>interceptLinks</code></td><td>Optional plain-anchor enhancement used only by the default browser adapter. It is not involved in <code>au-link</code> navigation.</td></tr>
             <tr><td><code>swapOrder</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>
             <tr><td><code>animations</code></td><td>Still applies because it controls route views rather than location storage.</td></tr>

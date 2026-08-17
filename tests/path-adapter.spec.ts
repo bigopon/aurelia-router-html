@@ -2,6 +2,7 @@ import { DI, Registration } from '@aurelia/kernel';
 import { tasksSettled } from '@aurelia/runtime';
 import { assert } from '@aurelia/testing';
 import { JSDOM } from 'jsdom';
+import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { BrowserRouteFocusService } from '../router/focus';
@@ -424,5 +425,95 @@ describe('memory path adapter', function () {
       },
     }));
     assert.strictEqual(factoryContainer.get(IPathAdapter), factoryAdapter);
+  });
+});
+
+describe('browser base paths', function () {
+  it('derives the mount path from a same-origin base element', function () {
+    const dom = new JSDOM(
+      '<!doctype html><base href="/store/"><body><a href="products/camera">Camera</a></body>',
+      { url: 'https://example.test/store/products?sort=recent#details' },
+    );
+    const window = dom.window as unknown as Window;
+    const adapter = new BrowserPathAdapter(window, { interceptLinks: true });
+    const navigations: string[] = [];
+    const unsubscribe = adapter.subscribe(path => navigations.push(path));
+
+    try {
+      assert.strictEqual(adapter.getCurrentPath(), '/products?sort=recent#details');
+      assert.strictEqual(adapter.formatHref('/products/camera?tab=specs#weight'), '/store/products/camera?tab=specs#weight');
+      assert.strictEqual(adapter.formatHref('/'), '/store/');
+
+      const anchor = window.document.querySelector('a')!;
+      assert.strictEqual(anchor.href, 'https://example.test/store/products/camera');
+      const event = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+      anchor.dispatchEvent(event);
+
+      assert.strictEqual(event.defaultPrevented, true);
+      assert.strictEqual(window.location.pathname, '/store/products/camera');
+      assert.deepStrictEqual(navigations, ['/products/camera']);
+    } finally {
+      unsubscribe();
+      dom.window.close();
+    }
+  });
+
+  it('uses an explicit normalized base path and rejects pathname lookalikes', function () {
+    const dom = new JSDOM('<!doctype html><base href="/ignored/"><body></body>', {
+      url: 'https://example.test/application/products',
+    });
+    const window = dom.window as unknown as Window;
+    class InspectableBrowserPathAdapter extends BrowserPathAdapter {
+      public read(href: string): string | null {
+        return this.routeFromUrl(new URL(href));
+      }
+    }
+    const adapter = new InspectableBrowserPathAdapter(window, { basePath: 'application/' });
+
+    assert.strictEqual(adapter.getCurrentPath(), '/products');
+    assert.strictEqual(adapter.formatHref('/products'), '/application/products');
+
+    window.history.replaceState(null, '', '/application');
+    assert.strictEqual(adapter.getCurrentPath(), '/');
+    window.history.replaceState(null, '', '/application/');
+    assert.strictEqual(adapter.getCurrentPath(), '/');
+    window.history.replaceState(null, '', '/applications/products');
+    assert.strictEqual(adapter.getCurrentPath(), '/');
+    assert.strictEqual(adapter.read('https://example.test/applications/products'), null);
+    dom.window.close();
+  });
+
+  it('keeps hash and query routes on the mounted document', function () {
+    const hashDom = new JSDOM('<!doctype html><base href="/store/"><body></body>', {
+      url: 'https://example.test/store/#products/camera?sort=recent#details',
+    });
+    const queryDom = new JSDOM('<!doctype html><base href="/store/"><body></body>', {
+      url: 'https://example.test/store/?app=products/camera&sort=recent#details',
+    });
+    const hash = new BrowserHashAdapter(hashDom.window as unknown as Window);
+    const query = new BrowserQueryAdapter(queryDom.window as unknown as Window, { routeQueryKey: 'app' });
+
+    assert.strictEqual(hash.getCurrentPath(), '/products/camera?sort=recent#details');
+    assert.strictEqual(hash.formatHref('/products/camera?sort=recent#details'), '/store/#products/camera?sort=recent#details');
+    assert.strictEqual(query.getCurrentPath(), '/products/camera?sort=recent#details');
+    assert.strictEqual(query.formatHref('/products/camera?sort=recent#details'), '/store/?app=products/camera&sort=recent#details');
+
+    hashDom.window.close();
+    queryDom.window.close();
+  });
+
+  it('rejects query and fragment data in an explicit base path', function () {
+    const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/' });
+    const window = dom.window as unknown as Window;
+
+    assert.throws(
+      () => new BrowserPathAdapter(window, { basePath: '/app?tenant=one' }),
+      /basePath must contain only a URL pathname/,
+    );
+    assert.throws(
+      () => new BrowserPathAdapter(window, { basePath: '/app#shell' }),
+      /basePath must contain only a URL pathname/,
+    );
+    dom.window.close();
   });
 });

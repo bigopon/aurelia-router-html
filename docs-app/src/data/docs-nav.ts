@@ -64,6 +64,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A3',
   },
   {
+    id: 'base-path',
+    title: 'Base Path Hosting',
+    path: '/features/base-path',
+    summary: 'Mount the application below the origin root with explicit configuration or a document base URL.',
+    badge: 'A5',
+  },
+  {
     id: 'active-links',
     title: 'Active Links',
     path: '/features/active-links',

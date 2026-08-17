@@ -304,6 +304,18 @@ Routing.customize({
 Routing.customize({ adapter: new MemoryPathAdapter('/dashboard') });
 ```
 
+The browser adapter also keeps deployment prefixes outside the internal route tree:
+
+```html
+<base href="/my-app/">
+```
+
+```ts
+Routing.customize({ basePath: '/my-app' });
+```
+
+An explicit `basePath` takes precedence; otherwise a same-origin `<base href>` supplies it. The adapter removes the prefix before matching and restores it for generated hrefs. Hash and query modes target the mounted document, and intercepted links outside the mount are left to the browser.
+
 ## Redirects
 
 Redirect routes render no intermediate view:
@@ -337,33 +349,9 @@ Routing.customize({
 
 The public configuration covers rendering order, opt-in animation, browser URL mapping, optional plain-anchor interception, titles, scrolling, focus, and custom adapters. Route-specific markup can override behavior that belongs to an individual branch.
 
-## Next proposal: base-path hosting
+## Roadmap
 
-Path routing should work when an application is hosted below an origin root, such as `https://example.com/my-app/`, without leaking the deployment prefix into route declarations.
-
-Proposed configuration:
-
-```ts
-Routing.customize({
-  basePath: '/my-app',
-});
-```
-
-With that configuration, `/products` remains the internal route while its browser href is `/my-app/products`.
-
-The adapter should:
-
-- remove the base path before matching;
-- prepend it when formatting path-mode hrefs;
-- ignore intercepted URLs outside the configured base;
-- preserve query and hash state;
-- define how an explicit base interacts with hash and query routing modes;
-- normalize trailing slashes and reject ambiguous base values;
-- support direct loads, redirects, Back, Forward, and refresh-safe generated links.
-
-The base path belongs to the browser adapter, not `RouteContext`. Matching, active links, redirects, and application navigation should continue to use internal route locations.
-
-## Deferred ideas
+No additional feature is committed for the next implementation pass. The following ideas remain deliberately deferred:
 
 - Named-route registries, until context and path-based generation prove insufficient.
 - Router-owned data loading, retries, backoff, or caching.

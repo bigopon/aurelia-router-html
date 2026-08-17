@@ -115,6 +115,8 @@
 - [x] Query and hash state update independently of pathname matching and remain available through `$query`, `$hash`, and `$route`.
 - [x] Browser URL adapters format pathname, hash-only, and configurable query-key routes.
 - [x] Production pathname, hash-only, and configurable query-key adapters load direct URLs, intercept generated links, and restore routed views through browser Back and Forward.
+- [x] Browser adapters prepend and strip an explicit base path in pathname, hash, and query modes without exposing the deployment prefix to route matching.
+- [x] A same-origin `<base href>` supplies the default base path; native relative links, `au-link`, deep reloads, and Back/Forward work from a real mounted browser fixture.
 - [x] Editing source queues an automatic run with a visible countdown while the explicit Run action remains available.
 - [x] Code, split, and preview modes preserve editor state and are remembered separately for embedded and standalone playgrounds.
 - [x] The memory-backed URL is displayed in the preview header beside the content it describes.
@@ -123,6 +125,8 @@
 - [x] The wildcard docs present middle-segment `*` and terminal `**` captures and run a nested index child after terminal residue is consumed.
 - [x] The wildcard playground renders decoded `$params['*']` values captured at the end and in the middle of a pattern.
 - [x] Routing adapters have an overview card, focused API page, and editable memory-adapter project.
+- [x] Routing adapter docs explain explicit `basePath`, automatic `<base href>` discovery, generated URLs in every browser mode, and outside-base interception boundaries.
+- [x] Base Path Hosting has a dedicated sidebar guide comparing root, document-derived, explicit, overridden, URL-mode, build-tool, and server configurations.
 - [x] The memory-adapter project navigates with ordinary `au-link` anchors without injecting the coordinator.
 - [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
 - [x] Declarative redirects have an overview card and focused editable playground, while behavior is covered independently by standalone real-browser fixtures in pathname, hash, and query modes.
