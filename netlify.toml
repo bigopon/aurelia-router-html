@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build:doc"
+  command = "npm --prefix docs-app ci && npm run build:doc"
   publish = "docs-app/dist"
 
 [[redirects]]

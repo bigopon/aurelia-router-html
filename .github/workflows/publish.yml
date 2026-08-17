@@ -1,0 +1,57 @@
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Git tag for this release (for example, v0.1.0-rc.0)
+        required: true
+        type: string
+      confirm:
+        description: Type PUBLISH to submit the package to npm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: inputs.confirm == 'PUBLISH'
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify the release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          test "$RELEASE_TAG" = "v$(node -p \"require('./package.json').version\")"
+          git tag --points-at HEAD | grep --fixed-strings --line-regexp "$RELEASE_TAG"
+
+      - run: npm ci
+      - run: npm --prefix docs-app ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run test:node
+      - run: npm run test:matcher
+      - run: npm run test:e2e:ci
+      - run: npm run build:doc
+      - run: npm --prefix docs-app run typecheck
+      - run: npm --prefix docs-app run test:e2e:ci
+      - run: npm pack --dry-run
+
+      - name: Publish stable release
+        run: npm publish

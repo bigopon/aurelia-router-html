@@ -1,8 +1,16 @@
 {
   "name": "aurelia-router-html",
-  "version": "0.1.0-rc.0",
+  "version": "0.1.0",
   "description": "HTML-first routing for Aurelia 2 applications.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bigopon/aurelia-router-html"
+  },
+  "bugs": {
+    "url": "https://github.com/bigopon/aurelia-router-html/issues"
+  },
+  "homepage": "https://github.com/bigopon/aurelia-router-html#readme",
   "keywords": [
     "aurelia",
     "router",
@@ -60,8 +68,7 @@
   "types": "./dist/types/index.d.ts",
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/",
-    "tag": "next"
+    "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
     "@aurelia/expression-parser": "2.0.0-rc.2",

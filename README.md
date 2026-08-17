@@ -26,7 +26,7 @@ void Aurelia
 
 Declare routes with `<au-route>` and navigate with `<au-link>`. The browser adapter uses pathname URLs by default; hash, query, memory, and custom adapters are also supported.
 
-This package currently targets Aurelia `2.0.0-rc.2` and is published under the `next` npm tag while Aurelia 2 remains in release-candidate status.
+This package currently targets Aurelia `2.0.0-rc.2`.
 
 ## License
 
