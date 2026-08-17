@@ -43,6 +43,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'segment-constraints',
+    title: 'Segment Constraints',
+    path: '/features/segment-constraints',
+    summary: 'Restrict a named parameter to one segment shape with an Aurelia-compatible regular expression.',
+    badge: 'A2',
+  },
+  {
     id: 'url-state',
     title: 'Query, Hash & URL Modes',
     path: '/features/url-state',

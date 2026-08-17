@@ -419,6 +419,113 @@ run('A2 required and optional parameters differ at the missing segment', () => {
   assert.equal(root.href('/offers/:id?', { id: 'winter' }), '/offers/winter');
 });
 
+run('A2 constrained parameters match one required segment and expose its decoded value', () => {
+  const root = new RouteContext(null, '*');
+  const product = root.createChild('/products/:id{{^\\d+$}}', { exact: true }) as RouteContext;
+
+  root.apply('/products/42');
+  assert.equal(product.active, true);
+  assert.deepEqual({ ...product.$params }, { id: '42' });
+
+  root.apply('/products/camera');
+  assert.equal(product.active, false);
+
+  root.apply('/products/42/reviews');
+  assert.equal(product.active, false);
+});
+
+run('A2 optional constrained parameters accept omission but validate a supplied segment', () => {
+  const root = new RouteContext(null, '*');
+  const archive = root.createChild('/archive/:year{{^\\d{4}$}}?', { exact: true }) as RouteContext;
+
+  root.apply('/archive');
+  assert.equal(archive.active, true);
+  assert.deepEqual({ ...archive.$params }, {});
+
+  root.apply('/archive/2026');
+  assert.equal(archive.active, true);
+  assert.deepEqual({ ...archive.$params }, { year: '2026' });
+
+  root.apply('/archive/26');
+  assert.equal(archive.active, false);
+});
+
+run('A2 constrained parameters work in middle segments and retain raw regular-expression semantics', () => {
+  const root = new RouteContext(null, '*');
+  const summary = root.createChild('/calendar/:date{{^\\d{4}-\\d{2}-\\d{2}$}}/summary', { exact: true }) as RouteContext;
+  const loose = root.createChild('/reports/:period{{daily|weekly}}', { exact: true }) as RouteContext;
+
+  root.apply('/calendar/2026-08-17/summary');
+  assert.equal(summary.active, true);
+  assert.deepEqual({ ...summary.$params }, { date: '2026-08-17' });
+
+  root.apply('/calendar/today/summary');
+  assert.equal(summary.active, false);
+
+  root.apply('/reports/daily-report');
+  assert.equal(loose.active, true);
+  assert.deepEqual({ ...loose.$params }, { period: 'daily-report' });
+});
+
+run('A2 constrained parameters cannot consume slash-separated segments', () => {
+  const route = new RouteContext(null, '/files/:name{{^.*$}}/edit', { exact: true });
+
+  route.apply('/files/readme/edit');
+  assert.equal(route.active, true);
+  assert.deepEqual({ ...route.$params }, { name: 'readme' });
+
+  route.apply('/files/guides/readme/edit');
+  assert.equal(route.active, false);
+});
+
+run('A2 overlapping constrained sibling routes retain match-all behavior', () => {
+  const root = new RouteContext(null, '*');
+  const numeric = root.createChild('/products/:id{{^\\d+$}}', { exact: true }) as RouteContext;
+  const anyValue = root.createChild('/products/:value{{^.+$}}', { exact: true }) as RouteContext;
+
+  root.apply('/products/42');
+  assert.equal(numeric.active, true);
+  assert.equal(anyValue.active, true);
+});
+
+run('A2 constrained href generation validates required and optional parameter values', () => {
+  const root = new RouteContext(null, '*');
+  root.createChild('/products/:id{{^\\d+$}}', { exact: true });
+  root.createChild('/archive/:year{{^\\d{4}$}}?', { exact: true });
+
+  assert.equal(root.href('/products/:id{{^\\d+$}}', { id: 42 }), '/products/42');
+  assert.equal(root.href('/archive/:year{{^\\d{4}$}}?'), '/archive');
+  assert.equal(root.href('/archive/:year{{^\\d{4}$}}?', { year: 2026 }), '/archive/2026');
+  assert.throws(
+    () => root.href('/products/:id{{^\\d+$}}', { id: 'camera' }),
+    /Route parameter "id" value "camera" does not satisfy constraint "\^\\d\+\$"/,
+  );
+  assert.throws(
+    () => root.href('/archive/:year{{^\\d{4}$}}?', { year: 26 }),
+    /Route parameter "year" value "26" does not satisfy constraint/,
+  );
+});
+
+run('A2 invalid constraints throw without replacing the previous dynamic route matcher', () => {
+  const route = new RouteContext(null, '/products/:id{{^\\d+$}}', { exact: true });
+
+  assert.throws(
+    () => route.usePattern('/products/:id{{[}}'),
+    /Invalid constraint "\[" for route parameter "id"/,
+  );
+  assert.equal(route.pattern, '/products/:id{{^\\d+$}}');
+
+  route.apply('/products/42');
+  assert.equal(route.active, true);
+  route.apply('/products/camera');
+  assert.equal(route.active, false);
+
+  assert.throws(
+    () => route.usePattern('/products/:id{{^\\d+$}'),
+    /Invalid route parameter segment/,
+  );
+});
+
 run('A2 nested exact route matches only the residue from its parent', () => {
   const root = new RouteContext(null, '*');
   const account = root.createChild('/account') as RouteContext;

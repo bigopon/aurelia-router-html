@@ -110,7 +110,7 @@ export class RouteContext implements IRouteContext {
     return normalizePath(patterns.join('/'));
   }
 
-  private _matcher: RegExp = /^(?<rest__>\/.*|\/)?$/;
+  private _matcher: RoutePatternMatcher = createRoutePatternMatcher(/^(?<rest__>\/.*|\/)?$/);
   private readonly _subscriptions = new Set<RouteContextCallback>();
   private readonly _registrySubscriptions = new Set<() => void>();
   private _disposed: boolean = false;
@@ -412,7 +412,6 @@ export class RouteContext implements IRouteContext {
     }
     const navigationVersion = root._navigationVersion;
     const normalizedPath = normalizePath(path);
-    this._matcher.lastIndex = 0;
     const match = this._matcher.exec(normalizedPath);
 
     if (match === null) {
@@ -610,7 +609,6 @@ export class RouteContext implements IRouteContext {
 
   private _match(path: string): { residue: string } | null {
     const normalizedPath = normalizePath(path);
-    this._matcher.lastIndex = 0;
     const match = this._matcher.exec(normalizedPath);
     if (match === null) {
       return null;
@@ -671,7 +669,6 @@ export class RouteContext implements IRouteContext {
 
   private _collectMatches(path: string, matches: Set<RouteContext>): void {
     const match = this._matcher.exec(normalizePath(path));
-    this._matcher.lastIndex = 0;
     if (match == null) {
       return;
     }
@@ -731,24 +728,43 @@ computed<RouteContext>({ deps: ['root.$path', '$query', '$hash'] })(
   { kind: 'method' } as ClassMethodDecoratorContext<RouteContext>,
 );
 
-function compilePattern(pattern: string, exact: boolean, transparentRoot: boolean): RegExp {
+interface RouteParameterSegment {
+  readonly name: string;
+  readonly optional: boolean;
+  readonly constraint: string | null;
+  readonly pattern: RegExp | null;
+}
+
+interface RouteParameterConstraint {
+  readonly group: string;
+  readonly pattern: RegExp;
+}
+
+interface RoutePatternMatcher {
+  exec(path: string): RegExpExecArray | null;
+}
+
+const routeParameterPattern = /^:(?<name>[^?\s{}]+)(?:\{\{(?<constraint>.+)\}\})?(?<optional>\?)?$/;
+
+function compilePattern(pattern: string, exact: boolean, transparentRoot: boolean): RoutePatternMatcher {
   if (pattern === '*') {
     if (transparentRoot) {
-      return /^(?<rest__>\/.*|\/)?$/;
+      return createRoutePatternMatcher(/^(?<rest__>\/.*|\/)?$/);
     }
-    return exact
+    return createRoutePatternMatcher(exact
       ? /^\/(?<wildcard__>[^/]+)$/
-      : /^\/(?<wildcard__>[^/]+)(?<rest__>\/.*)?$/;
+      : /^\/(?<wildcard__>[^/]+)(?<rest__>\/.*)?$/);
   }
 
   if (pattern === '/') {
-    return /^\/$/;
+    return createRoutePatternMatcher(/^\/$/);
   }
 
   const parts = pattern.split('/').filter(Boolean);
   const restIndex = parts.indexOf('**');
   const consumesRest = restIndex >= 0;
   const routeParts = consumesRest ? parts.slice(0, -1) : parts;
+  const constraints: RouteParameterConstraint[] = [];
   let compiled = '';
   for (const part of routeParts) {
     if (part === '*') {
@@ -756,27 +772,78 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
       continue;
     }
     if (part.startsWith(':')) {
-      const optional = part.endsWith('?');
-      const name = part.slice(1, optional ? -1 : undefined);
-      const parameter = `(?<${escapeGroupName(name)}>[^/]+)`;
-      compiled += optional ? `(?:/${parameter})?` : `/${parameter}`;
+      const parameter = parseRouteParameter(part);
+      const group = escapeGroupName(parameter.name);
+      if (parameter.pattern != null) {
+        constraints.push({
+          group,
+          pattern: parameter.pattern,
+        });
+      }
+      const capture = `(?<${group}>[^/]+)`;
+      compiled += parameter.optional ? `(?:/${capture})?` : `/${capture}`;
       continue;
     }
     compiled += `/${escapeRegex(part)}`;
   }
 
   if (consumesRest) {
-    return routeParts.length === 0
+    return createRoutePatternMatcher(routeParts.length === 0
       ? /^\/(?<restWildcard__>.*)$/
-      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`);
+      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`), constraints);
   }
 
-  const pathExpression = routeParts.every(part => part.startsWith(':') && part.endsWith('?'))
+  const pathExpression = routeParts.every(part => part.startsWith(':') && parseRouteParameter(part).optional)
     ? `(?:${compiled}|/)`
     : compiled;
-  return exact
+  return createRoutePatternMatcher(exact
     ? new RegExp(`^${pathExpression}$`)
-    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`);
+    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`), constraints);
+}
+
+function createRoutePatternMatcher(expression: RegExp, constraints: readonly RouteParameterConstraint[] = []): RoutePatternMatcher {
+  return {
+    exec(path: string): RegExpExecArray | null {
+      const match = expression.exec(path);
+      if (match == null || constraints.length === 0) {
+        return match;
+      }
+      const groups = match.groups ?? {};
+      for (const constraint of constraints) {
+        const value = groups[constraint.group];
+        if (value == null) {
+          continue;
+        }
+        constraint.pattern.lastIndex = 0;
+        if (!constraint.pattern.test(value)) {
+          return null;
+        }
+      }
+      return match;
+    },
+  };
+}
+
+function parseRouteParameter(segment: string): RouteParameterSegment {
+  const match = routeParameterPattern.exec(segment);
+  const { name, constraint, optional } = match?.groups ?? {};
+  if (name == null) {
+    throw new Error(`Invalid route parameter segment "${segment}". Expected :name, :name?, :name{{pattern}}, or :name{{pattern}}?.`);
+  }
+  let pattern: RegExp | null = null;
+  if (constraint != null) {
+    try {
+      pattern = new RegExp(constraint);
+    } catch (error) {
+      throw new Error(`Invalid constraint "${constraint}" for route parameter "${name}".`, { cause: error });
+    }
+  }
+  return {
+    name,
+    optional: optional === '?',
+    constraint: constraint ?? null,
+    pattern,
+  };
 }
 
 function extractParams(groups: Record<string, string | undefined>): Record<string, string> {
@@ -876,11 +943,18 @@ function normalizeResidue(value: string | undefined): string {
 function generateHref(pattern: string, params: RouteParams): string {
   const segments = pattern.split('/').filter(Boolean).flatMap(segment => {
     if (segment.startsWith(':')) {
-      const optional = segment.endsWith('?');
-      const name = segment.slice(1, optional ? -1 : undefined);
-      return optional && params[name] == null
-        ? []
-        : [encodeRouteParam(name, params, false)];
+      const parameter = parseRouteParameter(segment);
+      if (parameter.optional && params[parameter.name] == null) {
+        return [];
+      }
+      const encoded = encodeRouteParam(parameter.name, params, false);
+      if (parameter.pattern != null) {
+        parameter.pattern.lastIndex = 0;
+        if (!parameter.pattern.test(encoded)) {
+          throw new Error(`Route parameter "${parameter.name}" value "${String(params[parameter.name])}" does not satisfy constraint "${parameter.constraint}".`);
+        }
+      }
+      return [encoded];
     }
     if (segment === '*') {
       return [encodeRouteParam('*', params, false)];

@@ -632,6 +632,26 @@ Initial rendering preserves browser focus unless `initial: true` is configured. 
 
 The service is implemented outside `RouteContext`, can be replaced through `IRouteFocusService`, and remains browser-independent when disabled.
 
+## 28. Constrained path parameters
+
+Named route parameters accept the same regular-expression constraint syntax as Aurelia's route recognizer:
+
+```html
+<au-route path="products/:id{{^\d+$}}" exact>
+  Product ${$params.id}
+</au-route>
+
+<au-route path="archive/:year{{^\d{4}$}}?" exact>
+  Archive
+</au-route>
+```
+
+The grammar is `:name{{pattern}}` for a required constrained segment and `:name{{pattern}}?` for an optional constrained segment. Constraints retain JavaScript `RegExp` semantics and are evaluated against the captured encoded segment, so applications use `^` and `$` when the whole segment must match. A constraint cannot consume `/`; terminal multi-segment ownership remains the responsibility of `**`.
+
+Matching captures first and evaluates constraints second so anchors apply to the segment rather than the complete URL. Captured `$params` remain decoded. Constraints can appear in the middle of a path and do not alter Router HTML's match-all sibling semantics, so overlapping regular sibling constraints may activate together.
+
+Href generation validates the encoded parameter with the same constraint and rejects an unusable value. Invalid expressions fail when a route is created. Dynamic `path.bind`, `path.to-view`, and `:path` updates compile before replacing the installed matcher, preserving the previous valid route when compilation fails.
+
 ---
 
 # Feature design and remaining proposals

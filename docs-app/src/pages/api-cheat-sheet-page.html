@@ -63,12 +63,14 @@
           <tr><td><code>products</code>, <code>./products</code></td><td>Equivalent contextual route declaration patterns.</td></tr>
           <tr><td><code>path="/"</code>, <code>path="."</code>, <code>path="./"</code></td><td>The current parent index in an <code>au-route</code> declaration.</td></tr>
           <tr><td><code>:id</code>, <code>:id?</code></td><td>Required and optional named parameters.</td></tr>
+          <tr><td><code>:id{{^\d+$}}</code></td><td>Require a named parameter's single encoded segment to satisfy a JavaScript regular expression. Add <code>?</code> after <code>}}</code> to keep it optional.</td></tr>
           <tr><td><code>*</code></td><td>Consume and capture one segment as <code>$params['*']</code>.</td></tr>
           <tr><td><code>files/**</code></td><td>Consume every remaining segment as <code>$params['**']</code>.</td></tr>
           <tr><td><code>au-link="/products"</code></td><td>Start link and navigation resolution at the root context. Route declarations themselves remain contextual.</td></tr>
         </tbody>
       </table>
     </div>
+    <p>Constraint expressions keep normal JavaScript regular-expression semantics, so use <code>^</code> and <code>$</code> for a complete-segment match. Link generation rejects parameter values that do not satisfy their registered constraint.</p>
   </section>
 
   <section class="route-stack" id="links-and-navigation">

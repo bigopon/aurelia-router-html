@@ -177,6 +177,72 @@ describe('au-route optional parameters', function () {
   });
 });
 
+describe('au-route constrained parameters', function () {
+  it('renders only the sibling whose segment constraint matches', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/products/:id{{^\\d+$}}" exact>
+        <span data-numeric>Numeric product \${$params.id}</span>
+      </au-route>
+      <au-route path="/products/:slug{{^[a-z-]+$}}" exact>
+        <span data-slug>Named product \${$params.slug}</span>
+      </au-route>`,
+      class App {},
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products/42');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-numeric]')?.textContent?.trim(), 'Numeric product 42');
+      assert.strictEqual(fixture.appHost.querySelector('[data-slug]'), null);
+
+      router.load('/products/ice-cream');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-numeric]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-slug]')?.textContent?.trim(), 'Named product ice-cream');
+
+      router.load('/products/42-camera');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-numeric]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-slug]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('recompiles a constrained path.bind value when it changes', async function () {
+    class App {
+      public routePath: string = '/products/:value{{^\\d+$}}';
+    }
+
+    const fixture = await createFixture(
+      `<au-route path.bind="routePath" exact>
+        <span data-constrained>\${$params.value}</span>
+      </au-route>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/products/42');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-constrained]')?.textContent, '42');
+
+      fixture.component.routePath = '/products/:value{{^[a-z]+$}}';
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-constrained]'), null);
+
+      router.load('/products/camera');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-constrained]')?.textContent, 'camera');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route terminal path capture', function () {
   it('rejects an au-link target containing multiple anonymous wildcards', function () {
     assert.throws(

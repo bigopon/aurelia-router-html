@@ -39,6 +39,13 @@ export class OverviewPage {
       syntax: '<au-route path="users/:userId">\n  User: ${$params.userId}\n  <au-route path="posts/:postId">\n    Post: ${$params.postId}\n    User: ${$route.parent.$params.userId}\n  </au-route>\n</au-route>',
     },
     {
+      title: 'Segment Constraints',
+      summary: 'Restrict a named parameter to the single-segment value shape its route understands.',
+      path: '/features/segment-constraints',
+      playgroundId: 'segment-constraints',
+      syntax: '<au-route path="products/:id{{^\\d+$}}" exact>\n  Numeric product: ${$params.id}\n</au-route>\n\n<au-route path="archive/:year{{^\\d{4}$}}?" exact>\n  Optional archive year\n</au-route>',
+    },
+    {
       title: 'Query, Hash & URL Modes',
       summary: 'Carry URL state separately from matching and choose how routes appear in the browser address bar.',
       path: '/features/url-state',

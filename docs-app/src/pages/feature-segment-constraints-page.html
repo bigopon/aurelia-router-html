@@ -1,0 +1,53 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Segment Constraints</h2>
+      <p class="page-copy">Keep URLs precise by allowing a named parameter to match only the shape of value that its route understands.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="segment-constraints-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="products/:id{{^\d+$}}" exact&gt;
+  &lt;h1&gt;Product $<span>{$params.id}</span>&lt;/h1&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="archive/:year{{^\d{4}$}}?" exact&gt;
+  &lt;h1&gt;Archive $<span>{$params.year || 'all years'}</span>&lt;/h1&gt;
+&lt;/au-route&gt;</pre>
+      <p>Place a regular expression inside <code>{{</code> and <code>}}</code> after a named parameter. Keep <code>?</code> at the end when the constrained parameter is optional.</p>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Syntax</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>:id{{^\d+$}}</code></td><td>Requires one segment containing digits only.</td></tr>
+            <tr><td><code>:period{{^(daily|weekly)$}}</code></td><td>Requires one of the listed values.</td></tr>
+            <tr><td><code>:year{{^\d{4}$}}?</code></td><td>Allows the segment to be absent, but requires four digits when supplied.</td></tr>
+            <tr><td><code>calendar/:date{{...}}/summary</code></td><td>Constrains a parameter in the middle of a path.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A constraint sees only its parameter's encoded segment between two <code>/</code> separators. It cannot consume another segment; use <code>**</code> when a route intentionally owns the remaining path.</p>
+      <p>Regular expressions retain their normal JavaScript behavior. Add <code>^</code> and <code>$</code> when the complete segment must match. Because Router HTML activates every matching regular sibling, overlapping constraints can activate together.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-html>&lt;a au-link.bind="{
+  target: '/products/:id{{^\\d+$}}',
+  params: { id: product.id }
+}"&gt;
+  Open product
+&lt;/a&gt;</pre>
+      <p>Generated links validate supplied values against the same constraint. A missing required value or a value that cannot match throws instead of producing an unusable URL.</p>
+      <p>Malformed expressions are reported when the route is created. If a <code>path.bind</code>, <code>path.to-view</code>, or <code>:path</code> value changes to an invalid constraint, the update throws and the previous valid matcher remains installed.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="segment-constraints" embedded.bind="true"></playground-page>
+</section>

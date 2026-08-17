@@ -183,7 +183,7 @@ test.describe('router HTML docs features', () => {
     });
     expect(await longSnippet.locator('.copy-code-button').evaluate(element => element.getBoundingClientRect().left)).toBe(copyButtonLeft);
 
-    await expect(features).toHaveCount(23);
+    await expect(features).toHaveCount(24);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -208,6 +208,9 @@ test.describe('router HTML docs features', () => {
       .locator('pre');
     await expect(paramsSyntax).toContainText('<au-route path="posts/:postId">');
     await expect(paramsSyntax).toContainText('$route.parent.$params.userId');
+    const constraintSyntax = features.filter({ hasText: 'Segment Constraints' }).locator('pre');
+    await expect(constraintSyntax).toContainText('path="products/:id{{^\\d+$}}"');
+    await expect(constraintSyntax).toContainText('path="archive/:year{{^\\d{4}$}}?"');
     const swapSyntax = features.filter({ hasText: 'Swap Order' }).locator('pre');
     await expect(swapSyntax).toContainText('swap-order="parallel"');
     await expect(swapSyntax).toContainText('<au-route path="specs">Specs</au-route>');
@@ -239,13 +242,14 @@ test.describe('router HTML docs features', () => {
     const errorRecoverySyntax = features.filter({ hasText: 'Error Recovery' }).locator('pre');
     await expect(errorRecoverySyntax).toContainText('on-error.bind="failure => recover(failure)"');
     await expect(errorRecoverySyntax).toContainText('$route.parent.failure.error.message');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(23);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(24);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(23);
+    await expect(editLinks).toHaveCount(24);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
+      '/playground/segment-constraints',
       '/playground/url-state',
       '/playground/active-links',
       '/playground/hash-scrolling',
@@ -362,6 +366,7 @@ test.describe('router HTML docs features', () => {
     await expect(sheet).toContainText('scrolling');
     await expect(sheet).toContainText('au-route-focus');
     await expect(sheet).toContainText("fallback: 'heading'");
+    await expect(sheet).toContainText(':id{{^\\d+$}}');
     await expect(sheet).toContainText('A target without a leading slash is contextual');
     await expect(sheet).toContainText('A leading slash is root-absolute');
     await expect(sheet).toContainText('every au-route path declaration matches the residue supplied by its parent');
@@ -455,6 +460,7 @@ test.describe('router HTML docs features', () => {
       ['basic', 'path="welcome"'],
       ['nested', 'path="account"'],
       ['params', ':userId'],
+      ['segment-constraints', ':id{{^\\d+$}}'],
       ['url-state', "$query.get('sort')"],
       ['active-links', 'au-link.bind'],
       ['focus', 'au-route-focus'],
@@ -519,6 +525,35 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Parent user: grace' })).toBeVisible();
     await expect(frame.getByRole('heading', { name: 'Child post: compiler-design' })).toBeVisible();
     await expect(frame.getByText('Parent user from child: grace')).toBeVisible();
+  });
+
+  test('segment constraints select required, optional, and middle parameter routes', async ({ page }) => {
+    await page.goto('/features/segment-constraints');
+    const guide = page.locator('[data-e2e="segment-constraints-guide"]');
+    await expect(guide).toContainText(':id{{^\\d+$}}');
+    await expect(guide).toContainText('cannot consume another segment');
+    await expect(guide).toContainText('previous valid matcher remains installed');
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Numeric product 42' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Named product' }).click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/ice-cream');
+    await expect(frame.getByRole('heading', { name: 'Named product ice-cream' })).toBeVisible();
+    await expect(frame.getByText('The slug segment contains lowercase letters and hyphens.')).toBeVisible();
+
+    await frame.getByRole('link', { name: 'No matching constraint' }).click();
+    await expect(frame.getByRole('heading', { name: 'No constrained route matched' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'All archive years' }).click();
+    await expect(frame.getByRole('heading', { name: 'Archive all years' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Archive 2026' }).click();
+    await expect(frame.getByRole('heading', { name: 'Archive 2026' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Daily summary' }).click();
+    await expect(frame.getByRole('heading', { name: 'Summary for 2026-08-17' })).toBeVisible();
   });
 
   test('query and hash state change without changing the matched route', async ({ page }) => {

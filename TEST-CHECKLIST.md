@@ -41,6 +41,10 @@
 - [x] `A2` An individual exact route activates only when its complete path is consumed.
 - [x] `A2` A nested exact route matches the complete residue supplied by its parent rather than the full URL.
 - [x] `A2` `:id` requires its segment while `:id?` matches and generates hrefs with or without the optional segment.
+- [x] `A2` `:name{{pattern}}` constrains one required segment with Aurelia-compatible JavaScript regular-expression semantics, including parameters in the middle of a path.
+- [x] `A2` Segment constraints cannot consume `/`, and overlapping constrained regular siblings retain Router HTML's match-all behavior.
+- [x] `A2` `:name{{pattern}}?` allows omission but validates a supplied segment, and href generation rejects values that cannot satisfy the registered constraint.
+- [x] `A2` Invalid static or dynamically changed constraints throw without replacing the previous valid matcher.
 - [x] `A2` An individual fallback route activates only when no regular sibling route matches.
 - [x] `A2` A nested fallback route uses sibling matches from its parent context and deactivates with that parent.
 - [x] `A2` An exact sibling yields to a `*` wildcard fallback whose exact child matches the remaining residue.
@@ -125,6 +129,7 @@
 - [x] Page titles have an overview card, focused guide, bound-title demo, editable playground, and real-browser coverage.
 - [x] Scrolling and Restoration has an overview card, focused guide, editable delayed-content playground, and real-browser coverage across every URL mode.
 - [x] Focus Management has an overview card, focused guide, editable marked-heading playground, API reference, and standalone browser coverage.
+- [x] Segment Constraints has an overview card, focused syntax guide, API reference, editable required/optional/middle-segment playground, and browser coverage.
 - [x] Loading and loaded have an overview card, focused guide, nested editable playground, and real-browser ordering coverage without presenting planned guards as implemented.
 - [x] Navigation guards have an overview card, focused guide, editable cancellation/redirect playground, and standalone browser-adapter coverage.
 - [x] Guard Failure Modes is a dedicated sidebar and overview item with explicit `navigation` and `local` contracts.

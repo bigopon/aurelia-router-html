@@ -225,6 +225,45 @@ const featureExamples: PlaygroundExample[] = [
 </au-route>`,
   }),
   routerExample({
+    id: 'segment-constraints',
+    title: 'Segment constraints',
+    description: 'Constrain one named URL segment with an Aurelia-compatible regular expression.',
+    initialPath: '/products/42',
+    appHtml: `<nav>
+  <a au-link="/products/42">Numeric product</a>
+  <a au-link="/products/ice-cream">Named product</a>
+  <a au-link="/products/42-camera">No matching constraint</a>
+  <a au-link="/archive">All archive years</a>
+  <a au-link="/archive/2026">Archive 2026</a>
+  <a au-link="/calendar/2026-08-17/summary">Daily summary</a>
+</nav>
+
+<au-route path="products/:id{{^\\d+$}}" exact>
+  <h1>Numeric product \${$params.id}</h1>
+  <p>The <code>id</code> segment contains digits only.</p>
+</au-route>
+
+<au-route path="products/:slug{{^[a-z-]+$}}" exact>
+  <h1>Named product \${$params.slug}</h1>
+  <p>The <code>slug</code> segment contains lowercase letters and hyphens.</p>
+</au-route>
+
+<au-route path="archive/:year{{^\\d{4}$}}?" exact>
+  <h1>Archive \${$params.year || 'all years'}</h1>
+  <p>The constrained year remains optional.</p>
+</au-route>
+
+<au-route path="calendar/:date{{^\\d{4}-\\d{2}-\\d{2}$}}/summary" exact>
+  <h1>Summary for \${$params.date}</h1>
+  <p>A constrained parameter can appear in the middle of a path.</p>
+</au-route>
+
+<au-route path="*" fallback>
+  <h1>No constrained route matched</h1>
+  <p>The URL did not satisfy any regular sibling constraint.</p>
+</au-route>`,
+  }),
+  routerExample({
     id: 'url-state',
     title: 'Path mode with URL state',
     description: 'Change query and fragment state without changing the matched product route.',
