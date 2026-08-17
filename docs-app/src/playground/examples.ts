@@ -487,6 +487,187 @@ export class App {
 </main>`,
   }),
   routerExample({
+    id: 'navigation-guards',
+    title: 'Navigation guards',
+    description: 'Approve, cancel, or redirect entry and protect an editor from accidental navigation.',
+    initialPath: '/home',
+    appTs: `export class App {
+  public accountAccess = false;
+  public editorDirty = false;
+  public message = 'Choose a guarded route';
+
+  public async canOpenAccount(): Promise<boolean> {
+    this.message = 'Checking account access…';
+    await new Promise(resolve => setTimeout(resolve, 250));
+    this.message = this.accountAccess ? 'Access approved' : 'Access denied';
+    return this.accountAccess;
+  }
+
+  public canLeaveEditor(): boolean {
+    this.message = this.editorDirty ? 'Save the editor before leaving' : 'Editor can close';
+    return !this.editorDirty;
+  }
+
+  public canOpenAdmin(): string {
+    this.message = 'Admin requires sign in';
+    return '/sign-in';
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="account">Account</a>
+  <a au-link="editor">Editor</a>
+  <a au-link="admin">Admin</a>
+</nav>
+
+<p role="status">\${message}</p>
+<button click.trigger="accountAccess = !accountAccess">
+  \${accountAccess ? 'Block account' : 'Allow account'}
+</button>
+<button click.trigger="editorDirty = !editorDirty">
+  \${editorDirty ? 'Mark editor saved' : 'Mark editor dirty'}
+</button>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+  </au-route>
+  <au-route path="account" exact can-load.bind="() => canOpenAccount()">
+    <h1>Account</h1>
+  </au-route>
+  <au-route path="editor" exact can-unload.bind="() => canLeaveEditor()">
+    <h1>Editor</h1>
+  </au-route>
+  <au-route path="admin" exact can-load.bind="() => canOpenAdmin()">
+    <h1>Admin</h1>
+  </au-route>
+  <au-route path="sign-in" exact>
+    <h1>Sign in</h1>
+    <p>The admin guard redirected here.</p>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
+    id: 'layered-navigation-guards',
+    title: 'Layered navigation guards',
+    description: 'Watch member, staff, and administrator guards run progressively through three nested route levels.',
+    initialPath: '/home',
+    appTs: `type AccessLevel = 'guest' | 'member' | 'staff' | 'admin';
+
+export class App {
+  public access: AccessLevel = 'guest';
+  public message = 'Browsing as a guest';
+  public checks: string[] = [];
+
+  public useAccess(access: AccessLevel): void {
+    this.access = access;
+    this.message = \`Access level: \${access}\`;
+    this.checks = [];
+  }
+
+  public requireMember(): true | string {
+    this.record('Portal guard: require a signed-in member');
+    if (this.access === 'guest') {
+      this.message = 'Sign in to open the portal';
+      return '/sign-in';
+    }
+    return true;
+  }
+
+  public requireStaff(): true | string {
+    this.record('Staff guard: require staff access');
+    return this.requireRank('staff');
+  }
+
+  public requireAdmin(): true | string {
+    this.record('Administration guard: require admin access');
+    return this.requireRank('admin');
+  }
+
+  private requireRank(required: 'staff' | 'admin'): true | string {
+    const rank: Record<AccessLevel, number> = {
+      guest: 0,
+      member: 1,
+      staff: 2,
+      admin: 3,
+    };
+    if (rank[this.access] < rank[required]) {
+      this.message = \`The \${required} area needs stronger access\`;
+      return '/forbidden';
+    }
+    return true;
+  }
+
+  private record(check: string): void {
+    this.checks = [...this.checks, check];
+  }
+}`,
+    appHtml: `<nav aria-label="Application">
+  <a au-link="home">Home</a>
+  <a au-link="portal/profile">Member portal</a>
+</nav>
+
+<div aria-label="Choose access level">
+  <button click.trigger="useAccess('guest')">Use guest</button>
+  <button click.trigger="useAccess('member')">Use member</button>
+  <button click.trigger="useAccess('staff')">Use staff</button>
+  <button click.trigger="useAccess('admin')">Use admin</button>
+</div>
+<p role="status">\${message}</p>
+<section aria-label="Guard invocation order">
+  <h2>Guard invocation order</h2>
+  <ol>
+    <li repeat.for="check of checks">\${check}</li>
+  </ol>
+</section>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Public home</h1>
+  </au-route>
+
+  <au-route path="portal" can-load.bind="() => requireMember()">
+    <h1>Member portal</h1>
+    <nav aria-label="Member portal">
+      <a au-link="profile">Profile</a>
+      <a au-link="staff/reports">Open staff area</a>
+    </nav>
+
+    <au-route path="profile" exact>
+      <h2>Member profile</h2>
+    </au-route>
+
+    <au-route path="staff" can-load.bind="() => requireStaff()">
+      <h2>Staff area</h2>
+      <nav aria-label="Staff area">
+        <a au-link="reports">Reports</a>
+        <a au-link="schedule">Schedule</a>
+        <a au-link="admin">Administration</a>
+      </nav>
+
+      <au-route path="reports" exact>
+        <h3>Staff reports</h3>
+      </au-route>
+      <au-route path="schedule" exact>
+        <h3>Staff schedule</h3>
+      </au-route>
+      <au-route path="admin" exact can-load.bind="() => requireAdmin()">
+        <h3>Administration</h3>
+      </au-route>
+    </au-route>
+  </au-route>
+
+  <au-route path="sign-in" exact>
+    <h1>Sign in</h1>
+    <p>The portal requires at least member access.</p>
+  </au-route>
+  <au-route path="forbidden" exact>
+    <h1>Access denied</h1>
+    <p>Your account is signed in but does not have the required role.</p>
+  </au-route>
+</main>`,
+  }),
+  routerExample({
     id: 'conditional-routes',
     title: 'Conditional routes',
     description: 'Use Aurelia template controllers to add and remove a route.',

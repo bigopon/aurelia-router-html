@@ -283,6 +283,36 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="route-cart"] .summary-item')).toHaveCount(1);
   });
 
+  test('A8 browser navigation commits only after guards approve or redirect', async ({ page }) => {
+    await page.goto('/guard/home');
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Guard private' }).click();
+    await expect(page.locator('[data-e2e="guard-status"]')).toHaveText('Private access denied');
+    await expect(page).toHaveURL(/\/guard\/home$/);
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="guard-private"]')).toHaveCount(0);
+
+    await page.locator('[data-e2e="toggle-guard-access"]').click();
+    await page.getByRole('link', { name: 'Guard private' }).click();
+    await expect(page).toHaveURL(/\/guard\/private$/);
+    await expect(page.locator('[data-e2e="guard-private"]')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Guard editor' }).click();
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/guard\/editor$/);
+    await page.locator('[data-e2e="toggle-guard-leave"]').click();
+    await page.getByRole('link', { name: 'Guard home' }).click();
+    await expect(page).toHaveURL(/\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
+    await page.locator('[data-e2e="toggle-guard-leave"]').click();
+    await page.getByRole('link', { name: 'Guard admin' }).click();
+    await expect(page).toHaveURL(/\/guard\/login$/);
+    await expect(page.locator('[data-e2e="guard-login"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="guard-admin"]')).toHaveCount(0);
+  });
+
   test('A1 checkout payment branch unlocks after shipping state is complete', async ({ page }) => {
     await page.goto('/checkout/payment');
 

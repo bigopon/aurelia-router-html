@@ -582,9 +582,9 @@ These are Aurelia v2 function bindings, not `.call` expressions, so the callback
 
 ---
 
-# Remaining proposed features
+# Feature design and remaining proposals
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title layer of proposal 6 is implemented as feature 23; scrolling and focus policies remain.
+Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title layer of proposal 6 is implemented as feature 23; scrolling and focus policies remain. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
 
 ## Proposed 6. Browser navigation polish
 
@@ -630,7 +630,7 @@ URL-mode rules must remain unambiguous:
 - All browser behavior is implemented outside `RouteContext` and can be disabled.
 - Accessibility-focused browser tests cover focus behavior.
 
-## Proposed 7. Declarative guards
+## 25. Declarative guards and navigation transactions
 
 Route declarations can participate in navigation without requiring a routed component view-model. Callback expressions use Aurelia v2 function bindings so the application binding context is retained; `.call` is not supported:
 
@@ -668,13 +668,13 @@ The resulting contract keeps the useful semantics of Aurelia's component router 
 
 Because a parent `loading` callback may complete before staging reveals a child that later denies navigation, successful loading side effects are not compensated automatically. The staged route tree is discarded atomically, and cancellable application work should use the transition's abort signal.
 
-Guard support requires a navigation transaction boundary ahead of adapter mutation and route-state publication. It must not be implemented as a late callback from `AuRoute.isActive`, because that would briefly commit denied content and make browser-history rollback observable.
+Guard support uses a navigation transaction boundary ahead of adapter mutation. It is not implemented as a late rendering toggle from `AuRoute.isActive`, because that would commit denied browser history and leave a matched URL partially rendered.
 
 ### Loading error recovery
 
 Loading failure is distinct from a guard returning `false`. A thrown error or rejected promise from `loading` fails the navigation and preserves the original error for the caller and navigation-error reporting.
 
-The transaction must provide the following recovery behavior before loading errors are considered production-ready:
+The transaction provides the following recovery behavior:
 
 - retain the outgoing location and rendered branch until every incoming `loading` callback succeeds;
 - do not push or replace browser history until guards and loading have completed;
@@ -686,7 +686,7 @@ The transaction must provide the following recovery behavior before loading erro
 
 If several nested loading callbacks are involved, earlier successful callbacks are not called again as compensation. The route tree is recovered atomically, but application work should use an abort signal supplied by the transition when it needs cancellable network or background activity.
 
-The current coordinator does not yet provide this transaction. It mutates the adapter and publishes the matching tree before route-view activation begins, so the transaction work is a prerequisite for the recovery contract above as well as for guards.
+The coordinator delays adapter mutation while the candidate branch is discovered. Outgoing contexts remain mounted during asynchronous guard and loading work. Failed candidates are discarded and the previous route state is reapplied; successful candidates commit history once before outgoing deactivation completes.
 
 ### Acceptance criteria
 
@@ -702,9 +702,8 @@ The current coordinator does not yet provide this transaction. It mutates the ad
 
 # Recommended implementation sequence
 
-1. Add the navigation transaction required by proposal 7 guards.
-2. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
-3. Add history restoration and opt-in focus management on the same settled-navigation boundary.
+1. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
+2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

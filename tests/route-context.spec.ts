@@ -737,6 +737,49 @@ run('T1 route title metadata is normalized and included in subscription state', 
   assert.equal(observedTitle, null);
 });
 
+run('G1 leaving contexts are planned deepest-first', () => {
+  const root = new RouteContext(null, '*');
+  const home = root.createChild('home', { exact: true }) as RouteContext;
+  const area = root.createChild('area') as RouteContext;
+  const project = area.createChild('project') as RouteContext;
+  const editor = project.createChild('editor', { exact: true }) as RouteContext;
+
+  root.apply('/area/project/editor');
+  assert.deepEqual(root._getLeaving('/home'), [editor, project, area]);
+  assert.equal(home.active, false);
+});
+
+run('G1 route transactions retain outgoing matches until commit', () => {
+  const root = new RouteContext(null, '*');
+  const home = root.createChild('home', { exact: true }) as RouteContext;
+  const privateRoute = root.createChild('private', { exact: true }) as RouteContext;
+
+  root.apply('/home');
+  root._beginNavigationTransaction();
+  root.apply('/private');
+  assert.equal(home.active, true);
+  assert.equal(privateRoute.active, true);
+
+  root._commitNavigationTransaction();
+  assert.equal(home.active, false);
+  assert.equal(privateRoute.active, true);
+});
+
+run('G1 cancelled route transactions restore the outgoing match', () => {
+  const root = new RouteContext(null, '*');
+  const home = root.createChild('home', { exact: true }) as RouteContext;
+  const privateRoute = root.createChild('private', { exact: true }) as RouteContext;
+
+  root.apply('/home');
+  root._beginNavigationTransaction();
+  root.apply('/private');
+  root._cancelNavigationTransaction();
+  root.apply('/home');
+
+  assert.equal(home.active, true);
+  assert.equal(privateRoute.active, false);
+});
+
 console.log('route-context tests passed');
 
 function run(name: string, fn: () => void): void {

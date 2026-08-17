@@ -1,4 +1,4 @@
-import { IContainer, Registration, type Key } from '@aurelia/kernel';
+import { IContainer, IPlatform, Registration, type Key } from '@aurelia/kernel';
 import { IWindow } from '@aurelia/runtime-html';
 import { AppTask } from 'aurelia';
 import { normalizeRouteAnimationOptions, IRouteAnimationOptions, type RouteAnimationInput } from './animation';
@@ -44,7 +44,12 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     swapOrder: options.swapOrder,
     hrefFormatter: path => adapter.formatHref(path),
   });
-  const coordinator = new RouteCoordinator(rootContext, adapter);
+  const platform = c.has(IPlatform, true) ? c.get(IPlatform) : null;
+  const coordinator = new RouteCoordinator(
+    rootContext,
+    adapter,
+    () => new (platform?.globalThis.AbortController ?? AbortController)(),
+  );
   const titleService = c.has(IRouteTitleService, true)
     ? c.get(IRouteTitleService)
     : options.titles === false || (!usesDefaultBrowserAdapter && options.titles == null)
@@ -63,9 +68,9 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     Registration.instance(IRouteContext, rootContext),
     Registration.instance(IRouteTitleService, titleService),
     Registration.instance(IRouteCoordinator, coordinator),
-    AppTask.creating(() => {
+    AppTask.activated(() => {
       titleService.start();
-      coordinator.start();
+      return coordinator.start();
     }),
     AppTask.deactivated(() => {
       titleService.stop();

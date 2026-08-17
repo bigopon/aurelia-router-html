@@ -41,7 +41,7 @@
     <section>
       <h3>Loading errors today</h3>
       <p>A thrown error or rejected loading promise prevents that route view from activating, and its <code>loaded</code> callback does not run. Handle expected data failures inside the callback when the page should present a recoverable error state.</p>
-      <p>Atomic URL and outgoing-view restoration is intentionally reserved for the navigation transaction that will also power guards. Until that work lands, applications should not rely on a rejected loading callback to roll browser history back.</p>
+      <p>The navigation transaction keeps the outgoing URL and view available while loading is pending. A rejected loading callback discards the incoming branch, restores route state, and rejects programmatic navigation with the original error.</p>
     </section>
   </div>
 

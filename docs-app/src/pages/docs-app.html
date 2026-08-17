@@ -41,6 +41,10 @@
         <feature-lifecycle-page></feature-lifecycle-page>
       </au-route>
 
+      <au-route path="features/guards" title="Navigation Guards">
+        <feature-guards-page></feature-guards-page>
+      </au-route>
+
       <au-route path="features/adapters" title="Routing Adapters">
         <feature-adapters-page></feature-adapters-page>
       </au-route>
@@ -78,7 +82,9 @@
       </au-route>
 
       <au-route path="playground" title="Playground">
-        <playground-page></playground-page>
+        <playground-page
+          example-id.bind="$route.residue === '/' ? null : $route.residue.slice(1)">
+        </playground-page>
       </au-route>
     </main>
 

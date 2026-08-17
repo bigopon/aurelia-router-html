@@ -17,6 +17,9 @@ export class MyApp {
   public detailQuantity: number = 1;
   public allowPromoRoute: boolean = true;
   public repeatedFlashRoutes: Array<{ id: string; label: string }> = [];
+  public allowGuardAccess: boolean = false;
+  public allowGuardLeave: boolean = true;
+  public guardStatus: string = 'Ready';
   private readonly router = resolve(IRouteCoordinator);
   public readonly state = resolve(StorefrontState);
   private unobservePath: (() => void) | null = null;
@@ -98,6 +101,21 @@ export class MyApp {
 
   public removeFlashRoute(): void {
     this.repeatedFlashRoutes = [];
+  }
+
+  public async canEnterGuardedRoute(): Promise<boolean> {
+    this.guardStatus = 'Checking private access';
+    await Promise.resolve();
+    this.guardStatus = this.allowGuardAccess ? 'Private access approved' : 'Private access denied';
+    return this.allowGuardAccess;
+  }
+
+  public canLeaveGuardedEditor(): boolean {
+    return this.allowGuardLeave;
+  }
+
+  public redirectGuardedRoute(): string {
+    return 'login';
   }
 
   public go(path: string): void {

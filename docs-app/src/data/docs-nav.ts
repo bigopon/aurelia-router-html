@@ -78,6 +78,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A8',
   },
   {
+    id: 'guards',
+    title: 'Navigation Guards',
+    path: '/features/guards',
+    summary: 'Approve, cancel, or redirect route changes without partially committing navigation.',
+    badge: 'A9',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

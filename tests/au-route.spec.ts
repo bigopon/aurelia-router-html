@@ -554,7 +554,7 @@ describe('au-route redirects', function () {
 
     try {
       await tasksSettled();
-      assert.deepStrictEqual(adapter.replaced, ['/renamed/42', '/legacy/42', '/products/42']);
+      assert.deepStrictEqual(adapter.replaced, ['/products/42']);
       assert.strictEqual(adapter.getCurrentPath(), '/products/42');
       assert.strictEqual(adapter.back(), false);
       assert.strictEqual(fixture.appHost.querySelector('[data-product]')?.textContent, 'Product 42');
@@ -924,6 +924,263 @@ describe('au-route template lifecycle', function () {
       assert.strictEqual(fixture.appHost.querySelector('[data-async-content]'), null);
     } finally {
       finishAttaching();
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route navigation guards', function () {
+  for (const testCase of [
+    {
+      position: 'first',
+      routes: `<au-route path="private" exact can-load.bind="() => canOpen()"><h1 data-private>Private</h1></au-route>
+        <au-route path="home" exact><h1 data-home>Home</h1></au-route>
+        <au-route path="settings" exact><h1 data-settings>Settings</h1></au-route>`,
+    },
+    {
+      position: 'middle',
+      routes: `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+        <au-route path="private" exact can-load.bind="() => canOpen()"><h1 data-private>Private</h1></au-route>
+        <au-route path="settings" exact><h1 data-settings>Settings</h1></au-route>`,
+    },
+    {
+      position: 'last',
+      routes: `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+        <au-route path="settings" exact><h1 data-settings>Settings</h1></au-route>
+        <au-route path="private" exact can-load.bind="() => canOpen()"><h1 data-private>Private</h1></au-route>`,
+    },
+  ]) {
+    it(`cancels can-load when the denied route is the ${testCase.position} of three siblings`, async function () {
+      class App {
+        public canOpen(): boolean {
+          return false;
+        }
+      }
+
+      const adapter = new MemoryPathAdapter('/home');
+      const fixture = await createFixture(
+        testCase.routes,
+        App,
+        [Routing.customize({ adapter })],
+      ).started;
+
+      try {
+        const result = fixture.container.get(IRouteCoordinator).load('/private');
+        assert.strictEqual(result, false);
+        await tasksSettled();
+        assert.strictEqual(adapter.getCurrentPath(), '/home');
+        assert.strictEqual(adapter.back(), false);
+        assert.strictEqual(adapter.forward(), false);
+        assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+        assert.strictEqual(fixture.appHost.querySelector('[data-private]'), null);
+        assert.strictEqual(fixture.appHost.querySelector('[data-settings]'), null);
+      } finally {
+        await fixture.tearDown();
+      }
+    });
+  }
+
+  it('keeps the outgoing branch mounted while an asynchronous can-load is pending', async function () {
+    let finishGuard!: (allowed: boolean) => void;
+    const guard = new Promise<boolean>(resolve => { finishGuard = resolve; });
+    class App {
+      public canOpen(): Promise<boolean> {
+        return guard;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+      <au-route path="private" exact can-load.bind="() => canOpen()"><h1 data-private>Private</h1></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/private');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-private]'), null);
+
+      finishGuard(false);
+      assert.strictEqual(await (navigation as Promise<boolean>), false);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+    } finally {
+      finishGuard(false);
+      await fixture.tearDown();
+    }
+  });
+
+  it('aborts a stale asynchronous guard before running the newer navigation', async function () {
+    let finishGuard!: (allowed: boolean) => void;
+    let observedSignal: AbortSignal | null = null;
+    const guard = new Promise<boolean>(resolve => { finishGuard = resolve; });
+    class App {
+      public canOpen(transition: { signal: AbortSignal }): Promise<boolean> {
+        observedSignal = transition.signal;
+        return guard;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+      <au-route path="private" exact can-load.bind="transition => canOpen(transition)">Private</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const first = fixture.container.get(IRouteCoordinator).load('/private');
+      const second = fixture.container.get(IRouteCoordinator).load('/home');
+      assert.strictEqual((observedSignal as unknown as AbortSignal).aborted, true);
+
+      finishGuard(true);
+      assert.strictEqual(await first, false);
+      assert.strictEqual(await second, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+    } finally {
+      finishGuard(false);
+      await fixture.tearDown();
+    }
+  });
+
+  it('runs can-unload deepest-first and cancels before incoming work begins', async function () {
+    const events: string[] = [];
+    class App {
+      public guard(name: string, allowed: boolean): boolean {
+        events.push(name);
+        return allowed;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/area/project/editor');
+    const fixture = await createFixture(
+      `<au-route path="home" exact can-load.bind="() => guard('home can-load', true)"><h1>Home</h1></au-route>
+      <au-route path="area" can-unload.bind="() => guard('area can-unload', true)">
+        <au-route path="project" can-unload.bind="() => guard('project can-unload', false)">
+          <au-route path="editor" exact can-unload.bind="() => guard('editor can-unload', true)">Editor</au-route>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const result = fixture.container.get(IRouteCoordinator).load('/home');
+      assert.strictEqual(result, false);
+      assert.deepStrictEqual(events, ['editor can-unload', 'project can-unload']);
+      assert.strictEqual(adapter.getCurrentPath(), '/area/project/editor');
+      assert.strictEqual(fixture.appHost.textContent?.includes('Editor'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('redirects contextually from a nested can-load result', async function () {
+    class App {
+      public redirect() {
+        return { target: 'login', options: { replace: true } };
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="area">
+        <au-route path="private" exact can-load.bind="() => redirect()">Private</au-route>
+        <au-route path="login" exact><h1 data-login>Login</h1></au-route>
+      </au-route>
+      `,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const result = fixture.container.get(IRouteCoordinator).load('/area/private');
+      assert.strictEqual(result instanceof Promise ? await result : result, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/area/login');
+      assert.strictEqual(fixture.appHost.querySelector('[data-login]')?.textContent, 'Login');
+      assert.strictEqual(fixture.appHost.textContent?.includes('Private'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rejects loading errors and restores the outgoing navigation', async function () {
+    const failure = new Error('Product loading failed');
+    class App {
+      public loadProduct(): Promise<void> {
+        return Promise.reject(failure);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+      <au-route path="product" exact loading.bind="() => loadProduct()"><h1 data-product>Product</h1></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/product');
+      assert.strictEqual(navigation instanceof Promise, true);
+      let caught: unknown;
+      try {
+        await navigation;
+      } catch (error) {
+        caught = error;
+      }
+      assert.strictEqual(caught, failure);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-product]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('reports link-triggered navigation errors through au-route-navigation-error', async function () {
+    const failure = new Error('Link loading failed');
+    class App {
+      public fail(): Promise<void> {
+        return Promise.reject(failure);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<a au-link="broken">Broken</a>
+      <au-route path="home" exact>Home</au-route>
+      <au-route path="broken" exact loading.bind="() => fail()">Broken route</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      let reported: unknown;
+      fixture.appHost.addEventListener('au-route-navigation-error', event => {
+        reported = (event as CustomEvent<{ error: unknown }>).detail.error;
+      });
+      const link = fixture.appHost.querySelector('a')!;
+      const MouseEvent = fixture.appHost.ownerDocument.defaultView!.MouseEvent;
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+      for (let index = 0; index < 10 && reported == null; index++) {
+        await Promise.resolve();
+        await tasksSettled();
+      }
+      assert.strictEqual(reported, failure);
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+    } finally {
       await fixture.tearDown();
     }
   });

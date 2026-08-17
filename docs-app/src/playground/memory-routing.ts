@@ -150,7 +150,7 @@ export function createPlaygroundRouting() {
       swapOrder: options.swapOrder,
       hrefFormatter: path => adapter.formatHref(path),
     });
-    const coordinator = new RouteCoordinator(root, adapter);
+    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController());
     const titleService = options.titles === false
       ? { start() {}, beginViewActivation() {}, endViewActivation() {}, requestUpdate() {}, stop() {} }
       : new BrowserRouteTitleService(
@@ -166,9 +166,9 @@ export function createPlaygroundRouting() {
       Registration.instance(IRouteContext, root),
       Registration.instance(IRouteTitleService, titleService),
       Registration.instance(IRouteCoordinator, coordinator),
-      AppTask.creating(() => {
+      AppTask.activated(() => {
         titleService.start();
-        coordinator.start();
+        return coordinator.start();
       }),
       AppTask.deactivated(() => {
         titleService.stop();

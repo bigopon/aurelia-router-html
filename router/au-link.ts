@@ -16,6 +16,8 @@ export interface LinkInstruction {
   readonly activeClass?: string;
 }
 
+export const routeNavigationErrorEvent = 'au-route-navigation-error';
+
 export class AuLink implements ICustomAttributeViewModel {
   public static readonly $au: CustomAttributeStaticAuDefinition = {
     type: 'custom-attribute',
@@ -73,8 +75,24 @@ export class AuLink implements ICustomAttributeViewModel {
       return;
     }
     event.preventDefault();
-    this.route.load(instruction.target, instruction.params, instruction.options);
+    try {
+      const navigation = this.route.load(instruction.target, instruction.params, instruction.options);
+      if (navigation instanceof Promise) {
+        void navigation.catch(error => this.reportNavigationError(error));
+      }
+    } catch (error) {
+      this.reportNavigationError(error);
+    }
   };
+
+  private reportNavigationError(error: unknown): void {
+    const Event = this.element.ownerDocument.defaultView?.CustomEvent ?? CustomEvent;
+    this.element.dispatchEvent(new Event(routeNavigationErrorEvent, {
+      bubbles: true,
+      composed: true,
+      detail: { error },
+    }));
+  }
 
   private update(): void {
     const instruction = this.getInstruction();

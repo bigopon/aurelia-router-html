@@ -147,7 +147,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(18);
+    await expect(features).toHaveCount(19);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -185,9 +185,12 @@ test.describe('router HTML docs features', () => {
     const lifecycleSyntax = features.filter({ hasText: 'Loading & Loaded' }).locator('pre');
     await expect(lifecycleSyntax).toContainText('loading.bind="() => loadProduct()"');
     await expect(lifecycleSyntax).toContainText('loaded.bind="() => productIsReady()"');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(18);
+    const guardSyntax = features.filter({ hasText: 'Navigation Guards' }).locator('pre');
+    await expect(guardSyntax).toContainText('can-load.bind="() => canOpenAccount()"');
+    await expect(guardSyntax).toContainText('can-unload.bind="() => canLeaveAccount()"');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(19);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(18);
+    await expect(editLinks).toHaveCount(19);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -198,6 +201,7 @@ test.describe('router HTML docs features', () => {
       '/playground/declarative-redirects',
       '/playground/page-titles',
       '/playground/route-lifecycle',
+      '/playground/navigation-guards',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -618,6 +622,83 @@ test.describe('router HTML docs features', () => {
     await expect(frame.locator('ol')).toContainText('Board loading');
     await expect(frame.locator('ol')).toContainText('Board loaded');
     await expect(frame.locator('ol')).toContainText('Projects loaded');
+  });
+
+  test('navigation guard guide cancels, approves, and redirects in its embedded playground', async ({ page }) => {
+    await page.goto('/features/guards');
+    await expect(page).toHaveTitle('Navigation Guards | Aurelia Router HTML');
+
+    const guide = page.locator('[data-e2e="guards-guide"]');
+    await expect(guide).toContainText('can-load');
+    await expect(guide).toContainText('can-unload');
+    await expect(guide).toContainText('Atomic navigation');
+
+    const playgrounds = page.locator('.playground-page.is-embedded');
+    await expect(playgrounds).toHaveCount(2);
+    const playground = playgrounds.first();
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+
+    await frame.getByRole('link', { name: 'Account' }).click();
+    await expect(frame.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(frame.getByRole('status')).toHaveText('Access denied');
+
+    await frame.getByRole('button', { name: 'Allow account' }).click();
+    await frame.getByRole('link', { name: 'Account' }).click();
+    await expect(frame.getByRole('heading', { name: 'Account' })).toBeVisible();
+
+    await frame.getByRole('link', { name: 'Admin' }).click();
+    await expect(frame.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+
+    const layeredGuide = page.locator('[data-e2e="layered-guards-guide"]');
+    await expect(layeredGuide).toContainText('progressive authorization pipeline');
+    await expect(layeredGuide).toContainText('logs every invoked guard in order');
+
+    const layeredPlayground = playgrounds.nth(1);
+    await expect(layeredPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const layeredFrame = layeredPlayground.frameLocator('[data-e2e="playground-preview"]');
+
+    await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await expect(layeredFrame.getByLabel('Guard invocation order').locator('li')).toHaveText([
+      'Portal guard: require a signed-in member',
+    ]);
+
+    await layeredFrame.getByRole('button', { name: 'Use member' }).click();
+    await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Member profile' })).toBeVisible();
+    await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Access denied' })).toBeVisible();
+    await expect(layeredFrame.getByLabel('Guard invocation order').locator('li')).toHaveText([
+      'Portal guard: require a signed-in member',
+      'Staff guard: require staff access',
+    ]);
+
+    await layeredFrame.getByRole('button', { name: 'Use staff' }).click();
+    await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
+    await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Staff reports' })).toBeVisible();
+    await expect(layeredFrame.getByLabel('Guard invocation order').locator('li')).toHaveText([
+      'Portal guard: require a signed-in member',
+      'Staff guard: require staff access',
+    ]);
+
+    await layeredFrame.getByRole('link', { name: 'Administration' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Access denied' })).toBeVisible();
+    await expect(layeredFrame.getByLabel('Guard invocation order').locator('li').last()).toHaveText(
+      'Administration guard: require admin access',
+    );
+
+    await layeredFrame.getByRole('button', { name: 'Use admin' }).click();
+    await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
+    await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
+    await layeredFrame.getByRole('link', { name: 'Administration' }).click();
+    await expect(layeredFrame.getByRole('heading', { name: 'Administration' })).toBeVisible();
+    await expect(layeredFrame.getByLabel('Guard invocation order').locator('li')).toHaveText([
+      'Portal guard: require a signed-in member',
+      'Staff guard: require staff access',
+      'Administration guard: require admin access',
+    ]);
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

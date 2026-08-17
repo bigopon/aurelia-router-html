@@ -372,6 +372,40 @@
           </section>
         </au-route>
 
+        <au-route path="guard">
+          <section class="route-stack" data-e2e="guard-stage">
+            <nav class="mini-list">
+              <a au-link="home" class="mini-chip">Guard home</a>
+              <a au-link="private" class="mini-chip">Guard private</a>
+              <a au-link="editor" class="mini-chip">Guard editor</a>
+              <a au-link="admin" class="mini-chip">Guard admin</a>
+            </nav>
+            <button data-e2e="toggle-guard-access" click.trigger="allowGuardAccess = !allowGuardAccess">
+              ${allowGuardAccess ? 'Block private' : 'Allow private'}
+            </button>
+            <button data-e2e="toggle-guard-leave" click.trigger="allowGuardLeave = !allowGuardLeave">
+              ${allowGuardLeave ? 'Lock editor' : 'Unlock editor'}
+            </button>
+            <output data-e2e="guard-status">${guardStatus}</output>
+
+            <au-route path="home" exact>
+              <div class="route-callout" data-e2e="guard-home">Guard home</div>
+            </au-route>
+            <au-route path="private" exact can-load.bind="() => canEnterGuardedRoute()">
+              <div class="route-callout" data-e2e="guard-private">Private route</div>
+            </au-route>
+            <au-route path="editor" exact can-unload.bind="() => canLeaveGuardedEditor()">
+              <div class="route-callout" data-e2e="guard-editor">Guarded editor</div>
+            </au-route>
+            <au-route path="admin" exact can-load.bind="() => redirectGuardedRoute()">
+              <div class="route-callout" data-e2e="guard-admin">Admin route</div>
+            </au-route>
+            <au-route path="login" exact>
+              <div class="route-callout" data-e2e="guard-login">Guard login</div>
+            </au-route>
+          </section>
+        </au-route>
+
         <au-route path="*" fallback>
           <section class="route-callout" data-e2e="route-fallback">
             No route matched this URL.

@@ -16,6 +16,8 @@ import {
   HydrateElementInstruction,
 } from '@aurelia/template-compiler';
 import { IRouteAnimationOptions } from './animation';
+import { IRouteCoordinator, RouteCoordinator } from './coordinator';
+import type { RouteCanLoadCallback, RouteCanUnloadCallback } from './guard';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
 
@@ -34,7 +36,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title', 'loading', 'loaded'],
+    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'loading', 'loaded'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -97,6 +99,8 @@ export class AuRoute implements ICustomElementViewModel {
   public path: string = '/';
   public redirectTo: string | null = null;
   public title: string | null = null;
+  public canLoad: RouteCanLoadCallback | null = null;
+  public canUnload: RouteCanUnloadCallback | null = null;
   public loading: RouteLifecycleCallback | null = null;
   public loaded: RouteLifecycleCallback | null = null;
   public view: ISyntheticView | null = null;
@@ -109,6 +113,7 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly expressionParser = resolve(IExpressionParser);
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
   private readonly titleService = resolve(IRouteTitleService);
+  private readonly coordinator = resolve(IRouteCoordinator) as RouteCoordinator;
   private readonly pathExpression: string | null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
@@ -117,6 +122,7 @@ export class AuRoute implements ICustomElementViewModel {
   private requestedViewActive: boolean = false;
   private viewTransition: Promise<void> | null = null;
   private animationRunId: number = 0;
+  private lastRedirectKey: string | null = null;
 
   public constructor() {
     const parentContext = resolve(IRouteContext);
@@ -148,7 +154,11 @@ export class AuRoute implements ICustomElementViewModel {
     this.overrideContext.$route = this.context;
     this.isActive = this.context.active;
     this.unsubscribe = this.context.subscribe(state => {
+      const wasActive = this.isActive;
       this.isActive = state.active;
+      if (state.active && !wasActive) {
+        this.lastRedirectKey = null;
+      }
       this.overrideContext.$params = state.params;
       this.overrideContext.$query = state.query;
       this.overrideContext.$hash = state.hash;
@@ -177,6 +187,15 @@ export class AuRoute implements ICustomElementViewModel {
 
   public bound(): void {
     this.updateTitle(this.title);
+    this.updateGuards();
+  }
+
+  public canLoadChanged(): void {
+    this.updateGuards();
+  }
+
+  public canUnloadChanged(): void {
+    this.updateGuards();
   }
 
   public pathChanged(path: string): void {
@@ -200,14 +219,23 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  private updateGuards(): void {
+    (this.context as RouteContext)._setGuards(this.canLoad, this.canUnload);
+  }
+
   private tryRedirect(): void {
-    if (!this.isRedirect || !this.isActive || this.scope == null || this.redirectTo == null || this.redirectTo.trim() === '') {
+    if (this.coordinator._isRollingBack || !this.isRedirect || !this.isActive || this.scope == null || this.redirectTo == null || this.redirectTo.trim() === '') {
       return;
     }
     const parent = this.context.parent;
     if (!(parent instanceof RouteContext)) {
       throw new Error('An au-route redirect requires a parent route context.');
     }
+    const redirectKey = `${this.context.$path}\0${this.redirectTo}\0${this.redirectMode}`;
+    if (this.lastRedirectKey === redirectKey) {
+      return;
+    }
+    this.lastRedirectKey = redirectKey;
     parent._redirect(this.redirectTo, this.context.$params, this.redirectMode !== 'push');
   }
 
@@ -222,7 +250,7 @@ export class AuRoute implements ICustomElementViewModel {
     if (parent?.active === true) {
       parent.refresh();
     } else {
-      this.context.apply('/__inactive__');
+      (this.context as RouteContext)._deactivate();
     }
   }
 
@@ -296,7 +324,7 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
-    return onResolve(this.loading?.(this.context), () => {
+    return this.coordinator._runRouteActivation(this.context as RouteContext, this.canLoad, () => onResolve(this.loading?.(this.context), () => {
       if (!this.requestedViewActive || this.scope == null) {
         return;
       }
@@ -318,7 +346,7 @@ export class AuRoute implements ICustomElementViewModel {
         return ready.then(
           () => {
             this.titleService.endViewActivation();
-            return this.animate('enter');
+            return this.coordinator._runEnterAnimation(() => this.animate('enter'));
           },
           error => {
             this.titleService.endViewActivation();
@@ -327,8 +355,8 @@ export class AuRoute implements ICustomElementViewModel {
         );
       }
       this.titleService.endViewActivation();
-      return this.animate('enter');
-    });
+      return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+    }));
   }
 
   private deactivateView(): void | Promise<void> {

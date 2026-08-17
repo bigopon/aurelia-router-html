@@ -1,6 +1,7 @@
 export { AuRoute } from './au-route';
 export type { RouteLifecycleCallback } from './au-route';
-export { AuLink } from './au-link';
+export type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardContext, RouteGuardRedirect, RouteGuardResult } from './guard';
+export { AuLink, routeNavigationErrorEvent } from './au-link';
 export type { LinkInstruction, RouteLinkOptions } from './au-link';
 export { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from './browser-path-adapter';
 export type { BrowserAdapterOptions, BrowserRoutingMode } from './browser-path-adapter';

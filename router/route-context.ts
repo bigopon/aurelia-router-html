@@ -1,6 +1,7 @@
-import { DI } from '@aurelia/kernel';
+import { DI, isPromise } from '@aurelia/kernel';
 import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
+import type { RouteCanLoadCallback, RouteCanUnloadCallback } from './guard';
 
 export interface RouteState {
   readonly active: boolean;
@@ -52,7 +53,7 @@ export interface IRouteContext {
   readonly title: string | null;
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
-  load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): void;
+  load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): boolean | Promise<boolean>;
   isActive(target?: string | IRouteContext, params?: RouteParams, options?: RouteActiveOptions): boolean;
   getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
@@ -108,8 +109,11 @@ export class RouteContext implements IRouteContext {
   private readonly _fallback: boolean;
   private readonly _swapOrder: SwapOrder;
   private readonly _hrefFormatter: (path: string) => string;
-  private _navigator: ((path: string, options: RouteNavigationOptions) => void) | null = null;
+  private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
   private _navigationVersion: number = 0;
+  private _deferredDeactivations: Set<RouteContext> | null = null;
+  /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
+  /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -133,27 +137,102 @@ export class RouteContext implements IRouteContext {
     return this._hrefFormatter(this._createHref(target, params, options));
   }
 
-  public load(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteLoadOptions = {}): void {
+  public load(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteLoadOptions = {}): boolean | Promise<boolean> {
     const { replace, ...hrefOptions } = options;
-    this._navigate(target, params, hrefOptions, { replace });
+    return this._navigate(target, params, hrefOptions, { replace });
   }
 
   /** @internal */
-  public _redirect(target: string, params: RouteParams, replace: boolean): void {
-    this._navigate(target, params, {}, { replace, redirect: true });
+  public _redirect(target: string, params: RouteParams, replace: boolean): boolean | Promise<boolean> {
+    return this._navigate(target, params, {}, { replace, redirect: true });
   }
 
   /** @internal */
-  public _setNavigator(navigator: (path: string, options: RouteNavigationOptions) => void): void {
+  public _setNavigator(navigator: (path: string, options: RouteNavigationOptions) => unknown): void {
     this._navigator = navigator;
   }
 
-  private _navigate(target: string | IRouteContext, params: RouteParams, hrefOptions: RouteHrefOptions, navigationOptions: RouteNavigationOptions): void {
+  private _navigate(target: string | IRouteContext, params: RouteParams, hrefOptions: RouteHrefOptions, navigationOptions: RouteNavigationOptions): boolean | Promise<boolean> {
     const root = this.root as RouteContext;
     if (root._navigator == null) {
       throw new Error('The route context is not connected to a navigation adapter.');
     }
-    root._navigator(this._createHref(target, params, hrefOptions), navigationOptions);
+    const result = root._navigator(this._createHref(target, params, hrefOptions), navigationOptions);
+    return isPromise(result) ? result as Promise<boolean> : typeof result === 'boolean' ? result : true;
+  }
+
+  /** @internal */
+  public _setGuards(canLoad: RouteCanLoadCallback | null, canUnload: RouteCanUnloadCallback | null): void {
+    this._canLoad = canLoad;
+    this._canUnload = canUnload;
+  }
+
+  /** @internal */
+  public _hasGuards(): boolean {
+    if (this._canLoad != null || this._canUnload != null) {
+      return true;
+    }
+    return this.children.some(child => child._hasGuards());
+  }
+
+  /** @internal */
+  public _getLeaving(path: string): RouteContext[] {
+    const next = new Set<RouteContext>();
+    this._collectMatches(normalizePath(path), next);
+    return this._getContexts()
+      .filter((context): context is RouteContext => context instanceof RouteContext && context.active && !next.has(context))
+      .sort((left, right) => right._depth() - left._depth());
+  }
+
+  /** @internal */
+  public _resolveGuardRedirect(target: string | IRouteContext, params: RouteParams = {}, options: RouteHrefOptions = {}): string {
+    const origin = this.parent instanceof RouteContext ? this.parent : this;
+    return origin._createHref(target, { ...this.$params, ...params }, options);
+  }
+
+  /** @internal */
+  public _beginNavigationTransaction(): void {
+    (this.root as RouteContext)._deferredDeactivations = new Set();
+  }
+
+  /** @internal */
+  public _commitNavigationTransaction(): void {
+    const root = this.root as RouteContext;
+    const deferred = root._deferredDeactivations;
+    root._deferredDeactivations = null;
+    if (deferred == null) {
+      return;
+    }
+    for (const context of deferred) {
+      if (context.active) {
+        context._deactivateBranch('/__inactive__', root.$query, root.$hash);
+      }
+    }
+  }
+
+  /** @internal */
+  public _cancelNavigationTransaction(): void {
+    (this.root as RouteContext)._deferredDeactivations = null;
+  }
+
+  /** @internal */
+  public _restoreInactive(location: RouteLocation): void {
+    const root = this.root as RouteContext;
+    root._deferredDeactivations = null;
+    for (const child of root.children) {
+      child._deactivateBranch('/__inactive__', location.query, location.hash);
+    }
+    root.active = false;
+    root.residue = '/';
+    root.$params = Object.freeze({});
+    root.$path = location.pathname;
+    root.$query = location.query;
+    root.$hash = location.hash;
+  }
+
+  /** @internal */
+  public _deactivate(): void {
+    this._deactivateBranch('/__inactive__', this.$query, this.$hash);
   }
 
   public isActive(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteActiveOptions = {}): boolean {
@@ -314,11 +393,24 @@ export class RouteContext implements IRouteContext {
       : matchingChildren.filter(child => child._fallback);
     const matchSet = new Set(matches);
     const misses = this.children.filter(child => !matchSet.has(child));
+    const deferredDeactivations = root._deferredDeactivations;
+    if (deferredDeactivations != null) {
+      for (const child of matches) {
+        deferredDeactivations.delete(child);
+      }
+      for (const child of misses) {
+        if (child.active) {
+          deferredDeactivations.add(child);
+        }
+      }
+    }
 
     switch (this._swapOrder) {
       case 'detach-current-attach-next':
         for (const child of misses) {
-          child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          if (deferredDeactivations == null) {
+            child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          }
           if (root._navigationVersion !== navigationVersion) return;
         }
         for (const child of matches) {
@@ -333,7 +425,9 @@ export class RouteContext implements IRouteContext {
           if (root._navigationVersion !== navigationVersion) return;
         }
         for (const child of misses) {
-          child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          if (deferredDeactivations == null) {
+            child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+          }
           if (root._navigationVersion !== navigationVersion) return;
         }
         break;
@@ -342,7 +436,9 @@ export class RouteContext implements IRouteContext {
           if (matchSet.has(child)) {
             child.apply(nextResidue, location);
           } else {
-            child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+            if (deferredDeactivations == null) {
+              child._deactivateBranch('/__inactive__', this.$query, this.$hash);
+            }
           }
           if (root._navigationVersion !== navigationVersion) return;
         }
@@ -361,7 +457,7 @@ export class RouteContext implements IRouteContext {
     if (this.active) {
       this.refresh();
     } else {
-      child.apply('/__inactive__', { query: this.$query, hash: this.$hash });
+      child._deactivateBranch('/__inactive__', this.$query, this.$hash);
     }
     this._notifyRegistryChanged();
     return child;
@@ -490,6 +586,34 @@ export class RouteContext implements IRouteContext {
       contexts.push(...contexts[index].children);
     }
     return contexts;
+  }
+
+  private _collectMatches(path: string, matches: Set<RouteContext>): void {
+    const match = this._matcher.exec(normalizePath(path));
+    this._matcher.lastIndex = 0;
+    if (match == null) {
+      return;
+    }
+    matches.add(this);
+    const residue = normalizeResidue(match.groups?.rest__);
+    const matchingChildren = this.children.filter(child => child._match(residue) !== null);
+    const regularMatches = matchingChildren.filter(child => !child._fallback);
+    const selected = regularMatches.length > 0
+      ? regularMatches
+      : matchingChildren.filter(child => child._fallback);
+    for (const child of selected) {
+      child._collectMatches(residue, matches);
+    }
+  }
+
+  private _depth(): number {
+    let depth = 0;
+    let context = this.parent;
+    while (context != null) {
+      depth++;
+      context = context.parent;
+    }
+    return depth;
   }
 
   private _notify(): void {

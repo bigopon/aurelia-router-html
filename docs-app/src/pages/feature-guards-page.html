@@ -1,0 +1,59 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Navigation Guards</h2>
+      <p class="page-copy">Keep authorization and unsaved-work decisions beside the route whose navigation they control.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="guards-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="account"
+  can-load.bind="() =&gt; canOpenAccount()"
+  can-unload.bind="() =&gt; canLeaveAccount()"&gt;
+  &lt;h1&gt;Account&lt;/h1&gt;
+&lt;/au-route&gt;</pre>
+      <p>Guards use Aurelia v2 function bindings, retaining the surrounding binding context without <code>.call</code>.</p>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>can-load</code> approves, cancels, or redirects entry into its route. <code>can-unload</code> approves or cancels leaving an active route.</p>
+      <p>Outgoing guards run from the deepest active child upward. Incoming routes are discovered progressively: each route runs <code>can-load</code>, then <code>loading</code>, before its template reveals the next child. Loaded notification returns from child to parent.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>public canOpenAccount(): boolean | string {
+  return this.session.isSignedIn
+    ? true
+    : '/sign-in';
+}
+
+public canLeaveAccount(): boolean {
+  return !this.form.isDirty
+    || confirm('Discard your changes?');
+}</pre>
+      <p>Return <code>true</code> to continue, <code>false</code> to keep the complete current navigation, or a route target from <code>can-load</code> to redirect. A target without a leading slash resolves from the guarded route's parent; a leading slash starts at the root.</p>
+    </section>
+
+    <section>
+      <h3>Atomic navigation</h3>
+      <p>The outgoing branch remains mounted and browser history remains unchanged while asynchronous guards and loading work are pending. Cancellation restores the outgoing route state; loading errors reject programmatic navigation with their original error.</p>
+      <p>The transition argument exposes an <code>AbortSignal</code> for application work that should stop when a newer navigation supersedes the current attempt.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="navigation-guards" embedded.bind="true"></playground-page>
+
+  <section class="feature-details" data-e2e="layered-guards-guide">
+    <section>
+      <h3>Layered authorization</h3>
+      <p>Nested guards form a progressive authorization pipeline. The portal first requires a signed-in member, its staff area then requires staff access, and its administration child finally requires an administrator. Each route renders its own contextual links beside the UI they navigate, and the example logs every invoked guard in order.</p>
+    </section>
+  </section>
+
+  <playground-page example-id="layered-navigation-guards" embedded.bind="true"></playground-page>
+</section>

@@ -82,6 +82,13 @@ export class OverviewPage {
       syntax: '<au-route\n  path="products/:id"\n  loading.bind="() => loadProduct()"\n  loaded.bind="() => productIsReady()">\n  Product\n</au-route>',
     },
     {
+      title: 'Navigation Guards',
+      summary: 'Approve, cancel, or redirect navigation from the route declaration that owns the decision.',
+      path: '/features/guards',
+      playgroundId: 'navigation-guards',
+      syntax: '<au-route\n  path="account"\n  can-load.bind="() => canOpenAccount()"\n  can-unload.bind="() => canLeaveAccount()">\n  Account\n</au-route>',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',
