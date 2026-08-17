@@ -83,10 +83,17 @@ export class OverviewPage {
     },
     {
       title: 'Navigation Guards',
-      summary: 'Approve, cancel, or redirect navigation from the route declaration that owns the decision.',
+      summary: 'Approve, cancel, or redirect from the route declaration that owns the decision.',
       path: '/features/guards',
       playgroundId: 'navigation-guards',
       syntax: '<au-route\n  path="account"\n  can-load.bind="() => canOpenAccount()"\n  can-unload.bind="() => canLeaveAccount()">\n  Account\n</au-route>',
+    },
+    {
+      title: 'Guard Failure Modes',
+      summary: 'Keep atomic cancellation by default or let one denied subtree yield to its nearest fallback.',
+      path: '/features/guard-failure',
+      playgroundId: 'layered-navigation-guards',
+      syntax: '<au-route\n  path="admin"\n  can-load.bind="() => isAdmin()"\n  guard-failure="local">\n  Administration\n</au-route>\n<au-route path="*" fallback>Access denied</au-route>',
     },
     {
       title: 'Routing Adapters',

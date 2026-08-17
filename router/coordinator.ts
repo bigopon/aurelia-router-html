@@ -4,6 +4,8 @@ import type { IPathAdapter } from './path-adapter';
 import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
 
+declare const __DEV__: boolean;
+
 export interface LoadOptions {
   replace?: boolean;
 }
@@ -401,6 +403,10 @@ export class RouteCoordinator implements IRouteCoordinator {
       return activate();
     }
     if (result === false) {
+      if (context._guardFailure === 'local') {
+        this.rejectGuardLocally(context);
+        return;
+      }
       transaction.cancelled = true;
       transaction.controller.abort();
       throw new NavigationCancelled();
@@ -430,9 +436,28 @@ export class RouteCoordinator implements IRouteCoordinator {
     const controller = this.createAbortController();
     const result = callback({ route: context, signal: controller.signal });
     if (isPromise(result)) {
-      return result.then(value => value === false ? undefined : activate());
+      return result.then(value => {
+        if (value !== false) {
+          return activate();
+        }
+        if (context._guardFailure === 'local') {
+          this.rejectGuardLocally(context);
+        }
+      });
     }
-    return result === false ? undefined : activate();
+    if (result !== false) {
+      return activate();
+    }
+    if (context._guardFailure === 'local') {
+      this.rejectGuardLocally(context);
+    }
+  }
+
+  private rejectGuardLocally(context: RouteContext): void {
+    const recovered = context._rejectGuardLocally();
+    if (__DEV__ && !recovered) {
+      console.warn(`[au-route] The locally denied route "${context.fullPath}" has no matching sibling fallback or route.`);
+    }
   }
 
   private captureFailure(transaction: NavigationTransaction, error: unknown): void {

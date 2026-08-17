@@ -379,6 +379,7 @@
               <a au-link="private" class="mini-chip">Guard private</a>
               <a au-link="editor" class="mini-chip">Guard editor</a>
               <a au-link="admin" class="mini-chip">Guard admin</a>
+              <a au-link="local" class="mini-chip">Guard local fallback</a>
             </nav>
             <button data-e2e="toggle-guard-access" click.trigger="allowGuardAccess = !allowGuardAccess">
               ${allowGuardAccess ? 'Block private' : 'Allow private'}
@@ -402,6 +403,12 @@
             </au-route>
             <au-route path="login" exact>
               <div class="route-callout" data-e2e="guard-login">Guard login</div>
+            </au-route>
+            <au-route path="local" exact can-load.bind="() => denyGuardedRouteLocally()" guard-failure="local">
+              <div class="route-callout" data-e2e="guard-local">Locally guarded route</div>
+            </au-route>
+            <au-route path="*" fallback>
+              <div class="route-callout" data-e2e="guard-local-fallback">Guard parent stayed active with its local fallback</div>
             </au-route>
           </section>
         </au-route>

@@ -147,7 +147,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(19);
+    await expect(features).toHaveCount(20);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -188,9 +188,12 @@ test.describe('router HTML docs features', () => {
     const guardSyntax = features.filter({ hasText: 'Navigation Guards' }).locator('pre');
     await expect(guardSyntax).toContainText('can-load.bind="() => canOpenAccount()"');
     await expect(guardSyntax).toContainText('can-unload.bind="() => canLeaveAccount()"');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(19);
+    const guardFailureSyntax = features.filter({ hasText: 'Guard Failure Modes' }).locator('pre');
+    await expect(guardFailureSyntax).toContainText('guard-failure="local"');
+    await expect(guardFailureSyntax).toContainText('<au-route path="*" fallback>');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(20);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(19);
+    await expect(editLinks).toHaveCount(20);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -202,6 +205,7 @@ test.describe('router HTML docs features', () => {
       '/playground/page-titles',
       '/playground/route-lifecycle',
       '/playground/navigation-guards',
+      '/playground/layered-navigation-guards',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -633,9 +637,8 @@ test.describe('router HTML docs features', () => {
     await expect(guide).toContainText('can-unload');
     await expect(guide).toContainText('Atomic navigation');
 
-    const playgrounds = page.locator('.playground-page.is-embedded');
-    await expect(playgrounds).toHaveCount(2);
-    const playground = playgrounds.first();
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground).toHaveCount(1);
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     const frame = playground.frameLocator('[data-e2e="playground-preview"]');
 
@@ -649,12 +652,20 @@ test.describe('router HTML docs features', () => {
 
     await frame.getByRole('link', { name: 'Admin' }).click();
     await expect(frame.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  });
 
-    const layeredGuide = page.locator('[data-e2e="layered-guards-guide"]');
-    await expect(layeredGuide).toContainText('progressive authorization pipeline');
-    await expect(layeredGuide).toContainText('logs every invoked guard in order');
+  test('guard failure modes compare atomic cancellation with nested local recovery', async ({ page }) => {
+    await page.goto('/features/guard-failure');
+    await expect(page).toHaveTitle('Guard Failure Modes | Aurelia Router HTML');
 
-    const layeredPlayground = playgrounds.nth(1);
+    const guide = page.locator('[data-e2e="guard-failure-guide"]');
+    await expect(guide).toContainText('guard-failure="navigation"');
+    await expect(guide).toContainText('guard-failure="local"');
+    await expect(guide).toContainText('immediate parent rematches the residue');
+    await expect(guide).toContainText('can-unload');
+
+    const layeredPlayground = page.locator('.playground-page.is-embedded');
+    await expect(layeredPlayground).toHaveCount(1);
     await expect(layeredPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     const layeredFrame = layeredPlayground.frameLocator('[data-e2e="playground-preview"]');
 
@@ -668,13 +679,16 @@ test.describe('router HTML docs features', () => {
     await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
     await expect(layeredFrame.getByRole('heading', { name: 'Member profile' })).toBeVisible();
     await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
-    await expect(layeredFrame.getByRole('heading', { name: 'Access denied' })).toBeVisible();
+    await expect(layeredFrame.getByRole('heading', { name: 'Member portal' })).toBeVisible();
+    await expect(layeredFrame.getByRole('heading', { name: 'Staff access denied' })).toBeVisible();
+    await expect(layeredPlayground.locator('.preview-label code')).toHaveText('/portal/staff/reports');
     await expect(layeredFrame.getByLabel('Guard invocation order').locator('li')).toHaveText([
       'Portal guard: require a signed-in member',
       'Staff guard: require staff access',
     ]);
 
     await layeredFrame.getByRole('button', { name: 'Use staff' }).click();
+    await layeredFrame.getByRole('link', { name: 'Home' }).click();
     await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
     await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
     await expect(layeredFrame.getByRole('heading', { name: 'Staff reports' })).toBeVisible();
@@ -684,12 +698,15 @@ test.describe('router HTML docs features', () => {
     ]);
 
     await layeredFrame.getByRole('link', { name: 'Administration' }).click();
-    await expect(layeredFrame.getByRole('heading', { name: 'Access denied' })).toBeVisible();
+    await expect(layeredFrame.getByRole('heading', { name: 'Staff area' })).toBeVisible();
+    await expect(layeredFrame.getByRole('heading', { name: 'Administration access denied' })).toBeVisible();
+    await expect(layeredPlayground.locator('.preview-label code')).toHaveText('/portal/staff/admin');
     await expect(layeredFrame.getByLabel('Guard invocation order').locator('li').last()).toHaveText(
       'Administration guard: require admin access',
     );
 
     await layeredFrame.getByRole('button', { name: 'Use admin' }).click();
+    await layeredFrame.getByRole('link', { name: 'Home' }).click();
     await layeredFrame.getByRole('link', { name: 'Member portal' }).click();
     await layeredFrame.getByRole('link', { name: 'Open staff area' }).click();
     await layeredFrame.getByRole('link', { name: 'Administration' }).click();

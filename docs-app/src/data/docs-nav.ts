@@ -85,6 +85,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A9',
   },
   {
+    id: 'guard-failure',
+    title: 'Guard Failure Modes',
+    path: '/features/guard-failure',
+    summary: 'Choose atomic navigation cancellation or local subtree recovery with a sibling fallback.',
+    badge: 'A9',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

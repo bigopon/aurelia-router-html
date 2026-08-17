@@ -83,6 +83,8 @@
 - [x] `A8` Three-level nested routes preserve parent-first loading and child-first loaded ordering, including an asynchronous grandchild that delays ancestor loaded callbacks.
 - [x] `A9` Per-route `can-load.bind` cancels or redirects entry, while `can-unload.bind` cancels exit in deepest-first order.
 - [x] `A9` A denied `can-load` remains declaration-order independent when its route is the first, middle, or last of three siblings.
+- [x] `A9` `guard-failure="local"` commits accepted ancestors and history, excludes the denied subtree for one transaction, and rematches a sibling fallback.
+- [x] `A9` Local guard failure does not weaken transaction-wide `can-unload` denial, and a later retry reevaluates the locally denied route.
 - [x] `A9` Navigation transactions delay adapter commits, retain the outgoing branch during asynchronous guards, and restore it after cancellation or loading failure.
 - [x] `A9` Guard callbacks receive an abort signal, contextual and root-absolute redirects share route href rules, and link-triggered errors emit `au-route-navigation-error`.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
@@ -107,7 +109,9 @@
 - [x] Page titles have an overview card, focused guide, bound-title demo, editable playground, and real-browser coverage.
 - [x] Loading and loaded have an overview card, focused guide, nested editable playground, and real-browser ordering coverage without presenting planned guards as implemented.
 - [x] Navigation guards have an overview card, focused guide, editable cancellation/redirect playground, and standalone browser-adapter coverage.
-- [x] Navigation guard docs visibly log member, staff, and administrator guard invocation across three nested levels and three staff-area siblings.
+- [x] Guard Failure Modes is a dedicated sidebar and overview item with explicit `navigation` and `local` contracts.
+- [x] Guard failure docs visibly log member, staff, and administrator guard invocation across three nested levels and three staff-area siblings.
+- [x] Local guard denial keeps accepted parent UI mounted and commits the requested URL with both embedded and standalone browser adapters.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.
 - [x] Link examples show automatic `au-link` feedback and the equivalent native-anchor `$route.isActive()` binding.

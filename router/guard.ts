@@ -1,5 +1,7 @@
 import type { IRouteContext, RouteLoadOptions, RouteParams } from './route-context';
 
+export type RouteGuardFailure = 'navigation' | 'local';
+
 export interface RouteGuardRedirect {
   readonly target: string | IRouteContext;
   readonly params?: RouteParams;

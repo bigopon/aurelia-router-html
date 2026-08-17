@@ -17,7 +17,7 @@ import {
 } from '@aurelia/template-compiler';
 import { IRouteAnimationOptions } from './animation';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
-import type { RouteCanLoadCallback, RouteCanUnloadCallback } from './guard';
+import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
 
@@ -89,6 +89,11 @@ export class AuRoute implements ICustomElementViewModel {
       data.redirectTo = redirectTo;
       data.redirectMode = redirectMode;
       data.isRedirect = redirectTo != null || redirectExpression != null;
+      const guardFailure = node.getAttribute('guard-failure') ?? 'navigation';
+      if (guardFailure !== 'navigation' && guardFailure !== 'local') {
+        throw new Error(`Invalid au-route guard-failure "${guardFailure}". Expected "navigation" or "local".`);
+      }
+      data.guardFailure = guardFailure;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
       data.animate = node.hasAttribute('animate');
       data.exact = node.hasAttribute('exact');
@@ -128,8 +133,8 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
-    const { projections, data: { animate, exact, fallback, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
+    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -137,6 +142,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.context = parentContext.createChild(path, {
       exact,
       fallback,
+      guardFailure,
       swapOrder: swapOrder ?? undefined,
     });
     this.path = path;

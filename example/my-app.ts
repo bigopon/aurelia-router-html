@@ -118,6 +118,11 @@ export class MyApp {
     return 'login';
   }
 
+  public denyGuardedRouteLocally(): boolean {
+    this.guardStatus = 'Local route denied; guard parent committed';
+    return false;
+  }
+
   public go(path: string): void {
     this.router.load(path);
   }

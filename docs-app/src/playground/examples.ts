@@ -574,17 +574,17 @@ export class App {
     return true;
   }
 
-  public requireStaff(): true | string {
+  public requireStaff(): boolean {
     this.record('Staff guard: require staff access');
     return this.requireRank('staff');
   }
 
-  public requireAdmin(): true | string {
+  public requireAdmin(): boolean {
     this.record('Administration guard: require admin access');
     return this.requireRank('admin');
   }
 
-  private requireRank(required: 'staff' | 'admin'): true | string {
+  private requireRank(required: 'staff' | 'admin'): boolean {
     const rank: Record<AccessLevel, number> = {
       guest: 0,
       member: 1,
@@ -593,7 +593,7 @@ export class App {
     };
     if (rank[this.access] < rank[required]) {
       this.message = \`The \${required} area needs stronger access\`;
-      return '/forbidden';
+      return false;
     }
     return true;
   }
@@ -637,7 +637,10 @@ export class App {
       <h2>Member profile</h2>
     </au-route>
 
-    <au-route path="staff" can-load.bind="() => requireStaff()">
+    <au-route
+      path="staff"
+      can-load.bind="() => requireStaff()"
+      guard-failure="local">
       <h2>Staff area</h2>
       <nav aria-label="Staff area">
         <a au-link="reports">Reports</a>
@@ -651,19 +654,28 @@ export class App {
       <au-route path="schedule" exact>
         <h3>Staff schedule</h3>
       </au-route>
-      <au-route path="admin" exact can-load.bind="() => requireAdmin()">
+      <au-route
+        path="admin"
+        exact
+        can-load.bind="() => requireAdmin()"
+        guard-failure="local">
         <h3>Administration</h3>
       </au-route>
+      <au-route path="*" fallback>
+        <h3>Administration access denied</h3>
+        <p>The staff area remains available at the requested URL.</p>
+      </au-route>
+    </au-route>
+
+    <au-route path="*" fallback>
+      <h2>Staff access denied</h2>
+      <p>The member portal remains available at the requested URL.</p>
     </au-route>
   </au-route>
 
   <au-route path="sign-in" exact>
     <h1>Sign in</h1>
     <p>The portal requires at least member access.</p>
-  </au-route>
-  <au-route path="forbidden" exact>
-    <h1>Access denied</h1>
-    <p>Your account is signed in but does not have the required role.</p>
   </au-route>
 </main>`,
   }),

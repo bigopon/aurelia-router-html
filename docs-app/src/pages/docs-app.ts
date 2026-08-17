@@ -5,6 +5,7 @@ import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
 import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
+import { FeatureGuardFailurePage } from './feature-guard-failure-page';
 import { FeatureGuardsPage } from './feature-guards-page';
 import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
@@ -39,6 +40,7 @@ export class DocsApp {
       FeatureTitlesPage,
       FeatureLifecyclePage,
       FeatureGuardsPage,
+      FeatureGuardFailurePage,
       FeatureConditionalPage,
       FeatureRepeatedPage,
       FeatureMatchingPage,

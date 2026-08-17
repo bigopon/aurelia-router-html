@@ -643,7 +643,27 @@ Route declarations can participate in navigation without requiring a routed comp
 </au-route>
 ```
 
-The guard API belongs to each individual `<au-route>`, while the result controls the complete navigation. A route returning `false` must not merely hide its own view while allowing the URL and sibling branches to advance; that would leave a matched location partially rendered. Denial therefore preserves the complete outgoing navigation state.
+The guard API belongs to each individual `<au-route>`. A route returning `false` cancels the complete navigation by default, preserving the outgoing URL, history, and rendered tree. Applications can opt a particular incoming route into local denial when its parent owns a meaningful fallback UI:
+
+```html
+<au-route path="portal" can-load.bind="() => isSignedIn()">
+  <au-route
+    path="admin"
+    exact
+    can-load.bind="() => isAdmin()"
+    guard-failure="local">
+    <admin-panel></admin-panel>
+  </au-route>
+
+  <au-route path="*" fallback>
+    <access-denied></access-denied>
+  </au-route>
+</au-route>
+```
+
+`guard-failure="navigation"` is the default. `guard-failure="local"` applies only to `can-load` returning `false`: the denied route and its descendants are excluded for the remainder of that transaction, matching runs again at its immediate parent, and accepted ancestors and other selected branches may commit. A sibling fallback can therefore render at the requested URL. Redirect results remain redirects, thrown errors remain errors, and `can-unload` denial remains transaction-wide because retaining a child while removing its ancestor cannot produce a coherent committed tree.
+
+Local denial commits the requested URL and resolves `load()` with `true`, because the route tree successfully committed its local fallback. If no sibling route or fallback can handle the residue, the accepted parent still commits with an empty child stage and development builds warn about the missing local recovery route. The exclusion exists only for the current transaction, so a later retry reevaluates the denied route normally.
 
 Router HTML does not need to reproduce the component router's global phase ordering exactly. The component router can discover its complete configured route tree before activation, while nested, conditional, or repeated `<au-route>` declarations may not exist until their parent template is staged. Router HTML instead guarantees progressive ordering along each selected declarative branch:
 
@@ -660,7 +680,7 @@ The resulting contract keeps the useful semantics of Aurelia's component router 
 
 - `canUnload` runs deepest-first for active routes that would leave and returns `boolean | Promise<boolean>`;
 - `canLoad` runs parent-first for incoming routes and may return `boolean`, a redirect target, or a promise of either;
-- `false` cancels the complete navigation without committing a new route tree or browser-history entry;
+- `false` cancels the complete navigation without committing a new route tree or browser-history entry unless that route explicitly selects `guard-failure="local"`;
 - a `canLoad` redirect uses Router HTML's normal contextual target syntax rather than component-router viewport instructions;
 - the implemented `loading` and `loaded` callbacks surround activation after guards approve the navigation;
 - unchanged route contexts do not rerun hooks merely because a descendant changes;
@@ -688,11 +708,98 @@ If several nested loading callbacks are involved, earlier successful callbacks a
 
 The coordinator delays adapter mutation while the candidate branch is discovered. Outgoing contexts remain mounted during asynchronous guard and loading work. Failed candidates are discarded and the previous route state is reapplied; successful candidates commit history once before outgoing deactivation completes.
 
+### Proposed error recovery implementation
+
+Status: designed, not implemented.
+
+Local guard denial provides the matching primitive needed for local error recovery, but loading errors should not silently reuse guard semantics. A denial is an expected authorization decision; an exception carries diagnostic data, must preserve its original identity, and needs an explicit owner.
+
+The error-boundary API should use an Aurelia callback binding on the route that owns the recovery UI:
+
+```html
+<au-route
+  path="workspace"
+  error.bind="failure => recoverWorkspace(failure)">
+  ...
+</au-route>
+```
+
+The proposed public types are:
+
+```ts
+type RouteFailurePhase = 'can-load' | 'loading' | 'activation' | 'loaded';
+
+interface RouteFailure {
+  readonly error: unknown;
+  readonly source: IRouteContext;
+  readonly boundary: IRouteContext;
+  readonly phase: RouteFailurePhase;
+  readonly signal: AbortSignal;
+}
+
+type RouteErrorResult =
+  | false
+  | null
+  | undefined
+  | RouteGuardRedirect
+  | { readonly recover: 'local' };
+
+type RouteErrorCallback = (
+  failure: RouteFailure,
+) => RouteErrorResult | Promise<RouteErrorResult>;
+```
+
+`false`, `null`, or `undefined` means that boundary did not handle the error, so resolution continues at its parent. `{ recover: 'local' }` handles the failure without changing the requested URL. A redirect object uses the same contextual target, parameters, and replace options as a guard redirect. An explicit object is preferable to `true`, which does not explain what recovery action the router should perform.
+
+When a descendant guard, `loading`, or pre-commit view activation throws, the router walks from the failing route toward the root and invokes registered boundaries nearest-first. A local recovery excludes only the failing subtree, records failure metadata on the handling boundary, and rematches at the failed route's immediate parent using the transaction-local exclusion mechanism already used by local guard denial.
+
+The recovery UI needs a deliberate data channel. Add read-only `failure: RouteFailure | null` to `IRouteContext`, `RouteState`, and the template `$route`. Only the handling boundary owns the value. It clears when a retry successfully replaces the failed subtree, the boundary becomes inactive, or the boundary is disposed. A sibling fallback can read the appropriate ancestor's failure without placing exceptions in URL parameters or a global service.
+
+#### Transaction flow
+
+1. Tag failures with their source route and phase before they reach the coordinator's generic rejection path.
+2. Ignore internal navigation cancellation and an already-aborted superseded transaction.
+3. Starting at the source, find the nearest route context with an `error` callback.
+4. Await that callback inside the existing transaction pending count and pass the transaction's abort signal.
+5. On an unhandled result, continue to the next ancestor.
+6. On a redirect, use the existing redirect transaction path and loop detection.
+7. On local recovery, store `$route.failure` on the boundary, transaction-locally exclude the source subtree, and rematch at the source parent.
+8. Stage and await the selected fallback normally, including its guards, loading, activation, and loaded callbacks.
+9. Commit accepted ancestors, fallback UI, URL, title, selected links, and history once.
+10. If no boundary handles the failure, retain today's atomic rollback and reject with the original error.
+
+The coordinator currently receives one combined activation callback, so phase attribution must be added deliberately. `AuRoute` should wrap `loading`, synthetic-view activation, and `loaded` separately with a small internal tagged failure rather than infer the phase from stack traces. `can-load` already executes in the coordinator with its source context available.
+
+Important constraints for that implementation are:
+
+- aborted superseded navigation is cancellation, not a recoverable error;
+- `can-unload` errors occur before an incoming transaction and must leave the old tree intact rather than partially recover;
+- a recovery callback that throws replaces the handled attempt but should preserve the original error as `cause`;
+- `loaded` currently participates in the pre-commit activation boundary, so it can use the same recovery pipeline, while post-commit animation errors cannot safely roll navigation back;
+- successful application side effects are never automatically compensated;
+- async recovery callbacks increment the existing transaction pending count and observe the same abort signal;
+- error boundaries need loop protection when a fallback or recovery view also fails;
+- unhandled errors retain today's behavior: atomic rollback, rejected programmatic navigation, and `au-route-navigation-error` for link-triggered navigation.
+
+This is worth introducing only with the failure metadata and nearest-boundary contract together. A boolean `error-failure="local"` without an error owner would render a fallback but make the underlying failure difficult to inspect, log, retry, or present safely.
+
+#### Implementation sequence
+
+1. Add the failure/result types, `error` callback registration, and nullable route failure state without changing current rollback behavior.
+2. Tag `can-load`, `loading`, activation, and `loaded` failures with source and phase while preserving the original error object.
+3. Add nearest-first synchronous and asynchronous boundary resolution, redirect handling, and AbortSignal behavior.
+4. Reuse transaction-local route exclusion for `{ recover: 'local' }`, then clear boundary failure state on successful retry or deactivation.
+5. Add loop protection and ensure failures from recovery fallback content bubble to the next eligible ancestor instead of reentering the same boundary.
+6. Add Node tests for every phase, nested boundary order, async handlers, redirects, retry clearing, and unhandled original-error identity.
+7. Add real-browser tests for retained parent UI, committed URL/history/title, fallback rendering, link-triggered reporting, and Back/Forward after recovery.
+8. Add a dedicated Error Recovery docs outline item and playground only after the runtime contract is implemented.
+
 ### Acceptance criteria
 
 - Synchronous callbacks preserve the existing void fast path; promises are awaited only when returned.
 - Nested ordering matches the existing Aurelia router.
 - Cancellation leaves the current URL, selected links, rendered branch, and history index unchanged.
+- Local `can-load` denial excludes only its subtree, commits accepted ancestors and the requested URL, and allows a sibling fallback to render.
 - Relative and root-absolute guard redirects use the same resolution rules as `$route.load()`.
 - Node tests cover callback binding context, sync and async hooks, nesting order, cancellation, redirects, and stale navigation.
 - Node tests cover synchronous throws and asynchronous loading rejection without changing the committed route.
@@ -702,8 +809,9 @@ The coordinator delays adapter mutation while the candidate branch is discovered
 
 # Recommended implementation sequence
 
-1. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
-2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
+1. Implement the proposed error recovery boundary and failure metadata contract above.
+2. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
+3. Add history restoration and opt-in focus management on the same settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

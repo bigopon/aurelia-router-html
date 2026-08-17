@@ -1,7 +1,7 @@
 import { DI, isPromise } from '@aurelia/kernel';
 import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
-import type { RouteCanLoadCallback, RouteCanUnloadCallback } from './guard';
+import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 
 export interface RouteState {
   readonly active: boolean;
@@ -34,6 +34,7 @@ interface RouteNavigationOptions {
 export interface RouteContextOptions {
   exact?: boolean;
   fallback?: boolean;
+  guardFailure?: RouteGuardFailure;
   swapOrder?: SwapOrder;
   hrefFormatter?: (path: string) => string;
 }
@@ -112,8 +113,10 @@ export class RouteContext implements IRouteContext {
   private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
   private _navigationVersion: number = 0;
   private _deferredDeactivations: Set<RouteContext> | null = null;
+  private _localGuardFailures: Set<RouteContext> | null = null;
   /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
   /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
+  /** @internal */ public readonly _guardFailure: RouteGuardFailure;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -122,6 +125,7 @@ export class RouteContext implements IRouteContext {
   ) {
     this._exact = options.exact ?? false;
     this._fallback = options.fallback ?? false;
+    this._guardFailure = options.guardFailure ?? 'navigation';
     this._swapOrder = options.swapOrder ?? (
       parent instanceof RouteContext
         ? parent._swapOrder
@@ -192,7 +196,9 @@ export class RouteContext implements IRouteContext {
 
   /** @internal */
   public _beginNavigationTransaction(): void {
-    (this.root as RouteContext)._deferredDeactivations = new Set();
+    const root = this.root as RouteContext;
+    root._deferredDeactivations = new Set();
+    root._localGuardFailures = new Set();
   }
 
   /** @internal */
@@ -200,6 +206,7 @@ export class RouteContext implements IRouteContext {
     const root = this.root as RouteContext;
     const deferred = root._deferredDeactivations;
     root._deferredDeactivations = null;
+    root._localGuardFailures = null;
     if (deferred == null) {
       return;
     }
@@ -212,13 +219,42 @@ export class RouteContext implements IRouteContext {
 
   /** @internal */
   public _cancelNavigationTransaction(): void {
-    (this.root as RouteContext)._deferredDeactivations = null;
+    const root = this.root as RouteContext;
+    root._deferredDeactivations = null;
+    root._localGuardFailures = null;
+  }
+
+  /** @internal */
+  public _rejectGuardLocally(): boolean {
+    const root = this.root as RouteContext;
+    const transactionFailures = root._localGuardFailures;
+    const failures = transactionFailures ?? new Set<RouteContext>();
+    if (transactionFailures == null) {
+      root._localGuardFailures = failures;
+    }
+    failures.add(this);
+    this._deactivateBranch('/__inactive__', this.$query, this.$hash);
+
+    const parent = this.parent;
+    if (!(parent instanceof RouteContext)) {
+      if (transactionFailures == null) {
+        root._localGuardFailures = null;
+      }
+      return false;
+    }
+    parent.refresh();
+    const recovered = parent._selectMatches(parent.residue).some(child => child.active);
+    if (transactionFailures == null) {
+      root._localGuardFailures = null;
+    }
+    return recovered;
   }
 
   /** @internal */
   public _restoreInactive(location: RouteLocation): void {
     const root = this.root as RouteContext;
     root._deferredDeactivations = null;
+    root._localGuardFailures = null;
     for (const child of root.children) {
       child._deactivateBranch('/__inactive__', location.query, location.hash);
     }
@@ -380,17 +416,7 @@ export class RouteContext implements IRouteContext {
     const root = this.root as RouteContext;
     const navigationVersion = root._navigationVersion;
     const location = { query: this.$query, hash: this.$hash };
-    const matchingChildren: RouteContext[] = [];
-    for (const child of this.children) {
-      if (child._match(nextResidue) !== null) {
-        matchingChildren.push(child);
-      }
-    }
-
-    const regularMatches = matchingChildren.filter(child => !child._fallback);
-    const matches = regularMatches.length > 0
-      ? regularMatches
-      : matchingChildren.filter(child => child._fallback);
+    const matches = this._selectMatches(nextResidue);
     const matchSet = new Set(matches);
     const misses = this.children.filter(child => !matchSet.has(child));
     const deferredDeactivations = root._deferredDeactivations;
@@ -450,6 +476,7 @@ export class RouteContext implements IRouteContext {
     const child = new RouteContext(this, pattern, {
       exact: options.exact,
       fallback: options.fallback,
+      guardFailure: options.guardFailure,
       swapOrder: options.swapOrder ?? this._swapOrder,
       hrefFormatter: this._hrefFormatter,
     });
@@ -550,6 +577,17 @@ export class RouteContext implements IRouteContext {
     return {
       residue: normalizeResidue(groups.rest__),
     };
+  }
+
+  private _selectMatches(path: string): RouteContext[] {
+    const failures = (this.root as RouteContext)._localGuardFailures;
+    const matchingChildren = this.children.filter(child =>
+      failures?.has(child) !== true && child._match(path) !== null,
+    );
+    const regularMatches = matchingChildren.filter(child => !child._fallback);
+    return regularMatches.length > 0
+      ? regularMatches
+      : matchingChildren.filter(child => child._fallback);
   }
 
   private _findContext(path: string): IRouteContext | null {

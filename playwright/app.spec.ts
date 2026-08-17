@@ -283,7 +283,7 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="route-cart"] .summary-item')).toHaveCount(1);
   });
 
-  test('A8 browser navigation commits only after guards approve or redirect', async ({ page }) => {
+  test('A8 browser navigation commits only after guards approve, redirect, or recover locally', async ({ page }) => {
     await page.goto('/guard/home');
     await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
 
@@ -311,6 +311,13 @@ test.describe.serial('html-router example app', () => {
     await expect(page).toHaveURL(/\/guard\/login$/);
     await expect(page.locator('[data-e2e="guard-login"]')).toBeVisible();
     await expect(page.locator('[data-e2e="guard-admin"]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Guard local fallback' }).click();
+    await expect(page).toHaveURL(/\/guard\/local$/);
+    await expect(page.locator('[data-e2e="guard-stage"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="guard-local"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="guard-local-fallback"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="guard-status"]')).toHaveText('Local route denied; guard parent committed');
   });
 
   test('A1 checkout payment branch unlocks after shipping state is complete', async ({ page }) => {

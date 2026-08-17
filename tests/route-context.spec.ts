@@ -780,6 +780,44 @@ run('G1 cancelled route transactions restore the outgoing match', () => {
   assert.equal(privateRoute.active, false);
 });
 
+run('G2 local guard rejection rematches a sibling fallback and expires after commit', () => {
+  const root = new RouteContext(null, '*');
+  const home = root.createChild('home', { exact: true }) as RouteContext;
+  const portal = root.createChild('portal') as RouteContext;
+  const admin = portal.createChild('admin', { exact: true, guardFailure: 'local' }) as RouteContext;
+  const fallback = portal.createChild('*', { fallback: true }) as RouteContext;
+
+  root.apply('/home');
+  root._beginNavigationTransaction();
+  root.apply('/portal/admin');
+  assert.equal(admin.active, true);
+  assert.equal(admin._rejectGuardLocally(), true);
+  assert.equal(portal.active, true);
+  assert.equal(admin.active, false);
+  assert.equal(fallback.active, true);
+  root._commitNavigationTransaction();
+  assert.equal(home.active, false);
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/admin');
+  assert.equal(admin.active, true);
+  root._commitNavigationTransaction();
+  assert.equal(fallback.active, false);
+});
+
+run('G2 local guard rejection reports an unmatched child stage without a fallback', () => {
+  const root = new RouteContext(null, '*');
+  const portal = root.createChild('portal') as RouteContext;
+  const admin = portal.createChild('admin', { exact: true, guardFailure: 'local' }) as RouteContext;
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/admin');
+  assert.equal(admin._rejectGuardLocally(), false);
+  assert.equal(portal.active, true);
+  assert.equal(admin.active, false);
+  root._commitNavigationTransaction();
+});
+
 console.log('route-context tests passed');
 
 function run(name: string, fn: () => void): void {

@@ -44,16 +44,8 @@ public canLeaveAccount(): boolean {
       <p>The outgoing branch remains mounted and browser history remains unchanged while asynchronous guards and loading work are pending. Cancellation restores the outgoing route state; loading errors reject programmatic navigation with their original error.</p>
       <p>The transition argument exposes an <code>AbortSignal</code> for application work that should stop when a newer navigation supersedes the current attempt.</p>
     </section>
+
   </div>
 
   <playground-page example-id="navigation-guards" embedded.bind="true"></playground-page>
-
-  <section class="feature-details" data-e2e="layered-guards-guide">
-    <section>
-      <h3>Layered authorization</h3>
-      <p>Nested guards form a progressive authorization pipeline. The portal first requires a signed-in member, its staff area then requires staff access, and its administration child finally requires an administrator. Each route renders its own contextual links beside the UI they navigate, and the example logs every invoked guard in order.</p>
-    </section>
-  </section>
-
-  <playground-page example-id="layered-navigation-guards" embedded.bind="true"></playground-page>
 </section>

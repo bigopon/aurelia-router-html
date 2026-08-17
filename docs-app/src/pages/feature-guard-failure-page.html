@@ -1,0 +1,47 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Guard Failure Modes</h2>
+      <p class="page-copy">Choose whether a denied route cancels the complete navigation or yields only its own subtree to local recovery UI.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="guard-failure-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="admin"
+  can-load.bind="() =&gt; isAdmin()"
+  guard-failure="local"&gt;
+  &lt;admin-panel&gt;&lt;/admin-panel&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="*" fallback&gt;
+  &lt;access-denied&gt;&lt;/access-denied&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Navigation failure</h3>
+      <p><code>guard-failure="navigation"</code> is the default. A <code>false</code> result cancels the complete transaction, preserving the previous URL, history entry, selected links, and rendered route tree.</p>
+    </section>
+
+    <section>
+      <h3>Local failure</h3>
+      <p><code>guard-failure="local"</code> excludes the denied route and its descendants for the current transaction. Its immediate parent rematches the residue, approved ancestors commit, and a sibling fallback can render at the requested URL.</p>
+      <p>The exclusion expires after the transaction, so retries evaluate the guarded route again. Without a matching sibling, the approved parent commits with an empty child stage and development builds report a warning.</p>
+    </section>
+
+    <section>
+      <h3>Scope</h3>
+      <p>Local mode applies only when <code>can-load</code> returns <code>false</code>. Redirects remain redirects, exceptions use error recovery, and <code>can-unload</code> always protects the complete outgoing transaction.</p>
+    </section>
+
+    <section>
+      <h3>Layered authorization</h3>
+      <p>The example composes member, staff, and administrator checks through three nested levels. Each route renders contextual links beside its UI, local denial retains the approved parent, and the invocation log shows where evaluation stopped.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="layered-navigation-guards" embedded.bind="true"></playground-page>
+</section>

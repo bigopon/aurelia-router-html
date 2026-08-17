@@ -930,6 +930,17 @@ describe('au-route template lifecycle', function () {
 });
 
 describe('au-route navigation guards', function () {
+  it('rejects an unknown guard-failure mode', function () {
+    assert.throws(
+      () => createFixture(
+        '<au-route path="private" guard-failure="partial">Private</au-route>',
+        class App {},
+        [Routing],
+      ),
+      /Invalid au-route guard-failure "partial".*"navigation" or "local"/,
+    );
+  });
+
   for (const testCase of [
     {
       position: 'first',
@@ -1015,6 +1026,98 @@ describe('au-route navigation guards', function () {
     }
   });
 
+  it('commits accepted ancestors and a sibling fallback after an asynchronous local can-load denial', async function () {
+    const events: string[] = [];
+    class App {
+      public approve(name: string): boolean {
+        events.push(name);
+        return true;
+      }
+
+      public async denyAdmin(): Promise<boolean> {
+        events.push('admin');
+        await Promise.resolve();
+        return false;
+      }
+
+      public fallbackLoading(): void {
+        events.push('fallback');
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+      <au-route path="portal" can-load.bind="() => approve('portal')">
+        <h1 data-portal>Portal</h1>
+        <au-route path="admin" exact can-load.bind="() => denyAdmin()" guard-failure="local">
+          <h2 data-admin>Admin</h2>
+        </au-route>
+        <au-route path="*" fallback loading.bind="() => fallbackLoading()">
+          <h2 data-denied>Access denied</h2>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/portal/admin');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.strictEqual(await navigation, true);
+      await tasksSettled();
+      assert.deepStrictEqual(events, ['portal', 'admin', 'fallback']);
+      assert.strictEqual(adapter.getCurrentPath(), '/portal/admin');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-portal]')?.textContent, 'Portal');
+      assert.strictEqual(fixture.appHost.querySelector('[data-admin]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-denied]')?.textContent, 'Access denied');
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('commits the accepted parent and warns when local denial has no matching recovery route', async function () {
+    class App {
+      public deny(): boolean {
+        return false;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const warnings: unknown[][] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    let fixture: Awaited<ReturnType<typeof createFixture>> | null = null;
+    try {
+      fixture = await createFixture(
+        `<au-route path="home" exact>Home</au-route>
+        <au-route path="portal">
+          <h1 data-portal>Portal</h1>
+          <au-route path="admin" exact can-load.bind="() => deny()" guard-failure="local">
+            <h2 data-admin>Admin</h2>
+          </au-route>
+        </au-route>`,
+        App,
+        [Routing.customize({ adapter })],
+      ).started;
+
+      const result = fixture.container.get(IRouteCoordinator).load('/portal/admin');
+      assert.strictEqual(result, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/portal/admin');
+      assert.strictEqual(fixture.appHost.querySelector('[data-portal]')?.textContent, 'Portal');
+      assert.strictEqual(fixture.appHost.querySelector('[data-admin]'), null);
+      assert.strictEqual(warnings.some(args => String(args[0]).includes('has no matching sibling fallback or route')), true);
+    } finally {
+      console.warn = originalWarn;
+      await fixture?.tearDown();
+    }
+  });
+
   it('aborts a stale asynchronous guard before running the newer navigation', async function () {
     let finishGuard!: (allowed: boolean) => void;
     let observedSignal: AbortSignal | null = null;
@@ -1064,7 +1167,7 @@ describe('au-route navigation guards', function () {
     const fixture = await createFixture(
       `<au-route path="home" exact can-load.bind="() => guard('home can-load', true)"><h1>Home</h1></au-route>
       <au-route path="area" can-unload.bind="() => guard('area can-unload', true)">
-        <au-route path="project" can-unload.bind="() => guard('project can-unload', false)">
+        <au-route path="project" guard-failure="local" can-unload.bind="() => guard('project can-unload', false)">
           <au-route path="editor" exact can-unload.bind="() => guard('editor can-unload', true)">Editor</au-route>
         </au-route>
       </au-route>`,
