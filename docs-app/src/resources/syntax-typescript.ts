@@ -1,5 +1,6 @@
 import { resolve } from 'aurelia';
 import { INode, type INode as INodeType } from '@aurelia/runtime-html';
+import { addCopyButton } from './copy-code';
 
 const tokenPattern = /(\/\/[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|\b(?:as|async|await|class|const|export|extends|false|from|function|if|import|interface|let|new|null|private|protected|public|readonly|return|static|true|type|undefined|void)\b|\b\d+(?:\.\d+)?\b)/g;
 
@@ -25,6 +26,7 @@ export class SyntaxTypeScript {
     }
 
     this.element.innerHTML = result + escapeHtml(source.slice(lastIndex));
+    addCopyButton(this.element, source);
   }
 }
 

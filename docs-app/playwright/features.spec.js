@@ -123,6 +123,7 @@ test.describe('router HTML docs features', () => {
   });
 
   test('overview presents static feature syntax with links to focused examples', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/');
 
     const overviewOrder = await page.locator('[data-e2e="getting-started"], [data-e2e="examples-section"], [data-e2e="routing-customization"]')
@@ -144,9 +145,42 @@ test.describe('router HTML docs features', () => {
     await expect(customization).toContainText('swapOrder');
     await expect(customization).toContainText('animations');
     await expect(customization).toContainText('titles');
-    await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
+    const modeSnippets = customization.locator('[data-e2e="routing-mode-snippets"] article');
+    await expect(modeSnippets).toHaveCount(3);
+    await expect(modeSnippets.nth(0).locator('pre')).toContainText("routingMode: 'path'");
+    await expect(modeSnippets.nth(1).locator('pre')).toContainText("routingMode: 'hash'");
+    await expect(modeSnippets.nth(2).locator('pre')).toContainText("routingMode: 'query'");
+    await expect(modeSnippets.nth(2).locator('pre')).toContainText("routeQueryKey: 'app'");
+    expect(await modeSnippets.nth(2).locator('.copy-code-source').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    const codeBlocks = page.locator('pre.code-block');
+    await expect(page.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
+    const pathCopyButton = modeSnippets.nth(0).locator('.copy-code-button');
+    await pathCopyButton.click();
+    await expect(pathCopyButton).toHaveText('Copied');
+    expect((await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')).toBe(
+      "Routing.customize({\n  routingMode: 'path'\n});",
+    );
+    await page.waitForTimeout(1_000);
+    await pathCopyButton.click();
+    await expect(pathCopyButton).toHaveClass(/is-copy-confirmed/);
+    await page.waitForTimeout(2_300);
+    await expect(pathCopyButton).toHaveText('Copied');
+    await page.waitForTimeout(900);
+    await expect(pathCopyButton).toHaveText('Copy');
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
+    const longSnippet = features.filter({ hasText: 'Basic Routes' }).locator('pre');
+    expect(await longSnippet.evaluate(element => {
+      const source = element.querySelector('.copy-code-source');
+      return source == null ? Number.POSITIVE_INFINITY : Math.abs(source.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom);
+    })).toBeLessThan(1);
+    const copyButtonLeft = await longSnippet.locator('.copy-code-button').evaluate(element => element.getBoundingClientRect().left);
+    await longSnippet.locator('.copy-code-source').evaluate(element => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    expect(await longSnippet.locator('.copy-code-button').evaluate(element => element.getBoundingClientRect().left)).toBe(copyButtonLeft);
+
     await expect(features).toHaveCount(21);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
@@ -221,7 +255,7 @@ test.describe('router HTML docs features', () => {
       '/playground/kitchen-sink',
     ]);
     await expect(page.getByText('Runnable demo')).toHaveCount(0);
-    await expect(page.locator('button')).toHaveCount(0);
+    await expect(page.locator('button:not(.copy-code-button)')).toHaveCount(0);
     await expect(page.locator('.nav-list .nav-end')).toHaveText('End of guide');
   });
 
@@ -354,6 +388,8 @@ test.describe('router HTML docs features', () => {
       const playground = page.locator('.playground-page.is-embedded');
       await expect(playground).toHaveCount(path === 'url-state' ? 3 : 1);
       await expect(playground.first().getByRole('textbox', { name: `Editing ${file}` })).toContainText(source);
+      const codeBlocks = page.locator('pre.code-block');
+      await expect(page.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
       await expect(page.getByRole('button', { name: /show source/i })).toHaveCount(0);
     }
   });
@@ -732,6 +768,7 @@ test.describe('router HTML docs features', () => {
     await expect(guide).toContainText('failure.boundary');
     await expect(guide).toContainText('failure.recovery');
     await expect(guide).toContainText('$route.parent.failure');
+    await expect(guide.locator('pre.code-block > .copy-code-button')).toHaveCount(2);
     await expect(page.locator('.playground-page.is-embedded')).toHaveCount(3);
 
     const sourceExample = page.locator('[data-e2e="source-error-example"]');

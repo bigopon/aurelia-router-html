@@ -363,6 +363,43 @@ button:hover {
   gap: 10px;
 }
 
+.routing-mode-configurations {
+  display: grid;
+  gap: 12px;
+}
+
+.routing-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.routing-mode-grid article {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-soft);
+}
+
+.routing-mode-grid article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.routing-mode-grid h5 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.routing-mode-grid article > div > code {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .option-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -503,13 +540,110 @@ button.primary,
 }
 
 .code-block {
+  position: relative;
   margin: 0;
   padding: 16px;
   border-radius: var(--radius-md);
   background: var(--code);
   color: #e8eef8;
-  overflow: auto;
+  overflow: hidden;
   font-size: 0.92rem;
+}
+
+.copy-code-source {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 16px 16px 52px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #708399 #111a26;
+  color: inherit;
+  font: inherit;
+  white-space: inherit;
+}
+
+.copy-code-source::-webkit-scrollbar {
+  height: 8px;
+}
+
+.copy-code-source::-webkit-scrollbar-track {
+  background: #111a26;
+}
+
+.copy-code-source::-webkit-scrollbar-thumb {
+  border: 2px solid #111a26;
+  border-radius: 999px;
+  background: #708399;
+}
+
+.copy-code-source::-webkit-scrollbar-thumb:hover {
+  background: #8da2b9;
+}
+
+.code-block.has-copy-button {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: auto;
+  right: 8px;
+  bottom: 16px;
+  z-index: 1;
+  min-width: 62px;
+  padding: 6px 9px;
+  border-color: #ffffff38;
+  border-radius: 8px;
+  color: #dce8f5;
+  background: #ffffff12;
+  font: 700 0.72rem/1 system-ui, sans-serif;
+}
+
+.copy-code-button:hover,
+.copy-code-button:focus-visible {
+  border-color: #8dd6ff;
+  color: white;
+  background: #ffffff24;
+}
+
+.copy-code-button.is-copy-confirmed {
+  border-color: #65d6a0;
+  color: #caffdf;
+  background: #1b8b5c66;
+  animation: copy-code-pulse 360ms ease-out;
+}
+
+.copy-code-button.is-copy-failed {
+  border-color: #ff9d91;
+  color: #ffe3df;
+  background: #a83b3266;
+  animation: copy-code-pulse 360ms ease-out;
+}
+
+@keyframes copy-code-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 4px #8dd6ff30;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-code-button.is-copy-confirmed,
+  .copy-code-button.is-copy-failed {
+    animation: none;
+  }
 }
 
 .demo-card > pre.code-block {
@@ -954,6 +1088,7 @@ button.primary,
   .page-grid,
   .stat-grid,
   .customization-grid,
+  .routing-mode-grid,
   .feature-catalog {
     grid-template-columns: 1fr;
   }

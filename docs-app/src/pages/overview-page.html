@@ -21,7 +21,7 @@ import { App } from './app';
 void Aurelia
   .register(Routing)
   .app({
-    host: document.querySelector('#app')!,
+    host: document.querySelector('#app'),
     component: App
   })
   .start();</pre>
@@ -95,12 +95,52 @@ void Aurelia
       </section>
     </div>
 
+    <section class="routing-mode-configurations" data-e2e="routing-mode-snippets">
+      <header>
+        <h4>Copy the URL mode your host needs</h4>
+        <p>Each configuration is complete on its own. Pathname is the default; hash and query-key modes keep the same route templates while changing the browser URL.</p>
+      </header>
+
+      <div class="routing-mode-grid">
+        <article>
+          <div>
+            <h5>Pathname</h5>
+            <code>/products/ice-cream</code>
+          </div>
+          <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'path'
+});</pre>
+        </article>
+
+        <article>
+          <div>
+            <h5>Hash</h5>
+            <code>#products/ice-cream</code>
+          </div>
+          <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'hash'
+});</pre>
+        </article>
+
+        <article>
+          <div>
+            <h5>Query string</h5>
+            <code>?app=products/ice-cream</code>
+          </div>
+          <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'query',
+  routeQueryKey: 'app'
+});</pre>
+        </article>
+      </div>
+    </section>
+
+    <h4>Optional behavior shared by every URL mode</h4>
     <pre class="code-block" syntax-typescript>Routing.customize({
-  routingMode: 'path',
   // Optional: enhance eligible plain &lt;a href&gt; links.
   interceptLinks: true,
   swapOrder: 'parallel',
-  animations: false
+  animations: true
 });</pre>
 
     <div class="overview-links">

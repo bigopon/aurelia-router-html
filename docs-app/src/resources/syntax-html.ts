@@ -1,5 +1,6 @@
 import { resolve } from 'aurelia';
 import { INode, type INode as INodeType } from '@aurelia/runtime-html';
+import { addCopyButton } from './copy-code';
 
 export class SyntaxHtml {
   public static readonly $au = {
@@ -10,7 +11,8 @@ export class SyntaxHtml {
   private readonly element = resolve(INode) as INodeType<HTMLElement>;
 
   public attaching(): void {
-    const escaped = (this.element.textContent ?? '')
+    const source = this.element.textContent ?? '';
+    const escaped = source
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;')
@@ -28,5 +30,6 @@ export class SyntaxHtml {
         return `&lt;${slash}<span class="syntax-tag">${tag}</span>${highlightedAttributes}&gt;`;
       },
     );
+    addCopyButton(this.element, source);
   }
 }
