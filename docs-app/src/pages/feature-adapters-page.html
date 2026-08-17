@@ -68,7 +68,7 @@
       <h3>Pass an adapter instance</h3>
       <pre class="code-block" syntax-typescript>const adapter = new MemoryPathAdapter('/dashboard');
 
-void Aurelia
+Aurelia
   .register(Routing.customize({
     adapter,
     animations: false
@@ -80,7 +80,7 @@ void Aurelia
 
     <section>
       <h3>Resolve an adapter through DI</h3>
-      <pre class="code-block" syntax-typescript>void Aurelia
+      <pre class="code-block" syntax-typescript>Aurelia
   .register(
     Registration.singleton(MyPathAdapter, MyPathAdapter),
     Routing.customize({ adapter: MyPathAdapter })
@@ -89,7 +89,7 @@ void Aurelia
   .start();
 
 // A pre-registered IPathAdapter is selected automatically.
-void Aurelia.register(
+Aurelia.register(
   Registration.singleton(IPathAdapter, MyPathAdapter),
   Routing
 );</pre>

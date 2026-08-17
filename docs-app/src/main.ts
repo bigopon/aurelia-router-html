@@ -6,7 +6,7 @@ import { SyntaxHtml } from './resources/syntax-html';
 import { SyntaxTypeScript } from './resources/syntax-typescript';
 import './main.css';
 
-void Aurelia
+Aurelia
   .register(
     Routing.customize({
       animations: false,

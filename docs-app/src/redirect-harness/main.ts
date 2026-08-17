@@ -2,7 +2,7 @@ import Aurelia from 'aurelia';
 import { Routing } from '../../../router/configuration';
 import { RedirectApp } from './redirect-app';
 
-void Aurelia
+Aurelia
   .register(Routing)
   .app({
     host: document.querySelector('redirect-app')!,

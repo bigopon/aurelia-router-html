@@ -1252,7 +1252,7 @@ import { App } from './app';
 
 const adapter = new MemoryPathAdapter('/dashboard');
 
-void Aurelia
+Aurelia
   .register(Routing.customize({
     adapter,
     animations: false
@@ -1559,7 +1559,7 @@ import { Routing } from 'aurelia-router-html';
 import { App } from './app';
 import { UpperValueConverter } from './upper';
 
-void Aurelia.register(Routing, UpperValueConverter).app({
+Aurelia.register(Routing, UpperValueConverter).app({
   host: document.querySelector('#app')!,
   component: App,
 }).start();`,
@@ -1696,7 +1696,7 @@ function createMainSource(
 import { Routing } from 'aurelia-router-html';
 import { App } from './app';
 
-void Aurelia
+Aurelia
   .register(Routing.customize({
     animations: false${modeLines}${scrollLine}${focusLine}${interceptLine}
   }))

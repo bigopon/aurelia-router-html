@@ -25,7 +25,7 @@
     <section>
       <h3>Root-hosted application</h3>
       <p>No base configuration is needed when the application owns the origin root.</p>
-      <pre class="code-block" syntax-typescript>void Aurelia
+      <pre class="code-block" syntax-typescript>Aurelia
   .register(Routing)
   .app({ host, component: App })
   .start();</pre>
@@ -41,7 +41,7 @@
   &lt;base href="/my-app/"&gt;
 &lt;/head&gt;</pre>
       <pre class="code-block" syntax-typescript>// No basePath is needed.
-void Aurelia
+Aurelia
   .register(Routing)
   .app({ host, component: App })
   .start();</pre>
@@ -60,7 +60,7 @@ void Aurelia
     <section>
       <h3>Configure the mount explicitly</h3>
       <p>Use <code>basePath</code> when routing needs an explicit deployment contract or the document cannot declare a base element.</p>
-      <pre class="code-block" syntax-typescript>void Aurelia
+      <pre class="code-block" syntax-typescript>Aurelia
   .register(Routing.customize({
     basePath: '/my-app'
   }))

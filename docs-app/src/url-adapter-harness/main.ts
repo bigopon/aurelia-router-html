@@ -28,7 +28,7 @@ const focus = focusValue === 'true'
     ? { fallback: 'heading' as const }
     : undefined;
 
-void Aurelia
+Aurelia
   .register(Routing.customize({
     interceptLinks: true,
     animations: false,
