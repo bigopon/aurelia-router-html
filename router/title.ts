@@ -1,6 +1,6 @@
 import { DI } from '@aurelia/kernel';
-import { queueAsyncTask } from '@aurelia/runtime';
 import type { IRouteContext } from './route-context';
+import type { IRouteViewSettlement, RouteSettledCallback } from './settlement';
 
 export interface RouteTitleOptions {
   separator?: string;
@@ -10,8 +10,6 @@ export interface RouteTitleOptions {
 
 export interface IRouteTitleService {
   start(): void;
-  beginViewActivation(): void;
-  endViewActivation(): void;
   requestUpdate(): void;
   stop(): void;
 }
@@ -20,15 +18,13 @@ export const IRouteTitleService = DI.createInterface<IRouteTitleService>('IRoute
 
 export class BrowserRouteTitleService implements IRouteTitleService {
   private readonly fallback: string;
-  private pendingActivations: number = 0;
-  private updateQueued: boolean = false;
-  private dirty: boolean = false;
   private stopped: boolean = false;
-  private generation: number = 0;
+  private readonly update: RouteSettledCallback = () => this.updateTitle();
 
   public constructor(
     private readonly root: IRouteContext,
     private readonly document: Document,
+    private readonly settlement: IRouteViewSettlement,
     private readonly options: RouteTitleOptions = {},
   ) {
     this.fallback = options.fallback ?? document.title;
@@ -37,48 +33,20 @@ export class BrowserRouteTitleService implements IRouteTitleService {
     }
   }
 
-  public beginViewActivation(): void {
-    this.pendingActivations++;
-  }
-
   public start(): void {
     this.stopped = false;
-  }
-
-  public endViewActivation(): void {
-    this.pendingActivations = Math.max(0, this.pendingActivations - 1);
-    this.requestUpdate();
   }
 
   public requestUpdate(): void {
     if (this.stopped) {
       return;
     }
-    this.dirty = true;
-    if (this.pendingActivations > 0 || this.updateQueued) {
-      return;
-    }
-
-    this.updateQueued = true;
-    const generation = this.generation;
-    void queueAsyncTask(() => {
-      if (generation !== this.generation) {
-        return;
-      }
-      this.updateQueued = false;
-      if (this.stopped || this.pendingActivations > 0 || !this.dirty) {
-        return;
-      }
-      this.dirty = false;
-      this.updateTitle();
-    });
+    this.settlement.queue(this.update);
   }
 
   public stop(): void {
     this.stopped = true;
-    this.dirty = false;
-    this.updateQueued = false;
-    this.generation++;
+    this.settlement.cancel(this.update);
   }
 
   private updateTitle(): void {
@@ -104,8 +72,6 @@ export class BrowserRouteTitleService implements IRouteTitleService {
 
 export const noRouteTitleService: IRouteTitleService = {
   start() {},
-  beginViewActivation() {},
-  endViewActivation() {},
   requestUpdate() {},
   stop() {},
 };

@@ -79,6 +79,10 @@
 - [x] `A7` Route contexts normalize and expose title metadata in subscription state without writing browser globals.
 - [x] `A7` Mocha coverage composes nested static titles, reacts to bound titles, restores a fallback for untitled routes, and waits for asynchronous routed content.
 - [x] `A7` Standalone Chromium coverage updates document titles through pathname, hash-only, and query-key browser adapters.
+- [x] `A7` Shared route-view settlement waits for every activating view and coalesces title and hash-scroll work after rendering.
+- [x] `A7` Hash scrolling decodes fragment targets, cancels stale requests, and waits for asynchronous route activation.
+- [x] `A7` Static hash targets use the compact `au-link="guide#api-reference"` syntax and generate the same route location as object-form hash options.
+- [x] `A7` Standalone Chromium coverage scrolls to asynchronously rendered targets and reapplies hash scrolling after browser Back/Forward in pathname, hash-only, and query-key modes with native restoration disabled.
 - [x] `A8` `loading.bind` waits before route activation and `loaded.bind` waits after nested asynchronous activation while retaining the application binding context.
 - [x] `A8` Nested route loading runs parent-first and loaded notification runs children-first.
 - [x] `A8` Three-level nested routes preserve parent-first loading and child-first loaded ordering, including an asynchronous grandchild that delays ancestor loaded callbacks.
@@ -113,6 +117,7 @@
 - [x] Programmatic navigation has a focused guide and runnable `IRouteContext` example without coordinator injection.
 - [x] Declarative redirects have an overview card and focused editable playground, while behavior is covered independently by standalone real-browser fixtures in pathname, hash, and query modes.
 - [x] Page titles have an overview card, focused guide, bound-title demo, editable playground, and real-browser coverage.
+- [x] Hash scrolling has an overview card, focused guide, editable delayed-content playground, and real-browser coverage across every URL mode.
 - [x] Loading and loaded have an overview card, focused guide, nested editable playground, and real-browser ordering coverage without presenting planned guards as implemented.
 - [x] Navigation guards have an overview card, focused guide, editable cancellation/redirect playground, and standalone browser-adapter coverage.
 - [x] Guard Failure Modes is a dedicated sidebar and overview item with explicit `navigation` and `local` contracts.

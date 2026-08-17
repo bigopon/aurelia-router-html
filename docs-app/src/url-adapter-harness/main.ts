@@ -6,7 +6,7 @@ const browserUrl = new URL(window.location.href);
 const routeQueryKey = browserUrl.searchParams.has('route') ? 'route' : 'app';
 const routingMode = browserUrl.searchParams.has(routeQueryKey)
   ? 'query'
-  : browserUrl.hash === ''
+  : browserUrl.searchParams.get('mode') === 'path' || browserUrl.hash === ''
     ? 'path'
     : 'hash';
 

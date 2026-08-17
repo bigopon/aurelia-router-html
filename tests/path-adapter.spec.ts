@@ -1,10 +1,103 @@
 import { DI, Registration } from '@aurelia/kernel';
+import { tasksSettled } from '@aurelia/runtime';
 import { assert } from '@aurelia/testing';
+import { JSDOM } from 'jsdom';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { IPathAdapter } from '../router/path-adapter';
 import { RouteContext } from '../router/route-context';
+import { parseRouteLocation } from '../router/route-location';
+import { BrowserRouteScrollService } from '../router/scroll';
+import { RouteViewSettlement } from '../router/settlement';
+
+describe('route view settlement', function () {
+  it('waits for every pending view and coalesces callbacks', async function () {
+    const settlement = new RouteViewSettlement();
+    const events: string[] = [];
+    const settled = () => events.push('settled');
+
+    settlement.begin();
+    settlement.begin();
+    settlement.queue(settled);
+    settlement.queue(settled);
+    await tasksSettled();
+    assert.deepStrictEqual(events, []);
+
+    settlement.end();
+    await tasksSettled();
+    assert.deepStrictEqual(events, []);
+
+    settlement.end();
+    await tasksSettled();
+    assert.deepStrictEqual(events, ['settled']);
+  });
+
+  it('cancels work that is no longer relevant before settlement', async function () {
+    const settlement = new RouteViewSettlement();
+    let called = false;
+    const callback = () => { called = true; };
+
+    settlement.begin();
+    settlement.queue(callback);
+    settlement.cancel(callback);
+    settlement.end();
+    await tasksSettled();
+    assert.strictEqual(called, false);
+  });
+});
+
+describe('route hash scrolling', function () {
+  it('decodes and scrolls to the target only after routed views settle', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const target = document.createElement('section');
+    target.id = 'details panel';
+    let options: ScrollIntoViewOptions | boolean | undefined;
+    target.scrollIntoView = value => { options = value; };
+    document.body.append(target);
+    const scrolling = new BrowserRouteScrollService(document, settlement, { block: 'center' });
+
+    try {
+      settlement.begin();
+      scrolling.afterNavigation(parseRouteLocation('/products#details%20panel'));
+      await tasksSettled();
+      assert.strictEqual(options, undefined);
+
+      settlement.end();
+      await tasksSettled();
+      assert.deepStrictEqual(options, {
+        behavior: undefined,
+        block: 'center',
+        inline: undefined,
+      });
+    } finally {
+      target.remove();
+    }
+  });
+
+  it('cancels a pending fragment when a newer navigation has no fragment', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const target = document.createElement('section');
+    target.id = 'details';
+    let called = false;
+    target.scrollIntoView = () => { called = true; };
+    document.body.append(target);
+    const scrolling = new BrowserRouteScrollService(document, settlement);
+
+    try {
+      settlement.begin();
+      scrolling.afterNavigation(parseRouteLocation('/products#details'));
+      scrolling.afterNavigation(parseRouteLocation('/products'));
+      settlement.end();
+      await tasksSettled();
+      assert.strictEqual(called, false);
+    } finally {
+      target.remove();
+    }
+  });
+});
 
 describe('memory path adapter', function () {
   it('normalizes locations and emits only external history movement', function () {

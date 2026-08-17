@@ -580,11 +580,28 @@ Route templates can prepare data before activation and observe the fully activat
 
 These are Aurelia v2 function bindings, not `.call` expressions, so the callbacks retain the application binding context. `loading` runs parent-first before the route view activates. `loaded` runs children-first after the routed template and all asynchronous activation lifecycle work inside it have completed. Both accept `void | Promise<void>` and retain the synchronous fast path when no promise is returned.
 
+## 26. Settled-view coordination and hash scrolling
+
+Browser titles and hash scrolling share one injectable route-view settlement boundary. Every activating `<au-route>` joins it, including views with asynchronous Aurelia activation lifecycle. Successful navigation schedules browser work only after all joined views finish.
+
+The default browser adapter enables hash scrolling. Applications can disable it or configure native `scrollIntoView` behavior and alignment:
+
+```ts
+Routing.customize({
+  scrolling: {
+    behavior: 'smooth',
+    block: 'start',
+  },
+});
+```
+
+Custom and memory adapters remain browser-independent by default and opt into scrolling explicitly. A newer navigation cancels stale queued fragment work. Decoded element IDs and named anchors are supported across pathname, hash-only, and query-key URL modes.
+
 ---
 
 # Feature design and remaining proposals
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title layer of proposal 6 is implemented as feature 23; scrolling and focus policies remain. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
+Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title and hash-scrolling layers of proposal 6 are implemented as features 23 and 26; history restoration and focus policies remain. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
 
 ## Proposed 6. Browser navigation polish
 
@@ -835,8 +852,7 @@ The implementation tags each pre-commit phase before coordinator error handling,
 
 # Recommended implementation sequence
 
-1. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
-2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
+1. Add history restoration and opt-in focus management on the shared settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

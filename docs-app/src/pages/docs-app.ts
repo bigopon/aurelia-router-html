@@ -8,6 +8,7 @@ import { FeatureErrorRecoveryPage } from './feature-error-recovery-page';
 import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
 import { FeatureGuardFailurePage } from './feature-guard-failure-page';
 import { FeatureGuardsPage } from './feature-guards-page';
+import { FeatureHashScrollingPage } from './feature-hash-scrolling-page';
 import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureNestedPage } from './feature-nested-page';
@@ -35,6 +36,7 @@ export class DocsApp {
       FeatureNestedPage,
       FeatureParamsPage,
       FeatureUrlStatePage,
+      FeatureHashScrollingPage,
       FeatureActiveLinksPage,
       FeatureProgrammaticPage,
       FeatureRedirectsPage,

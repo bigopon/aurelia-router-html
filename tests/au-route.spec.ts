@@ -302,6 +302,7 @@ describe('route URL state', function () {
         <span data-tags>\${$route.$query.getAll('tag').join('|')}</span>
         <span data-hash>\${$hash}</span>
         <a data-location-link href.bind="$route.href($route, {}, { query: { sort: 'rating' }, hash: 'details' })">Rating details</a>
+        <a data-inline-hash au-link="/products#details">Inline details</a>
       </au-route>`,
       class App {},
       [Routing],
@@ -318,6 +319,10 @@ describe('route URL state', function () {
       assert.strictEqual(
         fixture.appHost.querySelector('[data-location-link]')?.getAttribute('href'),
         '/products?sort=rating#details',
+      );
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-inline-hash]')?.getAttribute('href'),
+        '/products#details',
       );
 
       router.load('/products?sort=rating#details');

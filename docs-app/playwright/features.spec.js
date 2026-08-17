@@ -145,6 +145,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization).toContainText('swapOrder');
     await expect(customization).toContainText('animations');
     await expect(customization).toContainText('titles');
+    await expect(customization).toContainText('scrolling');
     const modeSnippets = customization.locator('[data-e2e="routing-mode-snippets"] article');
     await expect(modeSnippets).toHaveCount(3);
     await expect(modeSnippets.nth(0).locator('pre')).toContainText("routingMode: 'path'");
@@ -181,7 +182,7 @@ test.describe('router HTML docs features', () => {
     });
     expect(await longSnippet.locator('.copy-code-button').evaluate(element => element.getBoundingClientRect().left)).toBe(copyButtonLeft);
 
-    await expect(features).toHaveCount(21);
+    await expect(features).toHaveCount(22);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -209,6 +210,10 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
+    const hashScrollingSyntax = features.filter({ hasText: 'Hash Scrolling' }).locator('pre');
+    await expect(hashScrollingSyntax).toContainText('au-link="guide#api-reference"');
+    await expect(hashScrollingSyntax).toContainText("options: { hash: 'api-reference' }");
+    await expect(hashScrollingSyntax).toContainText('id="api-reference"');
     const programmaticSyntax = features.filter({ hasText: 'Programmatic Navigation' }).locator('pre');
     await expect(programmaticSyntax).toContainText('resolve(IRouteContext)');
     await expect(programmaticSyntax).toContainText('this.route.load');
@@ -228,15 +233,16 @@ test.describe('router HTML docs features', () => {
     const errorRecoverySyntax = features.filter({ hasText: 'Error Recovery' }).locator('pre');
     await expect(errorRecoverySyntax).toContainText('on-error.bind="failure => recover(failure)"');
     await expect(errorRecoverySyntax).toContainText('$route.parent.failure.error.message');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(21);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(22);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(21);
+    await expect(editLinks).toHaveCount(22);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
       '/playground/route-params',
       '/playground/url-state',
       '/playground/active-links',
+      '/playground/hash-scrolling',
       '/playground/programmatic-navigation',
       '/playground/declarative-redirects',
       '/playground/page-titles',
@@ -331,6 +337,20 @@ test.describe('router HTML docs features', () => {
     await playground.getByRole('button', { name: 'Run' }).click();
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     await expect(frame.getByRole('heading', { name: 'Edited embedded preview' })).toBeVisible();
+  });
+
+  test('hash-scrolling guide runs its delayed target example', async ({ page }) => {
+    await page.goto('/features/hash-scrolling');
+    await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });
+
+    const frame = page.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByRole('heading', { name: 'Documentation home' })).toBeVisible();
+    await frame.getByRole('link', { name: 'Static API link' }).click();
+
+    await expect(page.locator('.playground-preview-panel .preview-label code')).toHaveText('/guide#api-reference');
+    await expect(frame.getByText('API section ready')).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'API reference' })).toBeVisible();
+    await expect.poll(() => frame.locator('body').evaluate(() => window.scrollY)).toBeGreaterThan(300);
   });
 
   test('basic routes makes relative declarations and root-absolute links explicit', async ({ page }) => {

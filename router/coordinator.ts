@@ -4,6 +4,7 @@ import { RoutePhaseError, type RouteErrorResult, type RouteFailure, type RouteFa
 import type { IPathAdapter } from './path-adapter';
 import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
+import { type IRouteScrollService, noRouteScrollService } from './scroll';
 
 declare const __DEV__: boolean;
 
@@ -67,6 +68,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     public readonly root: IRouteContext,
     private readonly adapter: IPathAdapter,
     private readonly createAbortController: () => AbortController = () => new AbortController(),
+    private readonly scrollService: IRouteScrollService = noRouteScrollService,
   ) {
     if (root instanceof RouteContext) {
       root._setNavigator((path, options) => this.load(path, options));
@@ -96,6 +98,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.stopListening = null;
     this.started = false;
     this.transaction?.controller.abort();
+    this.scrollService.stop();
   }
 
   public load(path: string, options: InternalLoadOptions = {}): boolean | Promise<boolean> {
@@ -367,6 +370,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.currentLocation = transaction.location;
     this.currentPath = transaction.location.pathname;
     this.notify();
+    this.scrollService.afterNavigation(transaction.location);
     transaction.resolve(true);
     this.redirectChain = [];
     return true;

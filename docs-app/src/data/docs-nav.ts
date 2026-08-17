@@ -50,6 +50,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'hash-scrolling',
+    title: 'Hash Scrolling',
+    path: '/features/hash-scrolling',
+    summary: 'Scroll to fragment targets only after the complete routed view has rendered.',
+    badge: 'A7',
+  },
+  {
     id: 'programmatic',
     title: 'Programmatic Navigation',
     path: '/features/programmatic',

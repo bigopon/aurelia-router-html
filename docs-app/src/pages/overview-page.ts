@@ -53,6 +53,13 @@ export class OverviewPage {
       syntax: '<a au-link="reviews">Reviews</a>\n<a au-link="/products">All products</a>',
     },
     {
+      title: 'Hash Scrolling',
+      summary: 'Scroll to a fragment target only after asynchronous routed views have finished rendering.',
+      path: '/features/hash-scrolling',
+      playgroundId: 'hash-scrolling',
+      syntax: '<a au-link="guide#api-reference">\n  API reference\n</a>\n\n<a au-link.bind="{\n  target: \'guide\',\n  options: { hash: \'api-reference\' }\n}">\n  API reference\n</a>\n\n<au-route path="guide">\n  <section id="api-reference">API reference</section>\n</au-route>',
+    },
+    {
       title: 'Programmatic Navigation',
       summary: 'Navigate from application logic through the same contextual API available as $route.',
       path: '/features/programmatic',

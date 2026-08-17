@@ -6,6 +6,18 @@
   <h1>Adapter products</h1>
   <a data-e2e="reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>
   <a data-e2e="legacy-link" href.bind="$route.href(legacyPath)">Legacy</a>
+  <a data-e2e="details-link" href.bind="$route.href(detailsPath, {}, { hash: 'details-section' })">Details section</a>
 </au-route>
 
 <au-route path.bind="legacyPath" exact redirect-to.bind="reviewsPath"></au-route>
+
+<au-route path.bind="detailsPath" exact loading.bind="() => prepareDetails()">
+  <h1>Adapter details</h1>
+  <p data-e2e="details-status">${detailsStatus}</p>
+  <div style="height: 1200px" aria-hidden="true"></div>
+  <section id="details-section" data-e2e="details-section">
+    <h2>Anchored details</h2>
+    <p>This target was rendered asynchronously before scrolling.</p>
+  </section>
+  <div style="height: 600px" aria-hidden="true"></div>
+</au-route>

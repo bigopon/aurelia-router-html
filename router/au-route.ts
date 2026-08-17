@@ -21,6 +21,7 @@ import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } 
 import type { RouteErrorHandler } from './error';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
+import { IRouteViewSettlement } from './settlement';
 
 declare const __DEV__: boolean;
 
@@ -120,6 +121,7 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly expressionParser = resolve(IExpressionParser);
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
   private readonly titleService = resolve(IRouteTitleService);
+  private readonly settlement = resolve(IRouteViewSettlement);
   private readonly coordinator = resolve(IRouteCoordinator) as RouteCoordinator;
   private readonly pathExpression: string | null;
   private readonly redirectMode: RedirectMode;
@@ -353,12 +355,12 @@ export class AuRoute implements ICustomElementViewModel {
         this.view ??= this.getView();
         const view = this.view;
         this.viewActive = true;
-        this.titleService.beginViewActivation();
+        this.settlement.begin();
         let activation: void | Promise<void>;
         try {
           activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, scope));
         } catch (error) {
-          this.titleService.endViewActivation();
+          this.endViewActivation();
           throw error;
         }
 
@@ -369,16 +371,16 @@ export class AuRoute implements ICustomElementViewModel {
         if (isPromise(ready)) {
           return ready.then(
             () => {
-              this.titleService.endViewActivation();
+              this.endViewActivation();
               return this.coordinator._runEnterAnimation(() => this.animate('enter'));
             },
             error => {
-              this.titleService.endViewActivation();
+              this.endViewActivation();
               throw error;
             },
           );
         }
-        this.titleService.endViewActivation();
+        this.endViewActivation();
         return this.coordinator._runEnterAnimation(() => this.animate('enter'));
       },
     ));
@@ -401,6 +403,11 @@ export class AuRoute implements ICustomElementViewModel {
         this.titleService.requestUpdate();
       });
     });
+  }
+
+  private endViewActivation(): void {
+    this.settlement.end();
+    this.titleService.requestUpdate();
   }
 
   private clearViewLocation(): void {

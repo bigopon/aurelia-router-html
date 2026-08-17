@@ -21,6 +21,7 @@ interface RouterExampleOptions {
   extraFiles?: Record<string, string>;
   routingMode?: 'path' | 'hash' | 'query';
   routeQueryKey?: string;
+  scrolling?: boolean;
 }
 
 const baseCss = `:root {
@@ -299,6 +300,68 @@ const featureExamples: PlaygroundExample[] = [
     <p>Ice cream reviews</p>
   </au-route>
 </au-route>`,
+  }),
+  routerExample({
+    id: 'hash-scrolling',
+    title: 'Hash scrolling',
+    description: 'Wait for asynchronous route content, then scroll its decoded fragment target into view.',
+    initialPath: '/welcome',
+    scrolling: true,
+    appTs: `export class App {
+  public status = 'Choose the API section';
+
+  public async prepareApi(): Promise<void> {
+    this.status = 'Preparing the API section';
+    await new Promise(resolve => setTimeout(resolve, 300));
+    this.status = 'API section ready';
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="welcome">Welcome</a>
+  <a au-link="guide#api-reference">
+    Static API link
+  </a>
+  <a au-link.bind="{
+    target: 'guide',
+    options: { hash: 'api-reference' }
+  }">
+    Bound API link
+  </a>
+</nav>
+<au-route path="welcome" exact>
+  <main>
+    <h1>Documentation home</h1>
+    <p>Open the API reference to render and scroll in one navigation.</p>
+  </main>
+</au-route>
+<au-route
+  path="guide"
+  exact
+  loading.bind="() => prepareApi()">
+  <main>
+    <h1>Product guide</h1>
+    <p>\${status}</p>
+    <div class="reading-space" aria-hidden="true"></div>
+    <section id="api-reference">
+      <h2>API reference</h2>
+      <p>The router found this target after the route finished rendering.</p>
+    </section>
+    <div class="reading-tail" aria-hidden="true"></div>
+  </main>
+</au-route>`,
+    appCss: `.reading-space {
+  height: 700px;
+}
+
+.reading-tail {
+  height: 350px;
+}
+
+#api-reference {
+  padding: 18px;
+  border-radius: 14px;
+  background: #e8f6f3;
+}`,
   }),
   routerExample({
     id: 'active-links',
@@ -1493,7 +1556,7 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
     initialFile: options.initialFile ?? '/src/app.html',
     initialPath: options.initialPath,
     files: {
-      '/src/main.ts': options.mainTs ?? createMainSource(options.routingMode, options.routeQueryKey),
+      '/src/main.ts': options.mainTs ?? createMainSource(options.routingMode, options.routeQueryKey, options.scrolling),
       '/src/app.ts': options.appTs ?? 'export class App {}',
       '/src/app.html': options.appHtml,
       '/src/app.css': `${baseCss}\n${options.appCss ?? ''}`,
@@ -1502,17 +1565,22 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
   };
 }
 
-function createMainSource(routingMode: 'path' | 'hash' | 'query' = 'path', routeQueryKey?: string): string {
+function createMainSource(
+  routingMode: 'path' | 'hash' | 'query' = 'path',
+  routeQueryKey?: string,
+  scrolling?: boolean,
+): string {
   const modeLines = routingMode === 'path'
     ? ''
     : `,\n    routingMode: '${routingMode}'${routeQueryKey == null ? '' : `,\n    routeQueryKey: '${routeQueryKey}'`}`;
+  const scrollLine = scrolling == null ? '' : `,\n    scrolling: ${scrolling}`;
   return `import Aurelia from 'aurelia';
 import { Routing } from 'aurelia-v2-router-html';
 import { App } from './app';
 
 void Aurelia
   .register(Routing.customize({
-    animations: false${modeLines}
+    animations: false${modeLines}${scrollLine}
   }))
   .app({ host: document.querySelector('#app')!, component: App })
   .start();`;

@@ -8,12 +8,15 @@ import { BrowserPathAdapter, type BrowserAdapterOptions } from './browser-path-a
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import { IPathAdapter } from './path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
+import { BrowserRouteScrollService, IRouteScrollService, noRouteScrollService, type RouteScrollOptions } from './scroll';
+import { IRouteViewSettlement, RouteViewSettlement } from './settlement';
 import { BrowserRouteTitleService, IRouteTitleService, noRouteTitleService, type RouteTitleOptions } from './title';
 
 export interface RoutingOptions extends BrowserAdapterOptions {
   swapOrder?: SwapOrder;
   animations?: RouteAnimationInput;
   titles?: boolean | RouteTitleOptions;
+  scrolling?: boolean | RouteScrollOptions;
   adapter?: IPathAdapter | Key;
   adapterFactory?: (container: IContainer) => IPathAdapter;
 }
@@ -45,10 +48,30 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     hrefFormatter: path => adapter.formatHref(path),
   });
   const platform = c.has(IPlatform, true) ? c.get(IPlatform) : null;
+  const settlement = c.has(IRouteViewSettlement, true)
+    ? c.get(IRouteViewSettlement)
+    : new RouteViewSettlement();
+  const needsBrowserDocument = usesDefaultBrowserAdapter
+    || options.titles === true
+    || typeof options.titles === 'object'
+    || options.scrolling === true
+    || typeof options.scrolling === 'object';
+  const browserDocument = browserWindow?.document
+    ?? (needsBrowserDocument ? c.get(IWindow).document : null);
+  const scrollService = c.has(IRouteScrollService, true)
+    ? c.get(IRouteScrollService)
+    : options.scrolling === false || (!usesDefaultBrowserAdapter && options.scrolling == null)
+      ? noRouteScrollService
+      : new BrowserRouteScrollService(
+        browserDocument!,
+        settlement,
+        typeof options.scrolling === 'object' ? options.scrolling : {},
+      );
   const coordinator = new RouteCoordinator(
     rootContext,
     adapter,
     () => new (platform?.globalThis.AbortController ?? AbortController)(),
+    scrollService,
   );
   const titleService = c.has(IRouteTitleService, true)
     ? c.get(IRouteTitleService)
@@ -56,7 +79,8 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
       ? noRouteTitleService
       : new BrowserRouteTitleService(
         rootContext,
-        (browserWindow ?? c.get(IWindow)).document,
+        browserDocument!,
+        settlement,
         typeof options.titles === 'object' ? options.titles : {},
       );
 
@@ -66,6 +90,8 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     Registration.instance(IPathAdapter, adapter),
     Registration.instance(IRouteAnimationOptions, animationOptions),
     Registration.instance(IRouteContext, rootContext),
+    Registration.instance(IRouteViewSettlement, settlement),
+    Registration.instance(IRouteScrollService, scrollService),
     Registration.instance(IRouteTitleService, titleService),
     Registration.instance(IRouteCoordinator, coordinator),
     AppTask.activated(() => {

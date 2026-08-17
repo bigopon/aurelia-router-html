@@ -8,12 +8,15 @@ import { IPathAdapter, type PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
 import type { BrowserRoutingMode } from '../../../router/browser-path-adapter';
 import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from '../../../router/route-location';
+import { BrowserRouteScrollService, IRouteScrollService, noRouteScrollService, type RouteScrollOptions } from '../../../router/scroll';
+import { IRouteViewSettlement, RouteViewSettlement } from '../../../router/settlement';
 import { BrowserRouteTitleService, IRouteTitleService, type RouteTitleOptions } from '../../../router/title';
 
 interface PlaygroundRoutingOptions {
   swapOrder?: SwapOrder;
   animations?: RouteAnimationInput;
   titles?: boolean | RouteTitleOptions;
+  scrolling?: boolean | RouteScrollOptions;
   interceptLinks?: boolean;
   routingMode?: BrowserRoutingMode;
   routeQueryKey?: string;
@@ -150,12 +153,21 @@ export function createPlaygroundRouting() {
       swapOrder: options.swapOrder,
       hrefFormatter: path => adapter.formatHref(path),
     });
-    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController());
+    const settlement = new RouteViewSettlement();
+    const scrollService = options.scrolling === true || typeof options.scrolling === 'object'
+      ? new BrowserRouteScrollService(
+        document,
+        settlement,
+        typeof options.scrolling === 'object' ? options.scrolling : {},
+      )
+      : noRouteScrollService;
+    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController(), scrollService);
     const titleService = options.titles === false
-      ? { start() {}, beginViewActivation() {}, endViewActivation() {}, requestUpdate() {}, stop() {} }
+      ? { start() {}, requestUpdate() {}, stop() {} }
       : new BrowserRouteTitleService(
         root,
         document,
+        settlement,
         typeof options.titles === 'object' ? options.titles : {},
       );
     container.register(
@@ -164,6 +176,8 @@ export function createPlaygroundRouting() {
       Registration.instance(IPathAdapter, adapter),
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
       Registration.instance(IRouteContext, root),
+      Registration.instance(IRouteViewSettlement, settlement),
+      Registration.instance(IRouteScrollService, scrollService),
       Registration.instance(IRouteTitleService, titleService),
       Registration.instance(IRouteCoordinator, coordinator),
       AppTask.activated(() => {

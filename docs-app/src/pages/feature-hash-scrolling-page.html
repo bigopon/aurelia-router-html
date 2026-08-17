@@ -1,0 +1,50 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Hash Scrolling</h2>
+      <p class="page-copy">Link directly to content inside a routed view, including targets created by asynchronous route work.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;a au-link="guide#api-reference"&gt;
+  API reference
+&lt;/a&gt;
+
+&lt;a au-link.bind="{
+  target: 'guide',
+  options: { hash: 'api-reference' }
+}"&gt;
+  API reference
+&lt;/a&gt;
+
+&lt;au-route
+  path="guide"
+  loading.bind="() =&gt; prepareApi()"&gt;
+  &lt;section id="api-reference"&gt;...&lt;/section&gt;
+&lt;/au-route&gt;</pre>
+      <p>Both links generate the same URL. Use the compact target when the path and fragment are static. Use an <code>au-link.bind</code> instruction object when the target, hash, parameters, or matching options are dynamic.</p>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p>The hash remains route state while the pathname selects the route tree. After navigation succeeds, scrolling waits until every activating route view is attached, decodes the hash, and finds an element by <code>id</code> or anchor <code>name</code>.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  scrolling: {
+    behavior: 'smooth',
+    block: 'start'
+  }
+});</pre>
+      <p>The default browser adapter enables hash scrolling automatically. Use <code>scrolling: false</code> to disable it. Memory and custom adapters opt in with <code>scrolling: true</code> or an options object when they render into a browser document.</p>
+      <p>The same link becomes <code>/guide#api-reference</code> in path mode, <code>#guide#api-reference</code> in hash mode, and <code>?app=guide#api-reference</code> in query mode.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="hash-scrolling" embedded.bind="true"></playground-page>
+</section>

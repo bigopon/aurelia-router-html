@@ -132,6 +132,10 @@ run('A3 href generation adds and preserves query and hash state before adapter f
     products.href('reviews', {}, { preserveQuery: true, preserveHash: true }),
     'route:/products/ice-cream/reviews?sort=recent#comments',
   );
+  assert.equal(
+    root.href('/guide#api-reference'),
+    'route:/guide#api-reference',
+  );
 });
 
 run('A4 route contexts load resolved targets before adapter href formatting', () => {
