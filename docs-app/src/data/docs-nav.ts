@@ -15,6 +15,13 @@ export const docNav: DocNavItem[] = [
     badge: 'Start here',
   },
   {
+    id: 'api',
+    title: 'API Cheat Sheet',
+    path: '/api',
+    summary: 'Copy-ready syntax and application-facing APIs in one reference page.',
+    badge: 'Reference',
+  },
+  {
     id: 'basic',
     title: 'Basic Routes',
     path: '/features/basic',

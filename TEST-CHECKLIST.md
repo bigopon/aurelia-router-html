@@ -3,6 +3,7 @@
 - [x] `A0` The docs overview presents every feature as static syntax with a link to its focused example and no demo controls.
 - [x] `A0` Syntax highlighting gives valued and valueless HTML attributes the same attribute color.
 - [x] `A0` Every static documentation code block exposes an accessible copy button, and the overview provides separate copy-ready pathname, hash, and query-key configurations.
+- [x] `A0` A dedicated API Cheat Sheet collects route attributes, path syntax, links, route-context state and methods, callback results, and host configuration.
 - [x] `A1` The embedded kitchen-sink project composes VM and repeat scopes, `let` bindings, named slots, interaction, and repeated routes.
 - [x] `A1` Kitchen-sink generated links navigate between repeated route branches inside the isolated preview.
 - [x] `A1` Kitchen-sink editor tabs expose the complete slotted shell and declarative repeated route tree.

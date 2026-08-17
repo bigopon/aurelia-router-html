@@ -1,0 +1,187 @@
+<section class="route-stack api-cheat-sheet">
+  <header class="page-header">
+    <div>
+      <h2>API Cheat Sheet</h2>
+      <p class="page-copy">A copy-ready reference for route declarations, links, route context, navigation callbacks, and application configuration.</p>
+    </div>
+  </header>
+
+  <nav class="overview-links" aria-label="Cheat sheet sections">
+    <a class="example-jump" au-link="/api#route-declarations">Routes</a>
+    <a class="example-jump" au-link="/api#path-patterns">Paths</a>
+    <a class="example-jump" au-link="/api#links-and-navigation">Links</a>
+    <a class="example-jump" au-link="/api#route-context">Route context</a>
+    <a class="example-jump" au-link="/api#callbacks">Callbacks</a>
+    <a class="example-jump" au-link="/api#configuration">Configuration</a>
+  </nav>
+
+  <section class="route-stack" id="route-declarations">
+    <header>
+      <h3>Declare routes</h3>
+      <p>Place routing behavior on the template branch it controls.</p>
+    </header>
+    <pre class="code-block" syntax-html>&lt;au-route
+  path="products/:id"
+  exact
+  title.bind="product.name"
+  loading.bind="() =&gt; loadProduct()"
+  loaded.bind="() =&gt; productReady()"
+  can-load.bind="() =&gt; canOpenProduct()"
+  can-unload.bind="() =&gt; canLeaveProduct()"
+  on-error.bind="failure =&gt; recover(failure)"
+  guard-failure="local"
+  swap-order="parallel"
+  animate&gt;
+  ...
+&lt;/au-route&gt;</pre>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead><tr><th>Attribute</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>path</code></td><td>Static route pattern. Dynamic values use <code>path.bind</code>, <code>path.to-view</code>, or <code>:path</code>.</td></tr>
+          <tr><td><code>exact</code></td><td>Require the route to consume the complete path supplied by its parent.</td></tr>
+          <tr><td><code>fallback</code></td><td>Participate only when no regular sibling matches.</td></tr>
+          <tr><td><code>redirect-to</code></td><td>Redirect without rendering this route. Use <code>redirect-mode="push"</code> to retain the source history entry.</td></tr>
+          <tr><td><code>title</code></td><td>Contribute static or bound metadata to the composed document title.</td></tr>
+          <tr><td><code>loading</code> / <code>loaded</code></td><td>Prepare before activation or observe the completed nested branch.</td></tr>
+          <tr><td><code>can-load</code> / <code>can-unload</code></td><td>Approve or cancel navigation. <code>can-load</code> may also redirect.</td></tr>
+          <tr><td><code>guard-failure</code></td><td>Use <code>navigation</code> for atomic cancellation or <code>local</code> to rematch a sibling fallback.</td></tr>
+          <tr><td><code>on-error</code></td><td>Handle loading or activation failures at the nearest route boundary.</td></tr>
+          <tr><td><code>swap-order</code></td><td>Attach first, detach first, or swap sibling views in <code>parallel</code>.</td></tr>
+          <tr><td><code>animate</code></td><td>Opt this route into configured transition classes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="route-stack" id="path-patterns">
+    <header><h3>Path patterns</h3></header>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead><tr><th>Syntax</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>products</code>, <code>./products</code></td><td>Equivalent contextual route declaration patterns.</td></tr>
+          <tr><td><code>path="/"</code>, <code>path="."</code>, <code>path="./"</code></td><td>The current parent index in an <code>au-route</code> declaration.</td></tr>
+          <tr><td><code>:id</code>, <code>:id?</code></td><td>Required and optional named parameters.</td></tr>
+          <tr><td><code>*</code></td><td>Consume and capture one segment as <code>$params['*']</code>.</td></tr>
+          <tr><td><code>files/**</code></td><td>Consume every remaining segment as <code>$params['**']</code>.</td></tr>
+          <tr><td><code>au-link="/products"</code></td><td>Start link and navigation resolution at the root context. Route declarations themselves remain contextual.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="route-stack" id="links-and-navigation">
+    <header>
+      <h3>Links and navigation</h3>
+      <p>Use <code>au-link</code> for application links and the context methods when markup or application logic needs direct control.</p>
+    </header>
+    <pre class="code-block" syntax-html>&lt;!-- Relative to the current route context --&gt;
+&lt;a au-link="reviews"&gt;Reviews&lt;/a&gt;
+&lt;a au-link="./reviews"&gt;Reviews, explicitly relative&lt;/a&gt;
+&lt;a au-link="."&gt;Current context index&lt;/a&gt;
+
+&lt;!-- Absolute from the root route context --&gt;
+&lt;a au-link="/products"&gt;All products&lt;/a&gt;
+&lt;a au-link="/"&gt;Application root&lt;/a&gt;
+
+&lt;a au-link="guide#api"&gt;Guide API&lt;/a&gt;
+&lt;a au-link.bind="{
+  target: '/products/:id',
+  params: { id: product.id },
+  options: { exact: true },
+  activeClass: 'selected'
+}"&gt;
+  Product
+&lt;/a&gt;
+
+&lt;a
+  href.bind="$route.href('reviews')"
+  class.bind="$route.isActive('reviews') ? 'is-active' : ''"&gt;
+  Low-level link
+&lt;/a&gt;</pre>
+    <p>A target without a leading slash is contextual. Its <code>./</code> form is equivalent. A leading slash is root-absolute for <code>au-link</code>, <code>$route.href()</code>, and <code>$route.load()</code>. In contrast, every <code>au-route path</code> declaration matches the residue supplied by its parent, even when its pattern starts with a slash.</p>
+    <pre class="code-block" syntax-typescript>const href = route.href(target, params, options);
+const active = route.isActive(target, params, {
+  exact: true,
+  matchQuery: true,
+  matchHash: true
+});
+await route.load(target, params, {
+  query: { sort: 'recent' },
+  hash: 'comments',
+  replace: true
+});
+const paths = route.getPaths();</pre>
+  </section>
+
+  <section class="route-stack" id="route-context">
+    <header><h3>Route context and scoped URL state</h3></header>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead><tr><th>Template API</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><code>$route</code></td><td>The nearest <code>IRouteContext</code>.</td></tr>
+          <tr><td><code>$params</code></td><td>Parameters captured by this route only.</td></tr>
+          <tr><td><code>$query</code></td><td>Read-only query values with <code>get</code>, <code>getAll</code>, <code>has</code>, and <code>toString</code>.</td></tr>
+          <tr><td><code>$hash</code></td><td>The route fragment without <code>#</code>.</td></tr>
+          <tr><td><code>$route.parent</code> / <code>root</code> / <code>children</code></td><td>Traverse the declarative route tree.</td></tr>
+          <tr><td><code>$route.pattern</code> / <code>fullPath</code></td><td>The local pattern and its composed ancestor pattern.</td></tr>
+          <tr><td><code>$route.$path</code> / <code>residue</code></td><td>The path presented to this context and the portion left for children.</td></tr>
+          <tr><td><code>$route.active</code> / <code>title</code></td><td>Current match state and normalized route title.</td></tr>
+          <tr><td><code>$route.failure</code></td><td>The local recovery failure, including error, phase, source, boundary, recovery context, and abort signal.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre class="code-block" syntax-typescript>import { resolve } from '@aurelia/kernel';
+import { IRouteContext } from 'aurelia-v2-router-html';
+
+export class ProductPage {
+  private readonly route = resolve(IRouteContext);
+
+  public openReviews(): boolean | Promise&lt;boolean&gt; {
+    return this.route.load('reviews');
+  }
+}</pre>
+  </section>
+
+  <section class="route-stack" id="callbacks">
+    <header><h3>Callback results</h3></header>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead><tr><th>Callback</th><th>Supported result</th></tr></thead>
+        <tbody>
+          <tr><td><code>loading</code> / <code>loaded</code></td><td><code>void</code> or <code>Promise&lt;void&gt;</code>.</td></tr>
+          <tr><td><code>can-load</code></td><td>Approve, return <code>false</code>, or return a contextual/root redirect result.</td></tr>
+          <tr><td><code>can-unload</code></td><td>Approve or return <code>false</code> to keep the current route active.</td></tr>
+          <tr><td><code>on-error</code></td><td>Return nothing to bubble, return a redirect, or return <code>{ recover: 'local' }</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Bind callbacks as functions, for example <code>loading.bind="() =&gt; load()"</code>. Aurelia v2 does not use <code>.call</code> here.</p>
+  </section>
+
+  <section class="route-stack" id="configuration">
+    <header><h3>Configure the host integration</h3></header>
+    <pre class="code-block" syntax-typescript>Routing.customize({
+  routingMode: 'path', // 'path' | 'hash' | 'query'
+  routeQueryKey: 'app',
+  interceptLinks: true,
+  swapOrder: 'parallel',
+  animations: {
+    enabled: true,
+    classPrefix: 'au-route',
+    fallbackMs: 400
+  },
+  titles: {
+    separator: ' | ',
+    fallback: 'Store'
+  },
+  scrolling: {
+    behavior: 'smooth',
+    block: 'start'
+  }
+});</pre>
+    <p>Supply <code>adapter</code> or <code>adapterFactory</code> for memory, WebView, SSR, or host-specific locations. Plain links need <code>interceptLinks</code> for client-side navigation; <code>au-link</code> does not.</p>
+  </section>
+</section>

@@ -22,6 +22,7 @@ interface RouterExampleOptions {
   routingMode?: 'path' | 'hash' | 'query';
   routeQueryKey?: string;
   scrolling?: boolean;
+  interceptLinks?: boolean;
 }
 
 const baseCss = `:root {
@@ -368,6 +369,7 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Active links',
     description: 'Generate link URLs and selected navigation state from the same route targets.',
     initialPath: '/products/ice-cream/reviews?sort=recent#comments',
+    interceptLinks: true,
     appHtml: `<au-route path="products/:productId">
   <section class="active-link-demo">
     <au-route path="overview" exact>
@@ -410,6 +412,11 @@ const featureExamples: PlaygroundExample[] = [
         activeClass: 'selected'
       }">
         Review comments
+      </a>
+      <a
+        href.bind="$route.href('reviews')"
+        class.bind="$route.isActive('reviews', {}, { exact: true }) ? 'selected' : ''">
+        Low-level reviews
       </a>
     </nav>
   </section>
@@ -1556,7 +1563,12 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
     initialFile: options.initialFile ?? '/src/app.html',
     initialPath: options.initialPath,
     files: {
-      '/src/main.ts': options.mainTs ?? createMainSource(options.routingMode, options.routeQueryKey, options.scrolling),
+      '/src/main.ts': options.mainTs ?? createMainSource(
+        options.routingMode,
+        options.routeQueryKey,
+        options.scrolling,
+        options.interceptLinks,
+      ),
       '/src/app.ts': options.appTs ?? 'export class App {}',
       '/src/app.html': options.appHtml,
       '/src/app.css': `${baseCss}\n${options.appCss ?? ''}`,
@@ -1569,18 +1581,20 @@ function createMainSource(
   routingMode: 'path' | 'hash' | 'query' = 'path',
   routeQueryKey?: string,
   scrolling?: boolean,
+  interceptLinks?: boolean,
 ): string {
   const modeLines = routingMode === 'path'
     ? ''
     : `,\n    routingMode: '${routingMode}'${routeQueryKey == null ? '' : `,\n    routeQueryKey: '${routeQueryKey}'`}`;
   const scrollLine = scrolling == null ? '' : `,\n    scrolling: ${scrolling}`;
+  const interceptLine = interceptLinks == null ? '' : `,\n    interceptLinks: ${interceptLinks}`;
   return `import Aurelia from 'aurelia';
 import { Routing } from 'aurelia-v2-router-html';
 import { App } from './app';
 
 void Aurelia
   .register(Routing.customize({
-    animations: false${modeLines}${scrollLine}
+    animations: false${modeLines}${scrollLine}${interceptLine}
   }))
   .app({ host: document.querySelector('#app')!, component: App })
   .start();`;

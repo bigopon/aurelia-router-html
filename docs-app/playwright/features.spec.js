@@ -188,6 +188,9 @@ test.describe('router HTML docs features', () => {
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
     await expect(basicSyntax).toContainText('au-link="products"');
     await expect(basicSyntax).toContainText('au-link="/products"');
+    const activeLinkSyntax = features.filter({ hasText: 'Active Links' }).locator('pre');
+    await expect(activeLinkSyntax).toContainText("$route.href('reviews')");
+    await expect(activeLinkSyntax).toContainText("$route.isActive('reviews', {}, { exact: true })");
     const matchingSyntax = features.filter({ hasText: 'Exact & Fallback Matching' }).locator('pre');
     await expect(matchingSyntax).toContainText('<au-route path="products/:id" exact>');
     await expect(matchingSyntax).toContainText('<au-route path="offers/:id?" exact>');
@@ -337,6 +340,31 @@ test.describe('router HTML docs features', () => {
     await playground.getByRole('button', { name: 'Run' }).click();
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
     await expect(frame.getByRole('heading', { name: 'Edited embedded preview' })).toBeVisible();
+  });
+
+  test('API cheat sheet collects the application-facing router surface', async ({ page }) => {
+    await page.goto('/api');
+
+    await expect(page.getByRole('heading', { name: 'API Cheat Sheet' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'API Cheat Sheet', exact: true })).toHaveClass(/is-active/);
+    await expect(page).toHaveTitle('API Cheat Sheet | Aurelia Router HTML');
+
+    const sheet = page.locator('.api-cheat-sheet');
+    await expect(sheet).toContainText('path.bind');
+    await expect(sheet).toContainText('redirect-to');
+    await expect(sheet).toContainText('guard-failure');
+    await expect(sheet).toContainText('$route.isActive');
+    await expect(sheet).toContainText('IRouteContext');
+    await expect(sheet).toContainText('scrolling');
+    await expect(sheet).toContainText('A target without a leading slash is contextual');
+    await expect(sheet).toContainText('A leading slash is root-absolute');
+    await expect(sheet).toContainText('every au-route path declaration matches the residue supplied by its parent');
+    const codeBlocks = sheet.locator('pre.code-block');
+    await expect(sheet.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
+
+    await page.getByRole('link', { name: 'Links', exact: true }).click();
+    await expect(page).toHaveURL(/\/api#links-and-navigation$/);
+    await expect(page.getByRole('heading', { name: 'Links and navigation' })).toBeVisible();
   });
 
   test('hash-scrolling guide runs its delayed target example', async ({ page }) => {
@@ -509,11 +537,13 @@ test.describe('router HTML docs features', () => {
     const reviews = frame.getByRole('link', { name: 'Reviews', exact: true });
     const recent = frame.getByRole('link', { name: 'Recent reviews' });
     const comments = frame.getByRole('link', { name: 'Review comments' });
+    const lowLevel = frame.getByRole('link', { name: 'Low-level reviews' });
 
     await expect(reviews).toHaveClass(/selected/);
     await expect(reviews).toHaveAttribute('aria-current', 'page');
     await expect(recent).toHaveClass(/selected/);
     await expect(comments).toHaveClass(/selected/);
+    await expect(lowLevel).toHaveClass(/selected/);
 
     await overview.click();
     await expect(playground.locator('.preview-label code')).toHaveText('/products/ice-cream/overview');
@@ -522,6 +552,11 @@ test.describe('router HTML docs features', () => {
     await expect(reviews).not.toHaveClass(/selected/);
     await expect(recent).not.toHaveClass(/selected/);
     await expect(comments).not.toHaveClass(/selected/);
+    await expect(lowLevel).not.toHaveClass(/selected/);
+
+    await lowLevel.click();
+    await expect(playground.locator('.preview-label code')).toHaveText('/products/ice-cream/reviews');
+    await expect(lowLevel).toHaveClass(/selected/);
 
     await page.getByRole('link', { name: 'Basic Routes', exact: true }).click();
     await expect(page).toHaveURL(/\/features\/basic$/);

@@ -50,7 +50,7 @@ export class OverviewPage {
       summary: 'Generate hrefs and selected navigation state from the same registered route target.',
       path: '/features/active-links',
       playgroundId: 'active-links',
-      syntax: '<a au-link="reviews">Reviews</a>\n<a au-link="/products">All products</a>',
+      syntax: '<a au-link="reviews">Reviews</a>\n\n<a\n  href.bind="$route.href(\'reviews\')"\n  class.bind="$route.isActive(\'reviews\', {}, { exact: true })\n    ? \'is-active\'\n    : \'\'">\n  Reviews with low-level APIs\n</a>',
     },
     {
       title: 'Hash Scrolling',
