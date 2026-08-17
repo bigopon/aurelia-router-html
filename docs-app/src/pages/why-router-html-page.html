@@ -1,0 +1,73 @@
+<section class="route-stack why-router-html" data-e2e="router-purpose">
+  <header class="page-header">
+    <div>
+      <h2>Why Router HTML</h2>
+      <p class="page-copy">
+        Describe the URL, navigation, nested layout, and rendered UI together in Aurelia templates—without maintaining a second route tree in TypeScript.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>The route tree is the UI tree</h3>
+      <p>Each route sits beside the markup it displays. Nesting in the template mirrors nesting in both the URL and the interface, so the complete feature is readable in one place.</p>
+      <pre class="code-block" syntax-html>&lt;nav&gt;
+  &lt;a au-link="products"&gt;Products&lt;/a&gt;
+  &lt;a au-link="account"&gt;Account&lt;/a&gt;
+&lt;/nav&gt;
+
+&lt;au-route path="products"&gt;
+  &lt;h1&gt;Products&lt;/h1&gt;
+  &lt;product-list&gt;&lt;/product-list&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="account"&gt;
+  &lt;h1&gt;Account&lt;/h1&gt;
+
+  &lt;au-route path="profile"&gt;
+    &lt;profile-editor&gt;&lt;/profile-editor&gt;
+  &lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Use the Aurelia template language you already know</h3>
+      <p>Routes work with bindings, conditions, repeats, local template scope, and composed components. There is no parallel JavaScript route-configuration syntax to keep synchronized with the view.</p>
+      <pre class="code-block" syntax-html>&lt;let active-tabs.bind="tabs.filter(tab =&gt; tab.enabled)"&gt;&lt;/let&gt;
+
+&lt;template repeat.for="tab of activeTabs"&gt;
+  &lt;a au-link.bind="tab.path"&gt;
+    $<span>{tab.label}</span>
+  &lt;/a&gt;
+
+  &lt;au-route path.bind="tab.path"&gt;
+    &lt;tab-panel tab.bind="tab"&gt;&lt;/tab-panel&gt;
+  &lt;/au-route&gt;
+&lt;/template&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Keep each concern in its natural home</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Concern</th><th>Where it lives</th></tr></thead>
+          <tbody>
+            <tr><td>URL shape and nesting</td><td><code>&lt;au-route&gt;</code> in the template</td></tr>
+            <tr><td>Navigation and active feedback</td><td><code>au-link</code> beside the interface it controls</td></tr>
+            <tr><td>Conditional and repeated route branches</td><td>Standard Aurelia template features</td></tr>
+            <tr><td>Data, permissions, and application state</td><td>View-models and services</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Router HTML does not remove TypeScript from an Aurelia application. It removes the need to duplicate the application's route topology across JavaScript configuration and HTML views.</p>
+    </section>
+
+    <section>
+      <h3>One routing mental model</h3>
+      <p>A parent route consumes its part of the URL and gives the remainder to its children. The same route context resolves links, parameters, query state, lifecycle, guards, and nested content.</p>
+      <p>Register the package once, then describe application routes declaratively where visitors experience them.</p>
+      <a class="example-jump" au-link="/features/basic">See the first route example →</a>
+    </section>
+  </div>
+</section>

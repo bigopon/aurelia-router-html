@@ -25,6 +25,7 @@ import { FeatureTitlesPage } from './feature-titles-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
 import { FeatureWildcardPage } from './feature-wildcard-page';
 import { OverviewPage } from './overview-page';
+import { WhyRouterHtmlPage } from './why-router-html-page';
 import template from './docs-app.html?raw';
 
 export class DocsApp {
@@ -34,6 +35,7 @@ export class DocsApp {
     template,
     dependencies: [
       OverviewPage,
+      WhyRouterHtmlPage,
       ApiCheatSheetPage,
       FeatureAdaptersPage,
       FeatureBasicPage,

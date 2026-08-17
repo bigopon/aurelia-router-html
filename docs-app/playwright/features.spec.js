@@ -378,6 +378,24 @@ test.describe('router HTML docs features', () => {
     await expect(page.getByRole('heading', { name: 'Links and navigation' })).toBeVisible();
   });
 
+  test('purpose page explains declarative template-owned routing', async ({ page }) => {
+    await page.goto('/why-router-html');
+
+    await expect(page.getByRole('heading', { name: 'Why Router HTML' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Why Router HTML', exact: true })).toHaveClass(/is-active/);
+    await expect(page).toHaveTitle('Why Router HTML | Aurelia Router HTML');
+
+    const purpose = page.locator('[data-e2e="router-purpose"]');
+    await expect(purpose).toContainText('The route tree is the UI tree');
+    await expect(purpose).toContainText('There is no parallel JavaScript route-configuration syntax');
+    await expect(purpose).toContainText('does not remove TypeScript');
+    await expect(purpose.locator('pre').first()).toContainText('<au-route path="products">');
+    await expect(purpose.locator('pre').nth(1)).toContainText('repeat.for="tab of activeTabs"');
+
+    const codeBlocks = purpose.locator('pre.code-block');
+    await expect(purpose.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
+  });
+
   test('hash-scrolling guide runs its delayed target example', async ({ page }) => {
     await page.goto('/features/hash-scrolling');
     await expect(page.getByRole('status')).toContainText('Running', { timeout: 60000 });

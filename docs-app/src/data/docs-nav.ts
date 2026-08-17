@@ -15,6 +15,13 @@ export const docNav: DocNavItem[] = [
     badge: 'Start here',
   },
   {
+    id: 'why-router-html',
+    title: 'Why Router HTML',
+    path: '/why-router-html',
+    summary: 'Keep route structure, navigation, nesting, and rendered UI together in declarative Aurelia templates.',
+    badge: 'Purpose',
+  },
+  {
     id: 'api',
     title: 'API Cheat Sheet',
     path: '/api',
