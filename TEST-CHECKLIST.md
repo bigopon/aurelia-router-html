@@ -87,6 +87,11 @@
 - [x] `A9` Local guard failure does not weaken transaction-wide `can-unload` denial, and a later retry reevaluates the locally denied route.
 - [x] `A9` Navigation transactions delay adapter commits, retain the outgoing branch during asynchronous guards, and restore it after cancellation or loading failure.
 - [x] `A9` Guard callbacks receive an abort signal, contextual and root-absolute redirects share route href rules, and link-triggered errors emit `au-route-navigation-error`.
+- [x] `E1` Route failures identify their source, nearest accepting boundary, recovery parent, transaction signal, and `can-load`, `loading`, activation, or `loaded` phase.
+- [x] `E1` Synchronous and asynchronous `on-error.bind` handlers bubble nearest-first, redirect contextually, or return `{ recover: 'local' }`.
+- [x] `E1` Local error recovery commits accepted parents, URL, history, title, selected fallback, and observable `$route.failure` state.
+- [x] `E1` A successful retry clears recovery state, cancellation restores its snapshot, and a failing recovery fallback cannot reenter an already-used boundary.
+- [x] `E1` Unhandled failures preserve the original error and atomic rollback, while a throwing handler reports both errors through `AggregateError`.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
 # Browser playground
 
@@ -111,6 +116,9 @@
 - [x] Navigation guards have an overview card, focused guide, editable cancellation/redirect playground, and standalone browser-adapter coverage.
 - [x] Guard Failure Modes is a dedicated sidebar and overview item with explicit `navigation` and `local` contracts.
 - [x] Guard failure docs visibly log member, staff, and administrator guard invocation across three nested levels and three staff-area siblings.
+- [x] Error Recovery has a dedicated sidebar, overview syntax card, focused API guide, and editable local-recovery playground.
+- [x] Error Recovery provides separate editable examples for a route handling its own failure, a parent handling its child's failure, and a grandparent handling its grandchild's failure.
+- [x] Standalone browser recovery retains parent UI, commits URL and title, survives Back/Forward, and clears fallback UI after a successful retry.
 - [x] Local guard denial keeps accepted parent UI mounted and commits the requested URL with both embedded and standalone browser adapters.
 - [x] Every overview `Edit in playground` link opens a matching runnable fixture with its feature markup selected.
 - [x] Basic Routes contrasts contextual route declarations with relative and root-absolute link targets.

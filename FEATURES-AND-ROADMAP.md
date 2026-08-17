@@ -708,9 +708,9 @@ If several nested loading callbacks are involved, earlier successful callbacks a
 
 The coordinator delays adapter mutation while the candidate branch is discovered. Outgoing contexts remain mounted during asynchronous guard and loading work. Failed candidates are discarded and the previous route state is reapplied; successful candidates commit history once before outgoing deactivation completes.
 
-### Proposed error recovery implementation
+### Error recovery
 
-Status: designed, not implemented.
+Status: implemented.
 
 Local guard denial provides the matching primitive needed for local error recovery, but loading errors should not silently reuse guard semantics. A denial is an expected authorization decision; an exception carries diagnostic data, must preserve its original identity, and needs an explicit owner.
 
@@ -719,12 +719,20 @@ The error-boundary API should use an Aurelia callback binding on the route that 
 ```html
 <au-route
   path="workspace"
-  error.bind="failure => recoverWorkspace(failure)">
-  ...
+  on-error.bind="failure => recoverWorkspace(failure)">
+  <au-route path="reports" loading.bind="() => loadReports()">
+    <reports-panel></reports-panel>
+  </au-route>
+
+  <au-route path="*" fallback>
+    Error: ${$route.parent.failure.error.message}
+  </au-route>
 </au-route>
 ```
 
-The proposed public types are:
+The bindable is named `onError` in TypeScript and maps to `on-error` in markup. The `on-` prefix makes it clear that this is a callback, while `$route.failure` is reserved for observable recovery state. It remains an Aurelia function binding rather than a DOM event, so `.bind="failure => ..."` retains the surrounding binding context.
+
+The public types are:
 
 ```ts
 type RouteFailurePhase = 'can-load' | 'loading' | 'activation' | 'loaded';
@@ -733,37 +741,39 @@ interface RouteFailure {
   readonly error: unknown;
   readonly source: IRouteContext;
   readonly boundary: IRouteContext;
+  readonly recovery: IRouteContext;
   readonly phase: RouteFailurePhase;
   readonly signal: AbortSignal;
 }
 
 type RouteErrorResult =
+  | string
   | false
   | null
   | undefined
   | RouteGuardRedirect
   | { readonly recover: 'local' };
 
-type RouteErrorCallback = (
+type RouteErrorHandler = (
   failure: RouteFailure,
 ) => RouteErrorResult | Promise<RouteErrorResult>;
 ```
 
 `false`, `null`, or `undefined` means that boundary did not handle the error, so resolution continues at its parent. `{ recover: 'local' }` handles the failure without changing the requested URL. A redirect object uses the same contextual target, parameters, and replace options as a guard redirect. An explicit object is preferable to `true`, which does not explain what recovery action the router should perform.
 
-When a descendant guard, `loading`, or pre-commit view activation throws, the router walks from the failing route toward the root and invokes registered boundaries nearest-first. A local recovery excludes only the failing subtree, records failure metadata on the handling boundary, and rematches at the failed route's immediate parent using the transaction-local exclusion mechanism already used by local guard denial.
+When a descendant guard, `loading`, or pre-commit view activation throws, the router walks from the failing route toward the root and invokes registered boundaries nearest-first. A local recovery excludes only the failing subtree and rematches at the failed route's immediate parent using the transaction-local exclusion mechanism already used by local guard denial.
 
-The recovery UI needs a deliberate data channel. Add read-only `failure: RouteFailure | null` to `IRouteContext`, `RouteState`, and the template `$route`. Only the handling boundary owns the value. It clears when a retry successfully replaces the failed subtree, the boundary becomes inactive, or the boundary is disposed. A sibling fallback can read the appropriate ancestor's failure without placing exceptions in URL parameters or a global service.
+The recovery UI needs a deliberate data channel. Add read-only `failure: RouteFailure | null` to `IRouteContext`, `RouteState`, and the template `$route`. The failed route's immediate parent is the recovery context and is the single owner of this value; `RouteFailure.boundary` separately identifies which `on-error` handler accepted it. The failure clears when a retry successfully replaces the failed subtree, the recovery context becomes inactive, or the recovery context is disposed. Markup directly owned by the recovery context reads `$route.failure`; a sibling fallback has its own `$route`, so it reads `$route.parent.failure` as shown above.
 
 #### Transaction flow
 
 1. Tag failures with their source route and phase before they reach the coordinator's generic rejection path.
 2. Ignore internal navigation cancellation and an already-aborted superseded transaction.
-3. Starting at the source, find the nearest route context with an `error` callback.
+3. Starting at the source, find the nearest route context with an `on-error` callback.
 4. Await that callback inside the existing transaction pending count and pass the transaction's abort signal.
 5. On an unhandled result, continue to the next ancestor.
 6. On a redirect, use the existing redirect transaction path and loop detection.
-7. On local recovery, store `$route.failure` on the boundary, transaction-locally exclude the source subtree, and rematch at the source parent.
+7. On local recovery, set `failure.recovery` and store the value on the source parent, transaction-locally exclude the source subtree, and rematch that parent.
 8. Stage and await the selected fallback normally, including its guards, loading, activation, and loaded callbacks.
 9. Commit accepted ancestors, fallback UI, URL, title, selected links, and history once.
 10. If no boundary handles the failure, retain today's atomic rollback and reject with the original error.
@@ -774,7 +784,7 @@ Important constraints for that implementation are:
 
 - aborted superseded navigation is cancellation, not a recoverable error;
 - `can-unload` errors occur before an incoming transaction and must leave the old tree intact rather than partially recover;
-- a recovery callback that throws replaces the handled attempt but should preserve the original error as `cause`;
+- a recovery callback that throws rejects with an `AggregateError` containing both the original and handler errors;
 - `loaded` currently participates in the pre-commit activation boundary, so it can use the same recovery pipeline, while post-commit animation errors cannot safely roll navigation back;
 - successful application side effects are never automatically compensated;
 - async recovery callbacks increment the existing transaction pending count and observe the same abort signal;
@@ -783,16 +793,32 @@ Important constraints for that implementation are:
 
 This is worth introducing only with the failure metadata and nearest-boundary contract together. A boolean `error-failure="local"` without an error owner would render a fallback but make the underlying failure difficult to inspect, log, retry, or present safely.
 
-#### Implementation sequence
+#### Delivered scope
 
-1. Add the failure/result types, `error` callback registration, and nullable route failure state without changing current rollback behavior.
-2. Tag `can-load`, `loading`, activation, and `loaded` failures with source and phase while preserving the original error object.
-3. Add nearest-first synchronous and asynchronous boundary resolution, redirect handling, and AbortSignal behavior.
-4. Reuse transaction-local route exclusion for `{ recover: 'local' }`, then clear boundary failure state on successful retry or deactivation.
-5. Add loop protection and ensure failures from recovery fallback content bubble to the next eligible ancestor instead of reentering the same boundary.
-6. Add Node tests for every phase, nested boundary order, async handlers, redirects, retry clearing, and unhandled original-error identity.
-7. Add real-browser tests for retained parent UI, committed URL/history/title, fallback rendering, link-triggered reporting, and Back/Forward after recovery.
-8. Add a dedicated Error Recovery docs outline item and playground only after the runtime contract is implemented.
+The coherent pre-commit error-boundary contract ships these behaviors together:
+
+- `on-error.bind` callback registration and nearest-ancestor resolution;
+- source and phase attribution for `can-load`, `loading`, activation, and `loaded`;
+- unhandled propagation, contextual redirects, and explicit `{ recover: 'local' }` results;
+- read-only `$route.failure` state with deterministic clearing on retry, deactivation, and disposal;
+- synchronous and asynchronous handlers using the transaction AbortSignal;
+- recovery-loop protection and preservation of the original error for unhandled failures;
+- Node and real-browser coverage before documenting the feature as implemented.
+
+The following concerns should remain separate follow-up features:
+
+- `can-unload` error boundaries, because they run before the incoming transaction;
+- post-commit animation error reporting, because committed navigation cannot roll back;
+- router-owned retry counts, delays, backoff, or automatic retries;
+- a global logging or telemetry service;
+- dedicated error template slots or router-provided error components;
+- application-specific status codes, messages, and authorization-error conventions.
+
+This keeps the first public API complete enough to be predictable without coupling recovery to unrelated reporting, retry, or presentation policy.
+
+#### Implementation notes
+
+The implementation tags each pre-commit phase before coordinator error handling, resolves boundaries nearest-first inside the active navigation transaction, and reuses transaction-local exclusion for local recovery. A boundary that already recovered during the transaction is skipped if its fallback fails, allowing the failure to reach the next ancestor without a recovery loop. Node, matcher, standalone browser, and docs playground coverage exercise the complete contract.
 
 ### Acceptance criteria
 
@@ -809,9 +835,8 @@ This is worth introducing only with the failure metadata and nearest-boundary co
 
 # Recommended implementation sequence
 
-1. Implement the proposed error recovery boundary and failure metadata contract above.
-2. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
-3. Add history restoration and opt-in focus management on the same settled-navigation boundary.
+1. Extract the shared settled-view boundary and implement proposal 6 scrolling semantics across pathname, hash-only, and query-key URLs.
+2. Add history restoration and opt-in focus management on the same settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

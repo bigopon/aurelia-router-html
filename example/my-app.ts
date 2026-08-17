@@ -1,5 +1,6 @@
 import { resolve } from 'aurelia';
 import { IRouteCoordinator } from '../router/coordinator';
+import type { RouteFailure } from '../router/error';
 import { type Product } from './data/storefront-data';
 import { StorefrontState } from './storefront-state';
 import template from './my-app.html?raw';
@@ -20,6 +21,7 @@ export class MyApp {
   public allowGuardAccess: boolean = false;
   public allowGuardLeave: boolean = true;
   public guardStatus: string = 'Ready';
+  public failRecoveryRoute: boolean = true;
   private readonly router = resolve(IRouteCoordinator);
   public readonly state = resolve(StorefrontState);
   private unobservePath: (() => void) | null = null;
@@ -121,6 +123,18 @@ export class MyApp {
   public denyGuardedRouteLocally(): boolean {
     this.guardStatus = 'Local route denied; guard parent committed';
     return false;
+  }
+
+  public loadRecoverableRoute(): void {
+    if (this.failRecoveryRoute) {
+      throw new Error('The reports service is unavailable');
+    }
+    this.guardStatus = 'Reports loaded';
+  }
+
+  public recoverRouteError(failure: RouteFailure) {
+    this.guardStatus = `${failure.phase}: ${(failure.error as Error).message}`;
+    return { recover: 'local' } as const;
   }
 
   public go(path: string): void {

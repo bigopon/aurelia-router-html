@@ -96,6 +96,13 @@ export class OverviewPage {
       syntax: '<au-route\n  path="admin"\n  can-load.bind="() => isAdmin()"\n  guard-failure="local">\n  Administration\n</au-route>\n<au-route path="*" fallback>Access denied</au-route>',
     },
     {
+      title: 'Error Recovery',
+      summary: 'Handle route exceptions at the nearest boundary, then redirect or rematch a local fallback with the failure attached.',
+      path: '/features/error-recovery',
+      playgroundId: 'error-recovery',
+      syntax: '<au-route\n  path="reports"\n  loading.bind="() => loadReports()"\n  on-error.bind="failure => recover(failure)">\n  Reports\n</au-route>\n<au-route path="*" fallback>\n  ${$route.parent.failure.error.message}\n</au-route>',
+    },
+    {
       title: 'Routing Adapters',
       summary: 'Run the same route tree with browser history, memory history, or an application-specific location host.',
       path: '/features/adapters',

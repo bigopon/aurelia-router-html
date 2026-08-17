@@ -1,0 +1,81 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Error Recovery</h2>
+      <p class="page-copy">Turn a failed route into contextual fallback UI while keeping the accepted parent, requested URL, and diagnostic error available.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="error-recovery-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="reports"
+  loading.bind="() =&gt; loadReports()"
+  on-error.bind="failure =&gt; recover(failure)"&gt;
+  &lt;reports-panel&gt;&lt;/reports-panel&gt;
+&lt;/au-route&gt;
+
+&lt;au-route path="*" fallback&gt;
+  ${$route.parent.failure.error.message}
+&lt;/au-route&gt;</pre>
+      <pre class="code-block" syntax-typescript>import type {
+  RouteErrorResult,
+  RouteFailure
+} from 'aurelia-v2-router-html';
+
+export class MyComponent {
+  recover(
+    failure: RouteFailure
+  ): RouteErrorResult {
+    console.error(failure.phase, failure.error);
+    return { recover: 'local' };
+  }
+}</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>on-error.bind</code> is a route boundary callback. Failures travel from the route that threw toward its ancestors until a callback handles them. Returning nothing continues propagation; returning a redirect changes route; returning <code>{ recover: 'local' }</code> rematches only the failed route's immediate parent.</p>
+    </section>
+
+    <section>
+      <h3>Failure ownership</h3>
+      <p><code>failure.source</code> is the route that failed, <code>failure.boundary</code> is the route whose callback handled it, and <code>failure.recovery</code> is the failed route's immediate parent. That recovery context owns <code>$route.failure</code>. A sibling fallback therefore reads <code>$route.parent.failure</code>.</p>
+    </section>
+
+    <section>
+      <h3>Phases</h3>
+      <p><code>failure.phase</code> identifies <code>can-load</code>, <code>loading</code>, view <code>activation</code>, or <code>loaded</code>. Unhandled errors retain atomic rollback and reject programmatic navigation with the original error.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <p>Handle domain-specific failures near their source, let a parent own section-level fallback UI, and reserve a grandparent boundary for application-area policy. The three examples below isolate each placement so the ownership difference stays visible.</p>
+    </section>
+  </div>
+
+  <section class="route-stack" data-e2e="source-error-example">
+    <header>
+      <h3>Route handles its own failure</h3>
+      <p>The failing route declares <code>on-error.bind</code>. Local recovery excludes that route and selects its sibling fallback.</p>
+    </header>
+    <playground-page example-id="error-recovery" embedded.bind="true"></playground-page>
+  </section>
+
+  <section class="route-stack" data-e2e="parent-error-example">
+    <header>
+      <h3>Parent handles a child failure</h3>
+      <p>The reports route only declares its loading work. Its workspace parent owns the boundary and the fallback presentation.</p>
+    </header>
+    <playground-page example-id="error-recovery-parent" embedded.bind="true"></playground-page>
+  </section>
+
+  <section class="route-stack" data-e2e="grandparent-error-example">
+    <header>
+      <h3>Grandparent handles a grandchild failure</h3>
+      <p>The failure passes through a workspace with no handler before the portal boundary accepts it. Recovery still rematches at the failed route's immediate parent.</p>
+    </header>
+    <playground-page example-id="error-recovery-grandparent" embedded.bind="true"></playground-page>
+  </section>
+</section>

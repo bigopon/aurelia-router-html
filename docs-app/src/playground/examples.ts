@@ -82,6 +82,74 @@ h2 {
   margin-top: 0;
 }`;
 
+const errorBoundaryCss = `.boundary-box,
+.route-box,
+.fallback-box,
+.child-stage {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.boundary-box {
+  border: 2px solid #7654a8;
+  background: #f7f2ff;
+}
+
+.boundary-box.parent {
+  border-color: #19766e;
+  background: #edf9f7;
+}
+
+.boundary-box.neutral {
+  border-color: #6695a8;
+  background: #f0f8fb;
+}
+
+.child-stage {
+  border: 2px dashed #95a7a3;
+  background: #ffffffa8;
+}
+
+.route-box {
+  border: 2px solid #b96a25;
+  background: #fff6e9;
+}
+
+.fallback-box {
+  border: 2px solid #b94848;
+  background: #fff1f1;
+}
+
+.layer-label {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: white;
+  background: #263c38;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.boundary-box > h1,
+.boundary-box > h2,
+.route-box > h1,
+.route-box > h2,
+.route-box > h3,
+.fallback-box > h1,
+.fallback-box > h2,
+.fallback-box > h3 {
+  margin-bottom: 0;
+}
+
+.relationship {
+  margin: 0;
+  color: #425b55;
+}`;
+
 const featureExamples: PlaygroundExample[] = [
   routerExample({
     id: 'basic-routes',
@@ -678,6 +746,209 @@ export class App {
     <p>The portal requires at least member access.</p>
   </au-route>
 </main>`,
+  }),
+  routerExample({
+    id: 'error-recovery',
+    title: 'Route error recovery',
+    description: 'Let a failing route handle its own loading error and select a sibling fallback.',
+    initialPath: '/home',
+    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+
+export class App {
+  public reportsAvailable = false;
+  public status = 'Open reports to run its loading callback';
+
+  public loadReports(): void {
+    if (!this.reportsAvailable) {
+      throw new Error('Reports are temporarily unavailable');
+    }
+    this.status = 'Reports loaded successfully';
+  }
+
+  public recover(failure: RouteFailure) {
+    this.status = \`Reports handled its own \${failure.phase} failure\`;
+    return { recover: 'local' } as const;
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="reports">Reports</a>
+</nav>
+
+<button click.trigger="reportsAvailable = !reportsAvailable">
+  \${reportsAvailable ? 'Make reports fail' : 'Allow reports retry'}
+</button>
+<p role="status">\${status}</p>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+  </au-route>
+
+  <au-route
+    path="reports"
+    exact
+    loading.bind="() => loadReports()"
+    on-error.bind="failure => recover(failure)">
+    <section class="route-box">
+      <span class="layer-label">Failing route + its own boundary</span>
+      <h1>Reports</h1>
+      <p>The report data is ready.</p>
+    </section>
+  </au-route>
+
+  <au-route path="*" fallback>
+    <section class="fallback-box">
+      <span class="layer-label">Sibling fallback</span>
+      <h1>Reports could not load</h1>
+      <p>The Reports route handled its own error.</p>
+      <p>\${$route.parent.failure.error.message}</p>
+    </section>
+  </au-route>
+</main>`,
+    appCss: errorBoundaryCss,
+  }),
+  routerExample({
+    id: 'error-recovery-parent',
+    title: 'Parent error boundary',
+    description: 'Let a workspace own recovery policy for a failing child route.',
+    initialPath: '/home',
+    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+
+export class App {
+  public status = 'Open reports to trigger its parent boundary';
+
+  public loadReports(): never {
+    throw new Error('The reports service did not respond');
+  }
+
+  public recoverWorkspace(failure: RouteFailure) {
+    this.status = \`Workspace handled \${failure.source.pattern}\`;
+    return { recover: 'local' } as const;
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="workspace/reports">Reports</a>
+</nav>
+<p role="status">\${status}</p>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+  </au-route>
+
+  <au-route
+    path="workspace"
+    on-error.bind="failure => recoverWorkspace(failure)">
+    <section class="boundary-box parent">
+      <span class="layer-label">Parent boundary</span>
+      <h1>Workspace</h1>
+      <p class="relationship">This parent owns <code>on-error.bind</code> and stays visible.</p>
+
+      <div class="child-stage">
+        <span class="layer-label">Child route stage</span>
+
+        <au-route
+          path="reports"
+          exact
+          loading.bind="() => loadReports()">
+          <section class="route-box">
+            <span class="layer-label">Failing child · no boundary</span>
+            <h2>Reports</h2>
+          </section>
+        </au-route>
+
+        <au-route path="*" fallback>
+          <section class="fallback-box">
+            <span class="layer-label">Sibling fallback inside parent</span>
+            <h2>Workspace recovery</h2>
+            <p>The parent Workspace handled the child Reports failure.</p>
+            <p>Source: \${$route.parent.failure.source.pattern}</p>
+            <p>Boundary: \${$route.parent.failure.boundary.pattern}</p>
+          </section>
+        </au-route>
+      </div>
+    </section>
+  </au-route>
+</main>`,
+    appCss: errorBoundaryCss,
+  }),
+  routerExample({
+    id: 'error-recovery-grandparent',
+    title: 'Grandparent error boundary',
+    description: 'Bubble a grandchild failure through its parent to an application-area boundary.',
+    initialPath: '/home',
+    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+
+export class App {
+  public status = 'Open reports to trigger the portal boundary';
+
+  public loadReports(): never {
+    throw new Error('The reports service did not respond');
+  }
+
+  public recoverPortal(failure: RouteFailure) {
+    this.status = \`Portal handled \${failure.source.pattern}\`;
+    return { recover: 'local' } as const;
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="portal/workspace/reports">Reports</a>
+</nav>
+<p role="status">\${status}</p>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+  </au-route>
+
+  <au-route
+    path="portal"
+    on-error.bind="failure => recoverPortal(failure)">
+    <section class="boundary-box">
+      <span class="layer-label">Grandparent boundary</span>
+      <h1>Portal</h1>
+      <p class="relationship">The outer Portal owns <code>on-error.bind</code>.</p>
+
+      <au-route path="workspace">
+        <section class="boundary-box neutral">
+          <span class="layer-label">Parent route · no boundary</span>
+          <h2>Workspace</h2>
+          <p class="relationship">This middle route passes its child's error upward.</p>
+
+          <div class="child-stage">
+            <span class="layer-label">Grandchild route stage</span>
+
+            <au-route
+              path="reports"
+              exact
+              loading.bind="() => loadReports()">
+              <section class="route-box">
+                <span class="layer-label">Failing grandchild · no boundary</span>
+                <h3>Reports</h3>
+              </section>
+            </au-route>
+
+            <au-route path="*" fallback>
+              <section class="fallback-box">
+                <span class="layer-label">Sibling fallback inside parent</span>
+                <h3>Portal recovery</h3>
+                <p>The grandparent Portal handled the Reports failure.</p>
+                <p>The immediate parent Workspace still owns recovery state.</p>
+                <p>Source: \${$route.parent.failure.source.pattern}</p>
+                <p>Boundary: \${$route.parent.failure.boundary.pattern}</p>
+                <p>Recovery owner: \${$route.parent.failure.recovery.pattern}</p>
+              </section>
+            </au-route>
+          </div>
+        </section>
+      </au-route>
+    </section>
+  </au-route>
+</main>`,
+    appCss: errorBoundaryCss,
   }),
   routerExample({
     id: 'conditional-routes',

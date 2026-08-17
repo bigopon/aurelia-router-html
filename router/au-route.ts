@@ -18,6 +18,7 @@ import {
 import { IRouteAnimationOptions } from './animation';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
+import type { RouteErrorHandler } from './error';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
 
@@ -36,7 +37,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'loading', 'loaded'],
+    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError', 'loading', 'loaded'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -106,6 +107,7 @@ export class AuRoute implements ICustomElementViewModel {
   public title: string | null = null;
   public canLoad: RouteCanLoadCallback | null = null;
   public canUnload: RouteCanUnloadCallback | null = null;
+  public onError: RouteErrorHandler | null = null;
   public loading: RouteLifecycleCallback | null = null;
   public loaded: RouteLifecycleCallback | null = null;
   public view: ISyntheticView | null = null;
@@ -180,6 +182,7 @@ export class AuRoute implements ICustomElementViewModel {
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
+    this.updateErrorHandler();
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
       this.path = String(astEvaluate(expression, this.scope, null, null));
@@ -194,6 +197,7 @@ export class AuRoute implements ICustomElementViewModel {
   public bound(): void {
     this.updateTitle(this.title);
     this.updateGuards();
+    this.updateErrorHandler();
   }
 
   public canLoadChanged(): void {
@@ -202,6 +206,10 @@ export class AuRoute implements ICustomElementViewModel {
 
   public canUnloadChanged(): void {
     this.updateGuards();
+  }
+
+  public onErrorChanged(): void {
+    this.updateErrorHandler();
   }
 
   public pathChanged(path: string): void {
@@ -227,6 +235,10 @@ export class AuRoute implements ICustomElementViewModel {
 
   private updateGuards(): void {
     (this.context as RouteContext)._setGuards(this.canLoad, this.canUnload);
+  }
+
+  private updateErrorHandler(): void {
+    (this.context as RouteContext)._setErrorHandler(this.onError);
   }
 
   private tryRedirect(): void {
@@ -330,39 +342,46 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
-    return this.coordinator._runRouteActivation(this.context as RouteContext, this.canLoad, () => onResolve(this.loading?.(this.context), () => {
-      if (!this.requestedViewActive || this.scope == null) {
-        return;
-      }
+    return this.coordinator._runRouteActivation(this.context as RouteContext, this.canLoad, () => onResolve(
+      this.coordinator._runRoutePhase('loading', () => this.loading?.(this.context)),
+      () => {
+        if (!this.requestedViewActive || this.scope == null) {
+          return;
+        }
 
-      this.view ??= this.getView();
-      const view = this.view;
-      this.viewActive = true;
-      this.titleService.beginViewActivation();
-      let activation: void | Promise<void>;
-      try {
-        activation = view.activate(view, this.$controller, this.scope);
-      } catch (error) {
-        this.titleService.endViewActivation();
-        throw error;
-      }
+        const scope = this.scope;
+        this.view ??= this.getView();
+        const view = this.view;
+        this.viewActive = true;
+        this.titleService.beginViewActivation();
+        let activation: void | Promise<void>;
+        try {
+          activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, scope));
+        } catch (error) {
+          this.titleService.endViewActivation();
+          throw error;
+        }
 
-      const ready = onResolve(activation, () => this.loaded?.(this.context));
-      if (isPromise(ready)) {
-        return ready.then(
-          () => {
-            this.titleService.endViewActivation();
-            return this.coordinator._runEnterAnimation(() => this.animate('enter'));
-          },
-          error => {
-            this.titleService.endViewActivation();
-            throw error;
-          },
+        const ready = onResolve(
+          activation,
+          () => this.coordinator._runRoutePhase('loaded', () => this.loaded?.(this.context)),
         );
-      }
-      this.titleService.endViewActivation();
-      return this.coordinator._runEnterAnimation(() => this.animate('enter'));
-    }));
+        if (isPromise(ready)) {
+          return ready.then(
+            () => {
+              this.titleService.endViewActivation();
+              return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+            },
+            error => {
+              this.titleService.endViewActivation();
+              throw error;
+            },
+          );
+        }
+        this.titleService.endViewActivation();
+        return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+      },
+    ));
   }
 
   private deactivateView(): void | Promise<void> {

@@ -320,6 +320,31 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="guard-status"]')).toHaveText('Local route denied; guard parent committed');
   });
 
+  test('E1 browser navigation commits local error recovery and supports retry and history traversal', async ({ page }) => {
+    await page.goto('/guard/home');
+    await page.getByRole('link', { name: 'Recoverable reports' }).click();
+
+    await expect(page).toHaveURL(/\/guard\/reports$/);
+    await expect(page).toHaveTitle('Reports unavailable');
+    await expect(page.locator('[data-e2e="guard-stage"]')).toBeVisible();
+    await expect(page.locator('[data-e2e="recovery-reports"]')).toHaveCount(0);
+    await expect(page.locator('[data-e2e="recovery-fallback"]')).toContainText('The reports service is unavailable');
+    await expect(page.locator('[data-e2e="guard-status"]')).toHaveText('loading: The reports service is unavailable');
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/guard\/home$/);
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/guard\/reports$/);
+    await expect(page.locator('[data-e2e="recovery-fallback"]')).toBeVisible();
+
+    await page.locator('[data-e2e="toggle-recovery-failure"]').click();
+    await page.getByRole('link', { name: 'Guard home' }).click();
+    await page.getByRole('link', { name: 'Recoverable reports' }).click();
+    await expect(page.locator('[data-e2e="recovery-reports"]')).toHaveText('Reports are ready');
+    await expect(page.locator('[data-e2e="recovery-fallback"]')).toHaveCount(0);
+  });
+
   test('A1 checkout payment branch unlocks after shipping state is complete', async ({ page }) => {
     await page.goto('/checkout/payment');
 

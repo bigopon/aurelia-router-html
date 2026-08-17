@@ -7,6 +7,7 @@ import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { RouteContext } from '../router/route-context';
+import type { RouteFailure } from '../router/error';
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [
@@ -729,6 +730,7 @@ describe('au-route template lifecycle', function () {
 
       finishLoading();
       await Promise.resolve();
+      await Promise.resolve();
       assert.deepStrictEqual(events, ['loading', 'loaded']);
       assert.strictEqual(fixture.appHost.querySelector('[data-ready]')?.textContent, 'Ready');
 
@@ -1284,6 +1286,423 @@ describe('au-route navigation guards', function () {
       assert.strictEqual(reported, failure);
       assert.strictEqual(adapter.getCurrentPath(), '/home');
     } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route error recovery', function () {
+  it('lets the failing route recover locally through its parent fallback', async function () {
+    const failure = new Error('Reports unavailable');
+    let observed: RouteFailure | null = null;
+    class App {
+      public loadReports(): never {
+        throw failure;
+      }
+
+      public async recover(routeFailure: RouteFailure) {
+        observed = routeFailure;
+        await Promise.resolve();
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+      <au-route path="workspace">
+        <h1 data-workspace>Workspace</h1>
+        <au-route
+          path="reports"
+          exact
+          loading.bind="() => loadReports()"
+          on-error.bind="failure => recover(failure)">
+          <h2 data-reports>Reports</h2>
+        </au-route>
+        <au-route path="*" fallback>
+          <h2 data-recovery>Could not load: \${$route.parent.failure.error.message}</h2>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/workspace/reports');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace/reports');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-workspace]')?.textContent, 'Workspace');
+      assert.strictEqual(fixture.appHost.querySelector('[data-reports]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovery]')?.textContent, 'Could not load: Reports unavailable');
+      assert.notStrictEqual(observed, null);
+      const captured = observed as unknown as RouteFailure;
+      assert.strictEqual(captured.error, failure);
+      assert.strictEqual(captured.phase, 'loading');
+      assert.strictEqual(captured.source.pattern, '/reports');
+      assert.strictEqual(captured.boundary, captured.source);
+      assert.strictEqual(captured.recovery.pattern, '/workspace');
+      assert.strictEqual(captured.recovery.failure, captured);
+      assert.strictEqual(captured.signal.aborted, false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const testCase of [
+    { phase: 'can-load', callback: 'can-load.bind="() => fail()"', content: 'Protected' },
+    { phase: 'loaded', callback: 'loaded.bind="() => fail()"', content: 'Loaded content' },
+  ] as const) {
+    it(`attributes ${testCase.phase} failures before local recovery`, async function () {
+      let observed: RouteFailure | null = null;
+      class App {
+        public fail(): never {
+          throw new Error(`${testCase.phase} failed`);
+        }
+
+        public recover(failure: RouteFailure) {
+          observed = failure;
+          return { recover: 'local' } as const;
+        }
+      }
+
+      const adapter = new MemoryPathAdapter('/home');
+      const fixture = await createFixture(
+        `<au-route path="home" exact>Home</au-route>
+        <au-route path="workspace">
+          <au-route path="target" exact ${testCase.callback} on-error.bind="failure => recover(failure)">
+            <span data-target>${testCase.content}</span>
+          </au-route>
+          <au-route path="*" fallback><span data-recovery>Recovered</span></au-route>
+        </au-route>`,
+        App,
+        [Routing.customize({ adapter })],
+      ).started;
+
+      try {
+        const navigation = fixture.container.get(IRouteCoordinator).load('/workspace/target');
+        assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+        await tasksSettled();
+        assert.strictEqual((observed as unknown as RouteFailure).phase, testCase.phase);
+        assert.strictEqual(fixture.appHost.querySelector('[data-target]'), null);
+        assert.strictEqual(fixture.appHost.querySelector('[data-recovery]')?.textContent, 'Recovered');
+      } finally {
+        await fixture.tearDown();
+      }
+    });
+  }
+
+  it('attributes synthetic view activation failures before local recovery', async function () {
+    let observed: RouteFailure | null = null;
+    class App {
+      public recover(failure: RouteFailure) {
+        observed = failure;
+        return { recover: 'local' } as const;
+      }
+    }
+    class BrokenContent {
+      public attaching(): never {
+        throw new Error('Attaching failed');
+      }
+    }
+    const BrokenContentElement = CustomElement.define({
+      name: 'broken-content',
+      template: 'Broken',
+    }, BrokenContent);
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="workspace">
+        <au-route path="target" exact on-error.bind="failure => recover(failure)">
+          <broken-content></broken-content>
+        </au-route>
+        <au-route path="*" fallback><span data-recovery>Recovered</span></au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter }), BrokenContentElement],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/workspace/target');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual((observed as unknown as RouteFailure).phase, 'activation');
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovery]')?.textContent, 'Recovered');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('bubbles to the nearest ancestor that handles the failure', async function () {
+    const events: string[] = [];
+    let observed: RouteFailure | null = null;
+    class App {
+      public fail(): never {
+        throw new Error('Child failed');
+      }
+
+      public pass(): undefined {
+        events.push('child');
+        return undefined;
+      }
+
+      public recover(failure: RouteFailure) {
+        events.push('workspace');
+        observed = failure;
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="workspace" on-error.bind="failure => recover(failure)">
+        <au-route
+          path="target"
+          exact
+          loading.bind="() => fail()"
+          on-error.bind="() => pass()">
+          Target
+        </au-route>
+        <au-route path="*" fallback><span data-recovery>Recovered</span></au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/workspace/target');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.deepStrictEqual(events, ['child', 'workspace']);
+      const captured = observed as unknown as RouteFailure;
+      assert.strictEqual(captured.boundary.pattern, '/workspace');
+      assert.strictEqual(captured.recovery.pattern, '/workspace');
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovery]')?.textContent, 'Recovered');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('redirects contextually from an error boundary', async function () {
+    class App {
+      public fail(): never {
+        throw new Error('Private data failed');
+      }
+
+      public redirect(): string {
+        return 'error';
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="workspace">
+        <au-route path="private" exact loading.bind="() => fail()" on-error.bind="() => redirect()">
+          Private
+        </au-route>
+        <au-route path="error" exact><span data-error>Error page</span></au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/workspace/private');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace/error');
+      assert.strictEqual(fixture.appHost.querySelector('[data-error]')?.textContent, 'Error page');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('clears recovery state only after a retry succeeds', async function () {
+    let shouldFail = true;
+    let recovered: RouteFailure | null = null;
+    class App {
+      public load(): void {
+        if (shouldFail) {
+          throw new Error('Retry me');
+        }
+      }
+
+      public recover(failure: RouteFailure) {
+        recovered = failure;
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="workspace">
+        <au-route path="target" exact loading.bind="() => load()" on-error.bind="failure => recover(failure)">
+          <span data-target>Ready</span>
+        </au-route>
+        <au-route path="*" fallback><span data-recovery>Retry available</span></au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const first = router.load('/workspace/target');
+      assert.strictEqual(first instanceof Promise ? await first : first, true);
+      await tasksSettled();
+      const recovery = (recovered as unknown as RouteFailure).recovery;
+      assert.strictEqual(recovery.failure, recovered);
+
+      shouldFail = false;
+      const retry = router.load('/workspace/target');
+      assert.strictEqual(retry instanceof Promise ? await retry : retry, true);
+      await tasksSettled();
+      assert.strictEqual(recovery.failure, null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovery]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-target]')?.textContent, 'Ready');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rejects with both errors when an error handler throws', async function () {
+    const original = new Error('Loading failed');
+    const handlerFailure = new Error('Handler failed');
+    class App {
+      public fail(): never {
+        throw original;
+      }
+
+      public failHandler(): never {
+        throw handlerFailure;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="broken" exact loading.bind="() => fail()" on-error.bind="() => failHandler()">
+        Broken
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      let caught: unknown;
+      try {
+        await fixture.container.get(IRouteCoordinator).load('/broken');
+      } catch (error) {
+        caught = error;
+      }
+      assert.strictEqual(caught instanceof AggregateError, true);
+      assert.deepStrictEqual((caught as AggregateError).errors, [original, handlerFailure]);
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('does not reenter a boundary when its recovery fallback also fails', async function () {
+    const boundaries: string[] = [];
+    class App {
+      public failTarget(): never {
+        throw new Error('Target failed');
+      }
+
+      public failFallback(): never {
+        throw new Error('Fallback failed');
+      }
+
+      public recoverWorkspace() {
+        boundaries.push('workspace');
+        return { recover: 'local' } as const;
+      }
+
+      public recoverShell() {
+        boundaries.push('shell');
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="shell" on-error.bind="() => recoverShell()">
+        <span data-shell>Shell</span>
+        <au-route path="workspace" on-error.bind="() => recoverWorkspace()">
+          <span data-workspace>Workspace</span>
+          <au-route path="target" exact loading.bind="() => failTarget()">Target</au-route>
+          <au-route path="*" fallback loading.bind="() => failFallback()">Fallback</au-route>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const navigation = fixture.container.get(IRouteCoordinator).load('/shell/workspace/target');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.deepStrictEqual(boundaries, ['workspace', 'shell']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-shell]')?.textContent, 'Shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-workspace]')?.textContent, 'Workspace');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('treats an aborted asynchronous error handler as superseded navigation', async function () {
+    let finishRecovery!: () => void;
+    let observedSignal: AbortSignal | null = null;
+    const pendingRecovery = new Promise<void>(resolve => {
+      finishRecovery = resolve;
+    });
+    class App {
+      public fail(): never {
+        throw new Error('Broken route');
+      }
+
+      public async recover(failure: RouteFailure) {
+        observedSignal = failure.signal;
+        await pendingRecovery;
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="broken" exact loading.bind="() => fail()" on-error.bind="failure => recover(failure)">
+        Broken
+      </au-route>
+      <au-route path="other" exact><span data-other>Other</span></au-route>
+      <au-route path="*" fallback>Fallback</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const superseded = router.load('/broken');
+      await Promise.resolve();
+      const latest = router.load('/other');
+      assert.strictEqual((observedSignal as unknown as AbortSignal).aborted, true);
+      finishRecovery();
+      assert.strictEqual(await superseded, false);
+      assert.strictEqual(await latest, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/other');
+      assert.strictEqual(fixture.appHost.querySelector('[data-other]')?.textContent, 'Other');
+    } finally {
+      finishRecovery();
       await fixture.tearDown();
     }
   });

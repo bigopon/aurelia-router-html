@@ -92,6 +92,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A9',
   },
   {
+    id: 'error-recovery',
+    title: 'Error Recovery',
+    path: '/features/error-recovery',
+    summary: 'Handle route failures at the nearest boundary, redirect, or retain the parent with local fallback UI.',
+    badge: 'E1',
+  },
+  {
     id: 'adapters',
     title: 'Routing Adapters',
     path: '/features/adapters',

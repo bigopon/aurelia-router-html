@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { RouteFailure } from '../router/error';
 import { RouteContext } from '../router/route-context';
 import { createRouteHref, createRouteQuery, parseRouteLocation, stringifyRouteLocation } from '../router/route-location';
 
@@ -791,7 +792,7 @@ run('G2 local guard rejection rematches a sibling fallback and expires after com
   root._beginNavigationTransaction();
   root.apply('/portal/admin');
   assert.equal(admin.active, true);
-  assert.equal(admin._rejectGuardLocally(), true);
+  assert.equal(admin._excludeLocally(), true);
   assert.equal(portal.active, true);
   assert.equal(admin.active, false);
   assert.equal(fallback.active, true);
@@ -812,10 +813,68 @@ run('G2 local guard rejection reports an unmatched child stage without a fallbac
 
   root._beginNavigationTransaction();
   root.apply('/portal/admin');
-  assert.equal(admin._rejectGuardLocally(), false);
+  assert.equal(admin._excludeLocally(), false);
   assert.equal(portal.active, true);
   assert.equal(admin.active, false);
   root._commitNavigationTransaction();
+});
+
+run('E1 local error recovery stores failure on the parent until a successful retry commits', () => {
+  const root = new RouteContext(null, '*');
+  const portal = root.createChild('portal') as RouteContext;
+  const reports = portal.createChild('reports', { exact: true }) as RouteContext;
+  const fallback = portal.createChild('*', { fallback: true }) as RouteContext;
+  const error = new Error('Reports unavailable');
+  const failure: RouteFailure = {
+    error,
+    source: reports,
+    boundary: reports,
+    recovery: portal,
+    phase: 'loading',
+    signal: new AbortController().signal,
+  };
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/reports');
+  assert.equal(reports._excludeLocally(failure), true);
+  assert.equal(portal.failure, failure);
+  assert.equal(reports.active, false);
+  assert.equal(fallback.active, true);
+  root._commitNavigationTransaction();
+  assert.equal(portal.failure, failure);
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/reports');
+  root._commitNavigationTransaction();
+  assert.equal(portal.failure, null);
+  assert.equal(reports.active, true);
+  assert.equal(fallback.active, false);
+});
+
+run('E1 a cancelled retry restores the committed local failure state', () => {
+  const root = new RouteContext(null, '*');
+  const portal = root.createChild('portal') as RouteContext;
+  const reports = portal.createChild('reports', { exact: true }) as RouteContext;
+  portal.createChild('*', { fallback: true });
+  const failure: RouteFailure = {
+    error: new Error('Reports unavailable'),
+    source: reports,
+    boundary: reports,
+    recovery: portal,
+    phase: 'loading',
+    signal: new AbortController().signal,
+  };
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/reports');
+  reports._excludeLocally(failure);
+  root._commitNavigationTransaction();
+
+  root._beginNavigationTransaction();
+  root.apply('/portal/reports');
+  root._cancelNavigationTransaction();
+  root.apply('/portal/reports');
+  assert.equal(portal.failure, failure);
 });
 
 console.log('route-context tests passed');

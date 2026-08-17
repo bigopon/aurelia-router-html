@@ -2,9 +2,11 @@ import { DI, isPromise } from '@aurelia/kernel';
 import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
+import type { RouteErrorHandler, RouteFailure } from './error';
 
 export interface RouteState {
   readonly active: boolean;
+  readonly failure: RouteFailure | null;
   readonly title: string | null;
   readonly params: Readonly<Record<string, string>>;
   readonly residue: string;
@@ -44,6 +46,7 @@ export interface IRouteContext {
   readonly root: IRouteContext;
   readonly children: readonly IRouteContext[];
   readonly active: boolean;
+  readonly failure: RouteFailure | null;
   readonly residue: string;
   readonly $path: string;
   readonly $params: Readonly<Record<string, string>>;
@@ -77,6 +80,11 @@ export class RouteContext implements IRouteContext {
   public $hash: string = '';
   public pattern: string = '*';
   public title: string | null = null;
+  private _failure: RouteFailure | null = null;
+
+  public get failure(): RouteFailure | null {
+    return this._failure;
+  }
 
   public get root(): IRouteContext {
     let context: IRouteContext = this;
@@ -114,8 +122,11 @@ export class RouteContext implements IRouteContext {
   private _navigationVersion: number = 0;
   private _deferredDeactivations: Set<RouteContext> | null = null;
   private _localGuardFailures: Set<RouteContext> | null = null;
+  private _failureSnapshot: Map<RouteContext, RouteFailure | null> | null = null;
+  private _transactionFailureOwners: Set<RouteContext> | null = null;
   /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
   /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
+  /** @internal */ public _onError: RouteErrorHandler | null = null;
   /** @internal */ public readonly _guardFailure: RouteGuardFailure;
 
   public constructor(
@@ -172,6 +183,11 @@ export class RouteContext implements IRouteContext {
   }
 
   /** @internal */
+  public _setErrorHandler(onError: RouteErrorHandler | null): void {
+    this._onError = onError;
+  }
+
+  /** @internal */
   public _hasGuards(): boolean {
     if (this._canLoad != null || this._canUnload != null) {
       return true;
@@ -199,14 +215,24 @@ export class RouteContext implements IRouteContext {
     const root = this.root as RouteContext;
     root._deferredDeactivations = new Set();
     root._localGuardFailures = new Set();
+    root._failureSnapshot = new Map(root._getContexts().map(context => [context, context.failure]));
+    root._transactionFailureOwners = new Set();
   }
 
   /** @internal */
   public _commitNavigationTransaction(): void {
     const root = this.root as RouteContext;
     const deferred = root._deferredDeactivations;
+    const failureOwners = root._transactionFailureOwners;
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
+    root._failureSnapshot = null;
+    root._transactionFailureOwners = null;
+    for (const context of root._getContexts()) {
+      if (context.failure != null && failureOwners?.has(context) !== true) {
+        context._setFailure(null);
+      }
+    }
     if (deferred == null) {
       return;
     }
@@ -220,12 +246,20 @@ export class RouteContext implements IRouteContext {
   /** @internal */
   public _cancelNavigationTransaction(): void {
     const root = this.root as RouteContext;
+    const failureSnapshot = root._failureSnapshot;
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
+    root._failureSnapshot = null;
+    root._transactionFailureOwners = null;
+    if (failureSnapshot != null) {
+      for (const context of root._getContexts()) {
+        context._setFailure(failureSnapshot.get(context) ?? null);
+      }
+    }
   }
 
   /** @internal */
-  public _rejectGuardLocally(): boolean {
+  public _excludeLocally(failure: RouteFailure | null = null): boolean {
     const root = this.root as RouteContext;
     const transactionFailures = root._localGuardFailures;
     const failures = transactionFailures ?? new Set<RouteContext>();
@@ -242,6 +276,10 @@ export class RouteContext implements IRouteContext {
       }
       return false;
     }
+    if (failure != null) {
+      parent._setFailure(failure);
+      root._transactionFailureOwners?.add(parent);
+    }
     parent.refresh();
     const recovered = parent._selectMatches(parent.residue).some(child => child.active);
     if (transactionFailures == null) {
@@ -255,10 +293,13 @@ export class RouteContext implements IRouteContext {
     const root = this.root as RouteContext;
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
+    root._failureSnapshot = null;
+    root._transactionFailureOwners = null;
     for (const child of root.children) {
       child._deactivateBranch('/__inactive__', location.query, location.hash);
     }
     root.active = false;
+    root._failure = null;
     root.residue = '/';
     root.$params = Object.freeze({});
     root.$path = location.pathname;
@@ -543,6 +584,7 @@ export class RouteContext implements IRouteContext {
 
   private _deactivateBranch(path: string, query: RouteQuery = this.$query, hash: string = this.$hash): void {
     const stateChanged = this.active
+      || this.failure != null
       || this.residue !== '/'
       || Object.keys(this.$params).length > 0
       || this.$path !== path
@@ -550,6 +592,7 @@ export class RouteContext implements IRouteContext {
       || this.$hash !== hash;
 
     this.active = false;
+    this._failure = null;
     this.$path = path;
     this.residue = '/';
     this.$params = Object.freeze({});
@@ -618,8 +661,8 @@ export class RouteContext implements IRouteContext {
       : normalizePath(`${generateHref(searchContext.fullPath, params)}/${stripCurrentPrefix(trimmed)}`);
   }
 
-  private _getContexts(): IRouteContext[] {
-    const contexts: IRouteContext[] = [this];
+  private _getContexts(): RouteContext[] {
+    const contexts: RouteContext[] = [this];
     for (let index = 0; index < contexts.length; index++) {
       contexts.push(...contexts[index].children);
     }
@@ -664,6 +707,7 @@ export class RouteContext implements IRouteContext {
   private _currentState(): RouteState {
     return {
       active: this.active,
+      failure: this.failure,
       title: this.title,
       params: this.$params,
       residue: this.residue,
@@ -671,6 +715,14 @@ export class RouteContext implements IRouteContext {
       query: this.$query,
       hash: this.$hash,
     };
+  }
+
+  private _setFailure(failure: RouteFailure | null): void {
+    if (this.failure === failure) {
+      return;
+    }
+    this._failure = failure;
+    this._notify();
   }
 }
 

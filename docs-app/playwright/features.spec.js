@@ -147,7 +147,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization.locator('pre')).toContainText("routingMode: 'path'");
 
     const features = page.locator('[data-e2e="overview-features"] .overview-feature');
-    await expect(features).toHaveCount(20);
+    await expect(features).toHaveCount(21);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -191,9 +191,12 @@ test.describe('router HTML docs features', () => {
     const guardFailureSyntax = features.filter({ hasText: 'Guard Failure Modes' }).locator('pre');
     await expect(guardFailureSyntax).toContainText('guard-failure="local"');
     await expect(guardFailureSyntax).toContainText('<au-route path="*" fallback>');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(20);
+    const errorRecoverySyntax = features.filter({ hasText: 'Error Recovery' }).locator('pre');
+    await expect(errorRecoverySyntax).toContainText('on-error.bind="failure => recover(failure)"');
+    await expect(errorRecoverySyntax).toContainText('$route.parent.failure.error.message');
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(21);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(20);
+    await expect(editLinks).toHaveCount(21);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -206,6 +209,7 @@ test.describe('router HTML docs features', () => {
       '/playground/route-lifecycle',
       '/playground/navigation-guards',
       '/playground/layered-navigation-guards',
+      '/playground/error-recovery',
       '/playground/memory-adapter',
       '/playground/conditional-routes',
       '/playground/repeated-routes',
@@ -716,6 +720,67 @@ test.describe('router HTML docs features', () => {
       'Staff guard: require staff access',
       'Administration guard: require admin access',
     ]);
+  });
+
+  test('error recovery guide retains its parent, exposes failure details, and retries cleanly', async ({ page }) => {
+    await page.goto('/features/error-recovery');
+    await expect(page).toHaveTitle('Error Recovery | Aurelia Router HTML');
+
+    const guide = page.locator('[data-e2e="error-recovery-guide"]');
+    await expect(guide).toContainText('on-error.bind');
+    await expect(guide).toContainText('failure.source');
+    await expect(guide).toContainText('failure.boundary');
+    await expect(guide).toContainText('failure.recovery');
+    await expect(guide).toContainText('$route.parent.failure');
+    await expect(page.locator('.playground-page.is-embedded')).toHaveCount(3);
+
+    const sourceExample = page.locator('[data-e2e="source-error-example"]');
+    const sourcePlayground = sourceExample.locator('.playground-page');
+    await expect(sourcePlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const sourceFrame = sourcePlayground.frameLocator('[data-e2e="playground-preview"]');
+    await sourceFrame.getByRole('link', { name: 'Reports' }).click();
+    await expect(sourceFrame.getByRole('heading', { name: 'Reports could not load' })).toBeVisible();
+    await expect(sourceFrame.getByText('Sibling fallback', { exact: true })).toBeVisible();
+    await expect(sourceFrame.getByText('The Reports route handled its own error.')).toBeVisible();
+    await expect(sourceFrame.getByRole('status')).toHaveText('Reports handled its own loading failure');
+    await expect(sourcePlayground.locator('.preview-label code')).toHaveText('/reports');
+
+    const parentExample = page.locator('[data-e2e="parent-error-example"]');
+    const parentPlayground = parentExample.locator('.playground-page');
+    await expect(parentPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const parentFrame = parentPlayground.frameLocator('[data-e2e="playground-preview"]');
+    await parentFrame.getByRole('link', { name: 'Reports' }).click();
+    await expect(parentFrame.getByRole('heading', { name: 'Workspace', exact: true })).toBeVisible();
+    await expect(parentFrame.getByRole('heading', { name: 'Workspace recovery' })).toBeVisible();
+    await expect(parentFrame.getByText('Parent boundary', { exact: true })).toBeVisible();
+    await expect(parentFrame.getByText('Child route stage', { exact: true })).toBeVisible();
+    await expect(parentFrame.getByText('Sibling fallback inside parent', { exact: true })).toBeVisible();
+    await expect(parentFrame.getByText('The parent Workspace handled the child Reports failure.')).toBeVisible();
+    await expect(parentFrame.getByRole('status')).toHaveText('Workspace handled /reports');
+    await expect(parentFrame.getByText('Boundary: /workspace')).toBeVisible();
+
+    const grandparentExample = page.locator('[data-e2e="grandparent-error-example"]');
+    const grandparentPlayground = grandparentExample.locator('.playground-page');
+    await expect(grandparentPlayground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const grandparentFrame = grandparentPlayground.frameLocator('[data-e2e="playground-preview"]');
+    await grandparentFrame.getByRole('link', { name: 'Reports' }).click();
+    await expect(grandparentFrame.getByRole('heading', { name: 'Portal', exact: true })).toBeVisible();
+    await expect(grandparentFrame.getByRole('heading', { name: 'Workspace', exact: true })).toBeVisible();
+    await expect(grandparentFrame.getByRole('heading', { name: 'Portal recovery' })).toBeVisible();
+    await expect(grandparentFrame.getByText('Grandparent boundary', { exact: true })).toBeVisible();
+    await expect(grandparentFrame.getByText('Parent route · no boundary', { exact: true })).toBeVisible();
+    await expect(grandparentFrame.getByText('Grandchild route stage', { exact: true })).toBeVisible();
+    await expect(grandparentFrame.getByText('The grandparent Portal handled the Reports failure.')).toBeVisible();
+    await expect(grandparentFrame.getByText('The immediate parent Workspace still owns recovery state.')).toBeVisible();
+    await expect(grandparentFrame.getByRole('status')).toHaveText('Portal handled /reports');
+    await expect(grandparentFrame.getByText('Boundary: /portal')).toBeVisible();
+    await expect(grandparentFrame.getByText('Recovery owner: /workspace')).toBeVisible();
+
+    await sourceFrame.getByRole('button', { name: 'Allow reports retry' }).click();
+    await sourceFrame.getByRole('link', { name: 'Home' }).click();
+    await sourceFrame.getByRole('link', { name: 'Reports' }).click();
+    await expect(sourceFrame.getByRole('heading', { name: 'Reports', exact: true })).toBeVisible();
+    await expect(sourceFrame.getByRole('heading', { name: 'Reports could not load' })).toHaveCount(0);
   });
 
   test('kitchen sink uses one editable source for scopes, slots, and repeated routes', async ({ page }) => {

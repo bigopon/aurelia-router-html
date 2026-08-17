@@ -1,5 +1,6 @@
 import { DI, isPromise } from '@aurelia/kernel';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardContext, RouteGuardRedirect, RouteGuardResult } from './guard';
+import { RoutePhaseError, type RouteErrorResult, type RouteFailure, type RouteFailurePhase } from './error';
 import type { IPathAdapter } from './path-adapter';
 import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
@@ -40,6 +41,7 @@ interface NavigationTransaction {
   readonly options: InternalLoadOptions;
   readonly controller: AbortController;
   readonly checked: Set<RouteContext>;
+  readonly usedErrorBoundaries: Set<RouteContext>;
   pending: number;
   sealed: boolean;
   cancelled: boolean;
@@ -112,34 +114,57 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
 
     transaction.pending++;
+    const complete = (): void => {
+      transaction.pending--;
+      this.tryFinish(transaction);
+    };
+    const fail = (error: unknown): never => {
+      this.captureFailure(transaction, error);
+      complete();
+      throw error;
+    };
+    const recover = (error: unknown): void | Promise<void> => {
+      let recovery: void | Promise<void>;
+      try {
+        recovery = this.resolveRouteFailure(transaction, context, error);
+      } catch (recoveryError) {
+        return fail(recoveryError);
+      }
+      if (isPromise(recovery)) {
+        return recovery.then(complete, fail);
+      }
+      complete();
+    };
+
     let result: void | Promise<void>;
     try {
       result = this.runCanLoad(transaction, context, canLoad, activate);
     } catch (error) {
-      this.captureFailure(transaction, error);
-      transaction.pending--;
-      this.tryFinish(transaction);
-      throw error;
+      return recover(error);
     }
 
     if (!isPromise(result)) {
-      transaction.pending--;
-      this.tryFinish(transaction);
+      complete();
       return;
     }
 
-    return result.then(
-      () => {
-        transaction.pending--;
-        this.tryFinish(transaction);
-      },
-      error => {
-        this.captureFailure(transaction, error);
-        transaction.pending--;
-        this.tryFinish(transaction);
-        throw error;
-      },
-    );
+    return result.then(complete, recover);
+  }
+
+  /** @internal */
+  public _runRoutePhase<T>(phase: RouteFailurePhase, callback: () => T | Promise<T>): T | Promise<T> {
+    let result: T | Promise<T>;
+    try {
+      result = callback();
+    } catch (error) {
+      throw error instanceof RoutePhaseError ? error : new RoutePhaseError(phase, error);
+    }
+    if (!isPromise(result)) {
+      return result;
+    }
+    return result.catch(error => {
+      throw error instanceof RoutePhaseError ? error : new RoutePhaseError(phase, error);
+    });
   }
 
   /** @internal */
@@ -232,6 +257,7 @@ export class RouteCoordinator implements IRouteCoordinator {
       options,
       controller,
       checked: new Set(),
+      usedErrorBoundaries: new Set(),
       pending: 0,
       sealed: false,
       cancelled: false,
@@ -383,7 +409,7 @@ export class RouteCoordinator implements IRouteCoordinator {
       return activate();
     }
     transaction.checked.add(context);
-    const result = callback({ route: context, signal: transaction.controller.signal });
+    const result = this._runRoutePhase('can-load', () => callback({ route: context, signal: transaction.controller.signal }));
     if (isPromise(result)) {
       return result.then(value => this.handleCanLoadResult(transaction, context, value, activate));
     }
@@ -425,6 +451,134 @@ export class RouteCoordinator implements IRouteCoordinator {
     throw new NavigationCancelled();
   }
 
+  private resolveRouteFailure(
+    transaction: NavigationTransaction,
+    source: RouteContext,
+    caught: unknown,
+  ): void | Promise<void> {
+    if (caught instanceof NavigationCancelled) {
+      throw caught;
+    }
+    if (transaction.cancelled) {
+      throw new NavigationCancelled();
+    }
+    if (transaction.error !== undefined) {
+      throw caught instanceof RoutePhaseError ? caught.original : caught;
+    }
+    const phaseError = caught instanceof RoutePhaseError
+      ? caught
+      : new RoutePhaseError('activation', caught);
+    const recovery = source.parent;
+    if (!(recovery instanceof RouteContext)) {
+      throw phaseError.original;
+    }
+    return this.runErrorHandlers(transaction, source, source, recovery, phaseError.phase, phaseError.original);
+  }
+
+  private runErrorHandlers(
+    transaction: NavigationTransaction,
+    source: RouteContext,
+    start: RouteContext,
+    recovery: RouteContext,
+    phase: RouteFailurePhase,
+    error: unknown,
+  ): void | Promise<void> {
+    let boundary: RouteContext | null = start;
+    while (boundary != null) {
+      const handler = boundary._onError;
+      if (handler != null && !transaction.usedErrorBoundaries.has(boundary)) {
+        const failure: RouteFailure = {
+          error,
+          source,
+          boundary,
+          recovery,
+          phase,
+          signal: transaction.controller.signal,
+        };
+        let result: RouteErrorResult | Promise<RouteErrorResult>;
+        try {
+          result = handler(failure);
+        } catch (handlerError) {
+          throw this.createHandlerError(error, handlerError);
+        }
+        if (isPromise(result)) {
+          const nextBoundary = boundary.parent instanceof RouteContext ? boundary.parent : null;
+          return result.then(
+            value => this.handleErrorResult(transaction, failure, value, nextBoundary),
+            handlerError => {
+              if (transaction.cancelled) {
+                throw new NavigationCancelled();
+              }
+              throw this.createHandlerError(error, handlerError);
+            },
+          );
+        }
+        return this.handleErrorResult(
+          transaction,
+          failure,
+          result,
+          boundary.parent instanceof RouteContext ? boundary.parent : null,
+        );
+      }
+      boundary = boundary.parent instanceof RouteContext ? boundary.parent : null;
+    }
+    throw error;
+  }
+
+  private handleErrorResult(
+    transaction: NavigationTransaction,
+    failure: RouteFailure,
+    result: RouteErrorResult,
+    nextBoundary: RouteContext | null,
+  ): void | Promise<void> {
+    if (transaction.cancelled) {
+      throw new NavigationCancelled();
+    }
+    if (result == null || result === false) {
+      if (nextBoundary == null) {
+        throw failure.error;
+      }
+      return this.runErrorHandlers(
+        transaction,
+        failure.source as RouteContext,
+        nextBoundary,
+        failure.recovery as RouteContext,
+        failure.phase,
+        failure.error,
+      );
+    }
+    if (typeof result === 'object' && 'recover' in result) {
+      if (result.recover !== 'local') {
+        throw this.createHandlerError(failure.error, new Error(`Unknown route recovery mode "${String(result.recover)}".`));
+      }
+      transaction.usedErrorBoundaries.add(failure.boundary as RouteContext);
+      const recovered = (failure.source as RouteContext)._excludeLocally(failure);
+      if (__DEV__ && !recovered) {
+        console.warn(`[au-route] The locally recovered route "${failure.source.fullPath}" has no matching sibling fallback or route.`);
+      }
+      return;
+    }
+
+    const instruction: RouteGuardRedirect = typeof result === 'string'
+      ? { target: result }
+      : result;
+    if (typeof instruction !== 'object' || instruction == null || !('target' in instruction)) {
+      throw this.createHandlerError(failure.error, new Error('An on-error callback returned an unsupported recovery result.'));
+    }
+    transaction.usedErrorBoundaries.add(failure.boundary as RouteContext);
+    const { replace = true, ...hrefOptions } = instruction.options ?? {};
+    transaction.redirect = {
+      path: (failure.boundary as RouteContext)._resolveGuardRedirect(instruction.target, instruction.params, hrefOptions),
+      replace,
+    };
+    transaction.cancelled = true;
+    transaction.controller.abort();
+  }
+
+  private createHandlerError(original: unknown, handlerError: unknown): AggregateError {
+    return new AggregateError([original, handlerError], 'A route error handler failed.');
+  }
+
   private runActivationOutsideNavigation(
     context: RouteContext,
     callback: RouteCanLoadCallback | null,
@@ -454,7 +608,7 @@ export class RouteCoordinator implements IRouteCoordinator {
   }
 
   private rejectGuardLocally(context: RouteContext): void {
-    const recovered = context._rejectGuardLocally();
+    const recovered = context._excludeLocally();
     if (__DEV__ && !recovered) {
       console.warn(`[au-route] The locally denied route "${context.fullPath}" has no matching sibling fallback or route.`);
     }

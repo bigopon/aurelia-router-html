@@ -12,6 +12,7 @@ Aurelia
     Routing.customize({
       interceptLinks: true,
       animations: true,
+      titles: true,
     }),
     Registration.singleton(StorefrontState, StorefrontState),
     ProductSearchValueConverter,
