@@ -1,6 +1,43 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('router HTML docs features', () => {
+  test('analytics waits for consent and preserves a rejection', async ({ page }) => {
+    await page.goto('/');
+
+    const notice = page.getByRole('dialog', { name: 'Analytics preference' });
+    await expect(notice).toBeVisible();
+    await expect(page.locator('#google-analytics')).toHaveCount(0);
+
+    await notice.getByRole('button', { name: 'Reject' }).click();
+    await expect(notice).toBeHidden();
+    await page.reload();
+    await expect(notice).toBeHidden();
+    await expect(page.locator('#google-analytics')).toHaveCount(0);
+
+    await page.goto('/privacy');
+    await page.getByRole('button', { name: 'Change analytics choice' }).click();
+    await expect(notice).toBeVisible();
+  });
+
+  test('mobile navigation opens from a burger button and closes after navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    const menu = page.getByRole('button', { name: 'Guide' });
+    const sidebar = page.locator('#docs-navigation');
+    await expect(page.getByRole('link', { name: 'Open Router HTML on GitHub' })).toHaveAttribute('href', 'https://github.com/bigopon/aurelia-router-html');
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await expect(sidebar).not.toHaveClass(/is-open/);
+
+    await menu.click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+    await expect(sidebar).toHaveClass(/is-open/);
+
+    await page.getByRole('link', { name: 'API Cheat Sheet', exact: true }).click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await expect(sidebar).not.toHaveClass(/is-open/);
+  });
+
   test('playground compiles conventions and runs routes in an isolated replaceable preview', async ({ page }) => {
     await page.goto('/playground');
 

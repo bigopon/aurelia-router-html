@@ -27,6 +27,8 @@ import { FeatureUrlStatePage } from './feature-url-state-page';
 import { FeatureWildcardPage } from './feature-wildcard-page';
 import { OverviewPage } from './overview-page';
 import { WhyRouterHtmlPage } from './why-router-html-page';
+import { PrivacyPage } from './privacy-page';
+import { enableAnalytics, getAnalyticsConsent, saveAnalyticsConsent, type AnalyticsConsent } from '../analytics';
 import template from './docs-app.html?raw';
 
 export class DocsApp {
@@ -37,6 +39,7 @@ export class DocsApp {
     dependencies: [
       OverviewPage,
       WhyRouterHtmlPage,
+      PrivacyPage,
       ApiCheatSheetPage,
       FeatureAdaptersPage,
       FeatureBasePathPage,
@@ -67,4 +70,41 @@ export class DocsApp {
   } as const;
 
   public readonly nav = docNav;
+  public mobileMenuOpen: boolean = false;
+  public analyticsConsent: AnalyticsConsent = getAnalyticsConsent();
+  private readonly onPrivacyChoices = () => this.showPrivacyChoices();
+
+  public constructor() {
+    window.addEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
+    if (this.analyticsConsent === 'accepted') {
+      enableAnalytics();
+    }
+  }
+
+  public unbinding(): void {
+    window.removeEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
+  }
+
+  public toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  public closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
+  }
+
+  public acceptAnalytics(): void {
+    this.analyticsConsent = 'accepted';
+    saveAnalyticsConsent(this.analyticsConsent);
+    enableAnalytics();
+  }
+
+  public rejectAnalytics(): void {
+    this.analyticsConsent = 'rejected';
+    saveAnalyticsConsent(this.analyticsConsent);
+  }
+
+  public showPrivacyChoices(): void {
+    this.analyticsConsent = null;
+  }
 }

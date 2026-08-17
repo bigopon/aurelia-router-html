@@ -1,4 +1,19 @@
 <div class="docs-shell">
+  <button
+    class.bind="mobileMenuOpen ? 'mobile-menu-toggle is-menu-open' : 'mobile-menu-toggle'"
+    type="button"
+    aria-label="Guide"
+    aria-controls="docs-navigation"
+    aria-expanded.bind="mobileMenuOpen"
+    click.trigger="toggleMobileMenu()">
+    <span class="mobile-menu-icon" aria-hidden="true"></span>
+  </button>
+  <a class="mobile-github-link" href="https://github.com/bigopon/aurelia-router-html" target="_blank" rel="noreferrer" aria-label="Open Router HTML on GitHub">
+    <img src="/github.svg" alt="" aria-hidden="true">
+  </a>
+
+  <div if.bind="mobileMenuOpen" class="mobile-menu-scrim" click.trigger="closeMobileMenu()"></div>
+
   <div class="docs-grid">
     <main class="main-panel">
       <au-route path="/" title="Overview">
@@ -7,6 +22,10 @@
 
       <au-route path="why-router-html" title="Why Router HTML">
         <why-router-html-page></why-router-html-page>
+      </au-route>
+
+      <au-route path="privacy" title="Privacy">
+        <privacy-page></privacy-page>
       </au-route>
 
       <au-route path="api" title="API Cheat Sheet">
@@ -120,7 +139,7 @@
       </au-route>
     </main>
 
-    <aside class="sidebar">
+    <aside id="docs-navigation" class.bind="mobileMenuOpen ? 'sidebar is-open' : 'sidebar'">
       <div class="brand-stack">
         <div class="brand-row">
           <img class="brand-mark" src="/router-html-icon-128-v2.png" alt="Router HTML" />
@@ -135,6 +154,7 @@
         <a
           repeat.for="item of nav"
           au-link.bind="item.path"
+          click.trigger="closeMobileMenu()"
           class="nav-item">
           <strong>${item.title}</strong>
         </a>
@@ -146,7 +166,16 @@
       <div class="project-links" aria-label="Project links">
         <a class="project-link" href="https://www.npmjs.com/package/aurelia-router-html" target="_blank" rel="noreferrer">npm package</a>
         <a class="project-link" href="https://github.com/bigopon/aurelia-router-html/issues/new/choose" target="_blank" rel="noreferrer">Report an issue</a>
+        <a class="project-link" au-link="/privacy" click.trigger="closeMobileMenu()">Privacy</a>
       </div>
     </aside>
   </div>
+
+  <section if.bind="analyticsConsent === null" class="cookie-notice" role="dialog" aria-label="Analytics preference">
+    <p>May we use Google Analytics to understand how the documentation is used? <a au-link="/privacy">Learn more</a>.</p>
+    <div class="cookie-actions">
+      <button type="button" click.trigger="rejectAnalytics()">Reject</button>
+      <button class="primary" type="button" click.trigger="acceptAnalytics()">Accept analytics</button>
+    </div>
+  </section>
 </div>
