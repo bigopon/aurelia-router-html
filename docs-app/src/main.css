@@ -80,7 +80,7 @@ input {
   align-self: start;
   padding: 16px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 22px;
   overflow: hidden;
 }
@@ -157,6 +157,23 @@ input {
   flex: 1;
   height: 1px;
   background: var(--line);
+}
+
+.project-links {
+  display: grid;
+  gap: 8px;
+  padding: 12px 4px 4px;
+}
+
+.project-link {
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-decoration: none;
+}
+
+.project-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
 }
 
 .nav-item {

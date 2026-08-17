@@ -10,7 +10,7 @@
   "bugs": {
     "url": "https://github.com/bigopon/aurelia-router-html/issues"
   },
-  "homepage": "https://github.com/bigopon/aurelia-router-html#readme",
+  "homepage": "https://aurelia-router-html.netlify.app/",
   "keywords": [
     "aurelia",
     "router",

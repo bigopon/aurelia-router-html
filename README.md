@@ -26,6 +26,8 @@ void Aurelia
 
 Declare routes with `<au-route>` and navigate with `<au-link>`. The browser adapter uses pathname URLs by default; hash, query, memory, and custom adapters are also supported.
 
+Read the full documentation at [aurelia-router-html.netlify.app](https://aurelia-router-html.netlify.app/).
+
 This package currently targets Aurelia `2.0.0-rc.2`.
 
 ## License

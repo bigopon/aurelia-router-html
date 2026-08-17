@@ -130,10 +130,13 @@ test.describe('router HTML docs features', () => {
       .evaluateAll(elements => elements.map(element => element.getAttribute('data-e2e')));
     expect(overviewOrder).toEqual(['getting-started', 'examples-section', 'routing-customization']);
     const gettingStarted = page.locator('[data-e2e="getting-started"]');
+    await expect(gettingStarted).toContainText('npm install aurelia-router-html');
     await expect(gettingStarted).toContainText("import { Routing } from 'aurelia-router-html'");
+    await expect(gettingStarted.getByRole('link', { name: 'View the package on npm' })).toHaveAttribute('href', 'https://www.npmjs.com/package/aurelia-router-html');
     await expect(gettingStarted).toContainText('.register(Routing)');
     await expect(gettingStarted).not.toContainText('interceptLinks');
     await expect(gettingStarted).not.toContainText('animations');
+    await expect(page.getByRole('link', { name: 'Report an issue' })).toHaveAttribute('href', 'https://github.com/bigopon/aurelia-router-html/issues/new/choose');
 
     const customization = page.locator('[data-e2e="routing-customization"]');
     await expect(customization).toContainText('Pathname');
