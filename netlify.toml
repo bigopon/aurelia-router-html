@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build:doc"
+  publish = "docs-app/dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

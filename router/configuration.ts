@@ -1,6 +1,5 @@
 import { IContainer, IPlatform, Registration, type Key } from '@aurelia/kernel';
-import { IWindow } from '@aurelia/runtime-html';
-import { AppTask } from 'aurelia';
+import { AppTask, IWindow } from '@aurelia/runtime-html';
 import { normalizeRouteAnimationOptions, IRouteAnimationOptions, type RouteAnimationInput } from './animation';
 import { AuRoute } from './au-route';
 import { AuRouteFocus } from './au-route-focus';

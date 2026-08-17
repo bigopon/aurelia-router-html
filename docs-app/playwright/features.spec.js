@@ -130,7 +130,7 @@ test.describe('router HTML docs features', () => {
       .evaluateAll(elements => elements.map(element => element.getAttribute('data-e2e')));
     expect(overviewOrder).toEqual(['getting-started', 'examples-section', 'routing-customization']);
     const gettingStarted = page.locator('[data-e2e="getting-started"]');
-    await expect(gettingStarted).toContainText("import { Routing } from 'aurelia-v2-router-html'");
+    await expect(gettingStarted).toContainText("import { Routing } from 'aurelia-router-html'");
     await expect(gettingStarted).toContainText('.register(Routing)');
     await expect(gettingStarted).not.toContainText('interceptLinks');
     await expect(gettingStarted).not.toContainText('animations');

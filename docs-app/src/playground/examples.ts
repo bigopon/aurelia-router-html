@@ -543,7 +543,7 @@ const featureExamples: PlaygroundExample[] = [
     initialPath: '/home',
     initialFile: '/src/app.ts',
     appTs: `import { resolve } from '@aurelia/kernel';
-import { IRouteContext } from 'aurelia-v2-router-html';
+import { IRouteContext } from 'aurelia-router-html';
 
 export class App {
   private readonly route = resolve(IRouteContext);
@@ -923,7 +923,7 @@ export class App {
     title: 'Route error recovery',
     description: 'Let a failing route handle its own loading error and select a sibling fallback.',
     initialPath: '/home',
-    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+    appTs: `import type { RouteFailure } from 'aurelia-router-html';
 
 export class App {
   public reportsAvailable = false;
@@ -984,7 +984,7 @@ export class App {
     title: 'Parent error boundary',
     description: 'Let a workspace own recovery policy for a failing child route.',
     initialPath: '/home',
-    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+    appTs: `import type { RouteFailure } from 'aurelia-router-html';
 
 export class App {
   public status = 'Open reports to trigger its parent boundary';
@@ -1050,7 +1050,7 @@ export class App {
     title: 'Grandparent error boundary',
     description: 'Bubble a grandchild failure through its parent to an application-area boundary.',
     initialPath: '/home',
-    appTs: `import type { RouteFailure } from 'aurelia-v2-router-html';
+    appTs: `import type { RouteFailure } from 'aurelia-router-html';
 
 export class App {
   public status = 'Open reports to trigger the portal boundary';
@@ -1247,7 +1247,7 @@ export class App {
     initialPath: '/dashboard',
     initialFile: '/src/main.ts',
     mainTs: `import Aurelia from 'aurelia';
-import { MemoryPathAdapter, Routing } from 'aurelia-v2-router-html';
+import { MemoryPathAdapter, Routing } from 'aurelia-router-html';
 import { App } from './app';
 
 const adapter = new MemoryPathAdapter('/dashboard');
@@ -1263,7 +1263,7 @@ void Aurelia
 import {
   IPathAdapter,
   MemoryPathAdapter
-} from 'aurelia-v2-router-html';
+} from 'aurelia-router-html';
 
 export class App {
   private readonly adapter = resolve(IPathAdapter) as MemoryPathAdapter;
@@ -1555,7 +1555,7 @@ main {
     initialPath: '/status',
     files: {
       '/src/main.ts': `import Aurelia from 'aurelia';
-import { Routing } from 'aurelia-v2-router-html';
+import { Routing } from 'aurelia-router-html';
 import { App } from './app';
 import { UpperValueConverter } from './upper';
 
@@ -1693,7 +1693,7 @@ function createMainSource(
   const focusLine = focus == null ? '' : `,\n    focus: ${focus}`;
   const interceptLine = interceptLinks == null ? '' : `,\n    interceptLinks: ${interceptLinks}`;
   return `import Aurelia from 'aurelia';
-import { Routing } from 'aurelia-v2-router-html';
+import { Routing } from 'aurelia-router-html';
 import { App } from './app';
 
 void Aurelia

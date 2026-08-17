@@ -16,5 +16,5 @@ export const runtimePackages: Record<string, Record<string, unknown>> = {
   '@aurelia/runtime': runtime,
   '@aurelia/runtime-html': runtimeHtml,
   '@aurelia/template-compiler': templateCompiler,
-  'aurelia-v2-router-html': { ...router, Routing: createPlaygroundRouting() },
+  'aurelia-router-html': { ...router, Routing: createPlaygroundRouting() },
 };

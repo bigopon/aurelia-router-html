@@ -14,19 +14,19 @@
     "test:e2e:ci": "cross-env APP_PORT=9027 PLAYWRIGHT_CI_WEBSERVER=1 node ../node_modules/@playwright/test/cli.js test --config playwright.config.cjs"
   },
   "dependencies": {
-    "@aurelia/kernel": "2.0.0-rc.1",
-    "@aurelia/runtime": "2.0.0-rc.1",
-    "@aurelia/runtime-html": "2.0.0-rc.1",
-    "@aurelia/template-compiler": "2.0.0-rc.1",
+    "@aurelia/kernel": "2.0.0-rc.2",
+    "@aurelia/runtime": "2.0.0-rc.2",
+    "@aurelia/runtime-html": "2.0.0-rc.2",
+    "@aurelia/template-compiler": "2.0.0-rc.2",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.10",
     "@codemirror/lang-javascript": "6.2.4",
     "@codemirror/theme-one-dark": "6.1.2",
-    "aurelia": "2.0.0-rc.1",
+    "aurelia": "2.0.0-rc.2",
     "codemirror": "6.0.2"
   },
   "devDependencies": {
-    "@aurelia/vite-plugin": "2.0.0-rc.1",
+    "@aurelia/vite-plugin": "2.0.0-rc.2",
     "esbuild-wasm": "0.17.8",
     "typescript": "5.7.2",
     "vite": "^7.0.2"

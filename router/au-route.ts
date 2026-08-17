@@ -1,6 +1,6 @@
 import { isPromise, onResolve, resolve, IContainer, IPlatform, Registration } from '@aurelia/kernel';
+import { IExpressionParser } from '@aurelia/expression-parser';
 import { astEvaluate, queueAsyncTask, Scope } from '@aurelia/runtime';
-import { IExpressionParser } from 'aurelia';
 import {
   CustomElementStaticAuDefinition,
   ICustomElementController,

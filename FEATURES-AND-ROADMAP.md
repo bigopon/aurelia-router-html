@@ -362,6 +362,8 @@ No additional feature is committed for the next implementation pass. The followi
 
 These should be introduced only for concrete application needs that cannot be expressed cleanly through route contexts, adapters, and existing Aurelia features.
 
+The active workstream is release hardening under the `aurelia-router-html` package name. See `RELEASE-PLAN.md` for the publishing gates and published-Aurelia compatibility matrix.
+
 ## Definition of done
 
 A public feature is complete when:
