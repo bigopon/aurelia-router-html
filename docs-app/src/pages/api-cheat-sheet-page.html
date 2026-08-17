@@ -178,10 +178,25 @@ export class ProductPage {
     fallback: 'Store'
   },
   scrolling: {
+    restoration: 'restore',
     behavior: 'smooth',
     block: 'start'
   }
 });</pre>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead>
+          <tr><th><code>restoration</code></th><th>New navigation</th><th>Back / Forward</th><th>Hash target</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>restore</code> (default)</td><td>Starts at the top.</td><td>Returns to the position saved for that history entry.</td><td>Scrolls to the target on new navigation, or when a history entry has no saved position. A saved position wins during Back / Forward.</td></tr>
+          <tr><td><code>top</code></td><td>Starts at the top.</td><td>Also starts at the top instead of restoring a saved position.</td><td>Overrides the top behavior and scrolls to the target.</td></tr>
+          <tr><td><code>preserve</code></td><td>Keeps the current viewport position.</td><td>Keeps the current viewport instead of restoring the destination entry.</td><td>Scrolls to the target when one is present.</td></tr>
+          <tr><td><code>manual</code></td><td>Does not scroll.</td><td>Does not restore or scroll.</td><td>Does not scroll; application code owns hash handling too.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Every automatic action waits for the routed view tree to settle. Set <code>hash: false</code> to keep the selected restoration policy while disabling only hash-target scrolling.</p>
     <p>Supply <code>adapter</code> or <code>adapterFactory</code> for memory, WebView, SSR, or host-specific locations. Plain links need <code>interceptLinks</code> for client-side navigation; <code>au-link</code> does not.</p>
   </section>
 </section>

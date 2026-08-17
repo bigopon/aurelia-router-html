@@ -72,7 +72,68 @@ describe('route hash scrolling', function () {
         inline: undefined,
       });
     } finally {
+      scrolling.stop();
       target.remove();
+    }
+  });
+
+  it('prefers the literal fragment before its decoded form', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const literal = document.createElement('section');
+    const decoded = document.createElement('section');
+    literal.id = 'details%20panel';
+    decoded.id = 'details panel';
+    let selected = '';
+    literal.scrollIntoView = () => { selected = 'literal'; };
+    decoded.scrollIntoView = () => { selected = 'decoded'; };
+    document.body.append(literal, decoded);
+    const scrolling = new BrowserRouteScrollService(document, settlement);
+
+    try {
+      scrolling.afterNavigation(parseRouteLocation('/products#details%20panel'));
+      await tasksSettled();
+      assert.strictEqual(selected, 'literal');
+    } finally {
+      scrolling.stop();
+    }
+  });
+
+  it('uses only legacy anchor names after checking element IDs', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const input = document.createElement('input');
+    const anchor = document.createElement('a');
+    input.name = 'details';
+    anchor.name = 'details';
+    let selected = '';
+    input.scrollIntoView = () => { selected = 'input'; };
+    anchor.scrollIntoView = () => { selected = 'anchor'; };
+    document.body.append(input, anchor);
+    const scrolling = new BrowserRouteScrollService(document, settlement, { restoration: 'preserve' });
+
+    try {
+      scrolling.afterNavigation(parseRouteLocation('/products#details'));
+      await tasksSettled();
+      assert.strictEqual(selected, 'anchor');
+    } finally {
+      scrolling.stop();
+    }
+  });
+
+  it('scrolls the document to the top for the special top fragment', async function () {
+    const settlement = new RouteViewSettlement();
+    const window = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/products' }).window;
+    let position: ScrollToOptions | undefined;
+    window.scrollTo = options => { position = options as ScrollToOptions; };
+    const scrolling = new BrowserRouteScrollService(window.document, settlement);
+
+    try {
+      scrolling.afterNavigation(parseRouteLocation('/products#ToP'));
+      await tasksSettled();
+      assert.deepStrictEqual(position, { left: 0, top: 0, behavior: 'auto' });
+    } finally {
+      scrolling.stop();
     }
   });
 
@@ -84,7 +145,7 @@ describe('route hash scrolling', function () {
     let called = false;
     target.scrollIntoView = () => { called = true; };
     document.body.append(target);
-    const scrolling = new BrowserRouteScrollService(document, settlement);
+    const scrolling = new BrowserRouteScrollService(document, settlement, { restoration: 'preserve' });
 
     try {
       settlement.begin();
@@ -94,7 +155,97 @@ describe('route hash scrolling', function () {
       await tasksSettled();
       assert.strictEqual(called, false);
     } finally {
+      scrolling.stop();
       target.remove();
+    }
+  });
+});
+
+describe('route scroll restoration', function () {
+  it('scrolls pushes to top and restores positions on browser traversal', async function () {
+    const settlement = new RouteViewSettlement();
+    const window = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/products' }).window;
+    let left = 0;
+    let top = 0;
+    const scrolls: Array<{ left: number; top: number }> = [];
+    Object.defineProperties(window, {
+      scrollX: { configurable: true, get: () => left },
+      scrollY: { configurable: true, get: () => top },
+    });
+    window.scrollTo = options => {
+      const next = options as ScrollToOptions;
+      left = next.left ?? 0;
+      top = next.top ?? 0;
+      scrolls.push({ left, top });
+    };
+    window.history.scrollRestoration = 'auto';
+    const scrolling = new BrowserRouteScrollService(window.document, settlement);
+
+    try {
+      scrolling.start();
+      assert.strictEqual(window.history.scrollRestoration, 'manual');
+      scrolling.afterNavigation(parseRouteLocation('/products'), 'initial');
+      await tasksSettled();
+      const productsState = window.history.state;
+
+      top = 640;
+      window.dispatchEvent(new window.Event('scroll'));
+      window.history.pushState(null, '', '/reviews');
+      scrolling.afterNavigation(parseRouteLocation('/reviews'), 'push');
+      await tasksSettled();
+      assert.deepStrictEqual(scrolls.at(-1), { left: 0, top: 0 });
+      const reviewsState = window.history.state;
+
+      top = 120;
+      window.dispatchEvent(new window.Event('scroll'));
+      window.history.replaceState(productsState, '', '/products');
+      window.dispatchEvent(new window.PopStateEvent('popstate', { state: productsState }));
+      scrolling.afterNavigation(parseRouteLocation('/products'), 'external');
+      await tasksSettled();
+      assert.deepStrictEqual(scrolls.at(-1), { left: 0, top: 640 });
+
+      window.history.replaceState(reviewsState, '', '/reviews');
+      window.dispatchEvent(new window.PopStateEvent('popstate', { state: reviewsState }));
+      scrolling.afterNavigation(parseRouteLocation('/reviews'), 'external');
+      await tasksSettled();
+      assert.deepStrictEqual(scrolls.at(-1), { left: 0, top: 120 });
+    } finally {
+      scrolling.stop();
+      assert.strictEqual(window.history.scrollRestoration, 'auto');
+    }
+  });
+
+  it('supports preserve and fully manual scrolling policies', async function () {
+    const preservedWindow = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/products' }).window;
+    const preservedSettlement = new RouteViewSettlement();
+    let preserveScrolls = 0;
+    preservedWindow.scrollTo = () => { preserveScrolls++; };
+    const preserving = new BrowserRouteScrollService(
+      preservedWindow.document,
+      preservedSettlement,
+      { restoration: 'preserve' },
+    );
+
+    const manualWindow = new JSDOM('<!doctype html><body><section id="details"></section></body>', { url: 'https://example.test/products' }).window;
+    const manualSettlement = new RouteViewSettlement();
+    let manualScrolls = 0;
+    manualWindow.scrollTo = () => { manualScrolls++; };
+    manualWindow.document.getElementById('details')!.scrollIntoView = () => { manualScrolls++; };
+    const manual = new BrowserRouteScrollService(
+      manualWindow.document,
+      manualSettlement,
+      { restoration: 'manual' },
+    );
+
+    try {
+      preserving.afterNavigation(parseRouteLocation('/reviews'), 'push');
+      manual.afterNavigation(parseRouteLocation('/products#details'), 'push');
+      await tasksSettled();
+      assert.strictEqual(preserveScrolls, 0);
+      assert.strictEqual(manualScrolls, 0);
+    } finally {
+      preserving.stop();
+      manual.stop();
     }
   });
 });

@@ -58,9 +58,9 @@ export const docNav: DocNavItem[] = [
   },
   {
     id: 'hash-scrolling',
-    title: 'Hash Scrolling',
+    title: 'Scrolling & Restoration',
     path: '/features/hash-scrolling',
-    summary: 'Scroll to fragment targets only after the complete routed view has rendered.',
+    summary: 'Scroll after routed views settle and restore saved positions through browser history.',
     badge: 'A7',
   },
   {

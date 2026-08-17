@@ -23,6 +23,6 @@ export type { RouteAnimationOptions, RouteAnimationInput } from './animation';
 export { BrowserRouteTitleService, IRouteTitleService } from './title';
 export type { RouteTitleOptions } from './title';
 export { BrowserRouteScrollService, IRouteScrollService } from './scroll';
-export type { RouteScrollOptions } from './scroll';
+export type { RouteScrollNavigation, RouteScrollOptions, RouteScrollRestoration } from './scroll';
 export { IRouteViewSettlement, RouteViewSettlement } from './settlement';
 export type { RouteSettledCallback } from './settlement';

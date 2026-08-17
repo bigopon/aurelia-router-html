@@ -1,8 +1,8 @@
 <section class="route-stack">
   <header class="page-header">
     <div>
-      <h2>Hash Scrolling</h2>
-      <p class="page-copy">Link directly to content inside a routed view, including targets created by asynchronous route work.</p>
+      <h2>Scrolling &amp; Restoration</h2>
+      <p class="page-copy">Link to asynchronously rendered content, start new pages at the top, and return users to their saved position with browser history.</p>
     </div>
   </header>
 
@@ -30,18 +30,34 @@
 
     <section>
       <h3>Meaning</h3>
-      <p>The hash remains route state while the pathname selects the route tree. After navigation succeeds, scrolling waits until every activating route view is attached, decodes the hash, and finds an element by <code>id</code> or anchor <code>name</code>.</p>
+      <p>The hash remains route state while the pathname selects the route tree. After navigation succeeds, scrolling waits until every activating route view is attached. Fragment selection follows HTML behavior: literal then decoded IDs, followed by legacy <code>&lt;a name&gt;</code> targets, with special handling for <code>#top</code>.</p>
+      <p>New push and replace navigations start at the top unless a hash selects a target. Back and Forward restore the position saved for that individual history entry after its routed view settles.</p>
     </section>
 
     <section>
       <h3>Apply it</h3>
       <pre class="code-block" syntax-typescript>Routing.customize({
   scrolling: {
+    restoration: 'restore',
     behavior: 'smooth',
     block: 'start'
   }
 });</pre>
-      <p>The default browser adapter enables hash scrolling automatically. Use <code>scrolling: false</code> to disable it. Memory and custom adapters opt in with <code>scrolling: true</code> or an options object when they render into a browser document.</p>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th><code>restoration</code></th><th>New navigation</th><th>Back / Forward</th><th>Hash target</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>restore</code> (default)</td><td>Starts at the top.</td><td>Returns to the position saved for that history entry.</td><td>Scrolls to the target on new navigation, or when a history entry has no saved position. A saved position wins during Back / Forward.</td></tr>
+            <tr><td><code>top</code></td><td>Starts at the top.</td><td>Also starts at the top instead of restoring a saved position.</td><td>Overrides the top behavior and scrolls to the target.</td></tr>
+            <tr><td><code>preserve</code></td><td>Keeps the current viewport position.</td><td>Keeps the current viewport instead of restoring the destination entry.</td><td>Scrolls to the target when one is present.</td></tr>
+            <tr><td><code>manual</code></td><td>Does not scroll.</td><td>Does not restore or scroll.</td><td>Does not scroll; application code owns hash handling too.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Every automatic action waits for the routed view tree to settle. Set <code>hash: false</code> to keep the selected restoration policy while disabling only hash-target scrolling.</p>
+      <p>The default browser adapter enables scrolling automatically and temporarily sets native <code>history.scrollRestoration</code> to <code>manual</code> while active. Use <code>scrolling: false</code> to disable it. Memory and custom adapters opt in with <code>scrolling: true</code> or an options object when they render into a browser document.</p>
       <p>The same link becomes <code>/guide#api-reference</code> in path mode, <code>#guide#api-reference</code> in hash mode, and <code>?app=guide#api-reference</code> in query mode.</p>
     </section>
   </div>

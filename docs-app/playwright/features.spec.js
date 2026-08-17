@@ -213,7 +213,7 @@ test.describe('router HTML docs features', () => {
     await expect(swapSyntax).toContainText('<au-route path="reviews">Reviews</au-route>');
     const urlSyntax = features.filter({ hasText: 'Query, Hash & URL Modes' }).locator('pre');
     await expect(urlSyntax).toContainText("Sort: ${$query.get('sort')}");
-    const hashScrollingSyntax = features.filter({ hasText: 'Hash Scrolling' }).locator('pre');
+    const hashScrollingSyntax = features.filter({ hasText: 'Scrolling & Restoration' }).locator('pre');
     await expect(hashScrollingSyntax).toContainText('au-link="guide#api-reference"');
     await expect(hashScrollingSyntax).toContainText("options: { hash: 'api-reference' }");
     await expect(hashScrollingSyntax).toContainText('id="api-reference"');

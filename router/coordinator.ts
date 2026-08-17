@@ -4,7 +4,7 @@ import { RoutePhaseError, type RouteErrorResult, type RouteFailure, type RouteFa
 import type { IPathAdapter } from './path-adapter';
 import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
-import { type IRouteScrollService, noRouteScrollService } from './scroll';
+import { type IRouteScrollService, noRouteScrollService, type RouteScrollNavigation } from './scroll';
 
 declare const __DEV__: boolean;
 
@@ -17,6 +17,7 @@ interface InternalLoadOptions extends LoadOptions {
   chain?: string[];
   external?: boolean;
   initial?: boolean;
+  scrollNavigation?: RouteScrollNavigation;
 }
 
 export interface IRouteCoordinator {
@@ -81,13 +82,18 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
 
     this.started = true;
+    this.scrollService.start();
     this.stopListening = this.adapter.subscribe(path => {
-      const result = this.navigate(path, { external: true });
+      const result = this.navigate(path, { external: true, scrollNavigation: 'external' });
       if (isPromise(result)) {
         void result.catch(() => {});
       }
     });
-    return this.navigate(this.adapter.getCurrentPath(), { external: true, initial: true });
+    return this.navigate(this.adapter.getCurrentPath(), {
+      external: true,
+      initial: true,
+      scrollNavigation: 'initial',
+    });
   }
 
   public stop(): void {
@@ -226,6 +232,11 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
     this.redirectChain = chain;
 
+    this.scrollService.beforeNavigation(
+      options.scrollNavigation
+        ?? (options.replace === true ? 'replace' : 'push'),
+    );
+
     const controller = this.createAbortController();
     const leaving = this.root instanceof RouteContext ? this.root._getLeaving(location.pathname) : [];
     const guardContext = (route: RouteContext): RouteGuardContext => ({ route, signal: controller.signal });
@@ -325,6 +336,7 @@ export class RouteCoordinator implements IRouteCoordinator {
           replace: replaceDestination,
           redirect: true,
           chain: transaction.options.chain ?? this.redirectChain,
+          scrollNavigation: transaction.options.scrollNavigation,
         });
         if (isPromise(redirected)) {
           void redirected.then(transaction.resolve, transaction.reject);
@@ -370,7 +382,11 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.currentLocation = transaction.location;
     this.currentPath = transaction.location.pathname;
     this.notify();
-    this.scrollService.afterNavigation(transaction.location);
+    this.scrollService.afterNavigation(
+      transaction.location,
+      transaction.options.scrollNavigation
+        ?? (transaction.options.replace === true ? 'replace' : 'push'),
+    );
     transaction.resolve(true);
     this.redirectChain = [];
     return true;

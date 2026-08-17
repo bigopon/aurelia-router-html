@@ -8,6 +8,7 @@ const jsdom = new JSDOM('<!DOCTYPE html><html><head></head><body></body></html>'
   url: 'http://localhost/',
 });
 const window = Object.assign(jsdom.window as unknown as Window & typeof globalThis);
+window.scrollTo = noop;
 const platform = new BrowserPlatform(window, {
   fetch: typeof window.fetch === 'function'
     ? window.fetch.bind(window)

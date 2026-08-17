@@ -7,6 +7,7 @@
   <a data-e2e="reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>
   <a data-e2e="legacy-link" href.bind="$route.href(legacyPath)">Legacy</a>
   <a data-e2e="details-link" href.bind="$route.href(detailsPath, {}, { hash: 'details-section' })">Details section</a>
+  <div style="height: 1800px" aria-hidden="true"></div>
 </au-route>
 
 <au-route path.bind="legacyPath" exact redirect-to.bind="reviewsPath"></au-route>

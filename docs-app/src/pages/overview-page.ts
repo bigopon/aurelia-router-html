@@ -53,8 +53,8 @@ export class OverviewPage {
       syntax: '<a au-link="reviews">Reviews</a>\n\n<a\n  href.bind="$route.href(\'reviews\')"\n  class.bind="$route.isActive(\'reviews\', {}, { exact: true })\n    ? \'is-active\'\n    : \'\'">\n  Reviews with low-level APIs\n</a>',
     },
     {
-      title: 'Hash Scrolling',
-      summary: 'Scroll to a fragment target only after asynchronous routed views have finished rendering.',
+      title: 'Scrolling & Restoration',
+      summary: 'Scroll after asynchronous route rendering and restore each history entry to its saved viewport.',
       path: '/features/hash-scrolling',
       playgroundId: 'hash-scrolling',
       syntax: '<a au-link="guide#api-reference">\n  API reference\n</a>\n\n<a au-link.bind="{\n  target: \'guide\',\n  options: { hash: \'api-reference\' }\n}">\n  API reference\n</a>\n\n<au-route path="guide">\n  <section id="api-reference">API reference</section>\n</au-route>',

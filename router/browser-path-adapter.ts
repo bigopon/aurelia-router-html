@@ -51,7 +51,7 @@ export class BrowserPathAdapter implements IPathAdapter {
   }
 
   public replace(path: string): void {
-    this.window.history.replaceState(null, '', this.formatHref(path));
+    this.window.history.replaceState(this.window.history.state, '', this.formatHref(path));
   }
 
   public subscribe(callback: (path: string) => void): () => void {

@@ -580,58 +580,45 @@ Route templates can prepare data before activation and observe the fully activat
 
 These are Aurelia v2 function bindings, not `.call` expressions, so the callbacks retain the application binding context. `loading` runs parent-first before the route view activates. `loaded` runs children-first after the routed template and all asynchronous activation lifecycle work inside it have completed. Both accept `void | Promise<void>` and retain the synchronous fast path when no promise is returned.
 
-## 26. Settled-view coordination and hash scrolling
+## 26. Settled-view scrolling and history restoration
 
-Browser titles and hash scrolling share one injectable route-view settlement boundary. Every activating `<au-route>` joins it, including views with asynchronous Aurelia activation lifecycle. Successful navigation schedules browser work only after all joined views finish.
+Browser titles, hash scrolling, and history restoration share one injectable route-view settlement boundary. Every activating `<au-route>` joins it, including views with asynchronous Aurelia activation lifecycle. Successful navigation schedules browser work only after all joined views finish.
 
-The default browser adapter enables hash scrolling. Applications can disable it or configure native `scrollIntoView` behavior and alignment:
+The default browser adapter enables scrolling. Applications can disable it or configure restoration, native `scrollIntoView` behavior, and alignment:
 
 ```ts
 Routing.customize({
   scrolling: {
+    restoration: 'restore',
     behavior: 'smooth',
     block: 'start',
   },
 });
 ```
 
-Custom and memory adapters remain browser-independent by default and opt into scrolling explicitly. A newer navigation cancels stale queued fragment work. Decoded element IDs and named anchors are supported across pathname, hash-only, and query-key URL modes.
+Fragment selection follows HTML behavior by checking literal and decoded IDs before legacy `<a name>` targets; `#top` scrolls to the document start. A newer navigation cancels stale queued fragment work. Pathname, hash-only, and query-key URL modes use the same policy.
+
+The default `restore` policy starts push and replace navigation at the top unless a hash target exists. It records each history entry independently and restores its saved position after Back or Forward rendering settles. `top` always starts at the top when no hash target exists, `preserve` retains the current viewport, and `manual` leaves every scroll decision to application code. The service owns native `history.scrollRestoration = 'manual'` only while active and restores the previous browser setting when stopped.
+
+Custom and memory adapters remain browser-independent by default and opt into browser scrolling explicitly.
 
 ---
 
 # Feature design and remaining proposals
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title and hash-scrolling layers of proposal 6 are implemented as features 23 and 26; history restoration and focus policies remain. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
+Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title, hash-scrolling, and history-restoration layers of proposal 6 are implemented as features 23 and 26; focus management remains. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
 
 ## Proposed 6. Browser navigation polish
 
 ### Problem
 
-Matching, rendering, and document titles are functional, but production applications also need fragment scrolling, history scroll restoration, and predictable focus after navigation.
+Matching, rendering, document titles, fragment scrolling, and history restoration are functional. The remaining browser-polish layer is predictable focus after navigation.
 
 ### Design
 
 Deliver this feature in small optional layers rather than placing browser behavior in `RouteContext`.
 
-The title implementation's pending-view counter is the first use of a broader settled-view boundary. Before adding scrolling, extract that coordination into a shared route-view settlement service. Titles, fragment scrolling, later scroll restoration, and opt-in focus management must observe the same completed rendered tree rather than maintain independent timing heuristics.
-
-### Hash scrolling
-
-After a successful navigation containing a hash, the browser layer locates the decoded target and scrolls it into view after the active branch is attached.
-
-URL-mode rules must remain unambiguous:
-
-- pathname mode uses `/products#details`;
-- query mode uses `?app=products#details`, leaving the normal browser fragment available;
-- hash routing uses `#products#details`: the first `#` starts the routed payload and the second separates the route fragment inside that payload;
-- in hash routing, `#details` means the route `/details`, not an in-page fragment. A fragment on the current route must be generated through `$route.href('.', {}, { hash: 'details' })` or the equivalent `au-link` instruction;
-- all modes expose only the decoded route fragment through `$hash`; the browser policy scrolls manually, so behavior does not depend on native fragment scrolling.
-
-### Scroll restoration
-
-- Push navigation defaults to the top unless hash navigation selects a target.
-- Popstate restores the saved scroll position.
-- Applications can configure preserve, top, or manual behavior.
+Titles, scrolling, restoration, and opt-in focus management observe the same completed rendered tree rather than maintaining independent timing heuristics.
 
 ### Focus management
 
@@ -641,8 +628,6 @@ URL-mode rules must remain unambiguous:
 
 ### Acceptance criteria
 
-- Hash scrolling waits for rendered content.
-- Back and Forward restore saved positions.
 - Keyboard focus moves only under the configured policy.
 - All browser behavior is implemented outside `RouteContext` and can be disabled.
 - Accessibility-focused browser tests cover focus behavior.
@@ -852,7 +837,7 @@ The implementation tags each pre-commit phase before coordinator error handling,
 
 # Recommended implementation sequence
 
-1. Add history restoration and opt-in focus management on the shared settled-navigation boundary.
+1. Add opt-in focus management on the shared settled-navigation boundary.
 
 The complete location model, active-link API, injectable adapter boundary, and declarative redirects are now in place. Browser polish can remain outside the matching tree.
 

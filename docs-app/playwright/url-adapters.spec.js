@@ -51,8 +51,10 @@ for (const mode of modes) {
     const details = page.locator('[data-e2e="details-link"]');
     await expect(details).toHaveAttribute('href', mode.detailsHref);
 
-    await page.evaluate(() => { history.scrollRestoration = 'manual'; });
-    await details.click();
+    await expect.poll(() => page.evaluate(() => history.scrollRestoration)).toBe('manual');
+    await page.evaluate(() => window.scrollTo(0, 700));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+    await details.evaluate(element => element.click());
     await expect(page).toHaveURL(mode.detailsUrl);
     await expect(page.locator('[data-e2e="details-section"]')).toHaveCount(1);
     await expect(page.locator('[data-e2e="details-status"]')).toHaveText('Anchored content ready');
@@ -62,6 +64,7 @@ for (const mode of modes) {
     await page.goBack();
     await expect(page.getByRole('heading', { name: 'Adapter products' })).toBeVisible();
     await expect(page).toHaveTitle('Adapter products');
+    await expect.poll(() => page.evaluate(() => Math.abs(window.scrollY - 700))).toBeLessThan(5);
 
     await page.goForward();
     await expect(page).toHaveURL(mode.detailsUrl);
@@ -71,19 +74,23 @@ for (const mode of modes) {
 
     await page.goBack();
     await expect(page.getByRole('heading', { name: 'Adapter products' })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Math.abs(window.scrollY - 700))).toBeLessThan(5);
 
-    await legacy.click();
+    await legacy.evaluate(element => element.click());
     await expect(page).toHaveURL(mode.reviewsUrl);
     await expect(page.getByRole('heading', { name: 'Adapter reviews' })).toBeVisible();
     await expect(page).toHaveTitle('Adapter reviews');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 
     await page.goBack();
     await expect(page.getByRole('heading', { name: 'Adapter products' })).toBeVisible();
     await expect(page).toHaveTitle('Adapter products');
+    await expect.poll(() => page.evaluate(() => Math.abs(window.scrollY - 700))).toBeLessThan(5);
 
     await page.goForward();
     await expect(page).toHaveURL(mode.reviewsUrl);
     await expect(page.getByRole('heading', { name: 'Adapter reviews' })).toBeVisible();
     await expect(page).toHaveTitle('Adapter reviews');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });
 }
