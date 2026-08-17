@@ -3,9 +3,11 @@ import { IWindow } from '@aurelia/runtime-html';
 import { AppTask } from 'aurelia';
 import { normalizeRouteAnimationOptions, IRouteAnimationOptions, type RouteAnimationInput } from './animation';
 import { AuRoute } from './au-route';
+import { AuRouteFocus } from './au-route-focus';
 import { AuLink } from './au-link';
 import { BrowserPathAdapter, type BrowserAdapterOptions } from './browser-path-adapter';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
+import { BrowserRouteFocusService, IRouteFocusService, noRouteFocusService, type RouteFocusOptions } from './focus';
 import { IPathAdapter } from './path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
 import { BrowserRouteScrollService, IRouteScrollService, noRouteScrollService, type RouteScrollOptions } from './scroll';
@@ -17,6 +19,7 @@ export interface RoutingOptions extends BrowserAdapterOptions {
   animations?: RouteAnimationInput;
   titles?: boolean | RouteTitleOptions;
   scrolling?: boolean | RouteScrollOptions;
+  focus?: boolean | RouteFocusOptions;
   adapter?: IPathAdapter | Key;
   adapterFactory?: (container: IContainer) => IPathAdapter;
 }
@@ -55,7 +58,9 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     || options.titles === true
     || typeof options.titles === 'object'
     || options.scrolling === true
-    || typeof options.scrolling === 'object';
+    || typeof options.scrolling === 'object'
+    || options.focus === true
+    || typeof options.focus === 'object';
   const browserDocument = browserWindow?.document
     ?? (needsBrowserDocument ? c.get(IWindow).document : null);
   const scrollService = c.has(IRouteScrollService, true)
@@ -67,11 +72,21 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
         settlement,
         typeof options.scrolling === 'object' ? options.scrolling : {},
       );
+  const focusService = c.has(IRouteFocusService, true)
+    ? c.get(IRouteFocusService)
+    : options.focus === true || typeof options.focus === 'object'
+      ? new BrowserRouteFocusService(
+        browserDocument!,
+        settlement,
+        typeof options.focus === 'object' ? options.focus : {},
+      )
+      : noRouteFocusService;
   const coordinator = new RouteCoordinator(
     rootContext,
     adapter,
     () => new (platform?.globalThis.AbortController ?? AbortController)(),
     scrollService,
+    focusService,
   );
   const titleService = c.has(IRouteTitleService, true)
     ? c.get(IRouteTitleService)
@@ -86,12 +101,14 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
 
   c.register(
     AuRoute,
+    AuRouteFocus,
     AuLink,
     Registration.instance(IPathAdapter, adapter),
     Registration.instance(IRouteAnimationOptions, animationOptions),
     Registration.instance(IRouteContext, rootContext),
     Registration.instance(IRouteViewSettlement, settlement),
     Registration.instance(IRouteScrollService, scrollService),
+    Registration.instance(IRouteFocusService, focusService),
     Registration.instance(IRouteTitleService, titleService),
     Registration.instance(IRouteCoordinator, coordinator),
     AppTask.activated(() => {

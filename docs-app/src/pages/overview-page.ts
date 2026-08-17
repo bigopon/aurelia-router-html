@@ -60,6 +60,13 @@ export class OverviewPage {
       syntax: '<a au-link="guide#api-reference">\n  API reference\n</a>\n\n<a au-link.bind="{\n  target: \'guide\',\n  options: { hash: \'api-reference\' }\n}">\n  API reference\n</a>\n\n<au-route path="guide">\n  <section id="api-reference">API reference</section>\n</au-route>',
     },
     {
+      title: 'Focus Management',
+      summary: 'Move keyboard focus into newly attached route content after the complete view tree settles.',
+      path: '/features/focus',
+      playgroundId: 'focus-management',
+      syntax: '<au-route path="account" exact>\n  <main>\n    <h1 au-route-focus>Account settings</h1>\n  </main>\n</au-route>',
+    },
+    {
       title: 'Programmatic Navigation',
       summary: 'Navigate from application logic through the same contextual API available as $route.',
       path: '/features/programmatic',

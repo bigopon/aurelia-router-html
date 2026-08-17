@@ -85,6 +85,10 @@
 - [x] `A7` Static hash targets use the compact `au-link="guide#api-reference"` syntax and generate the same route location as object-form hash options.
 - [x] `A7` Scroll restoration captures the outgoing viewport before DOM replacement, starts new navigation at the top, and restores independent Back/Forward positions after rendering settles.
 - [x] `A7` Standalone Chromium coverage verifies delayed hash targets, push-to-top behavior, and 700px Back/Forward restoration in pathname, hash-only, and query-key modes.
+- [x] `A7` Standalone Chromium coverage distinguishes `top`, `preserve`, and `manual`, verifies `hash: false` leaves history restoration enabled, and confirms a saved traversal position takes precedence over a hash target.
+- [x] `A7` Focus management is opt-in, waits for routed views to settle, focuses the last newly attached `au-route-focus` marker, and adds `tabindex="-1"` to non-interactive targets.
+- [x] `A7` Focus management skips initial rendering and query/hash-only updates by default, supports a level-one heading fallback, discards cancelled candidates, and preserves scrolling unless configured otherwise.
+- [x] `A7` Standalone Chromium coverage verifies explicit focus through route changes and Back/Forward traversal without stealing focus on initial or query-only navigation.
 - [x] `A8` `loading.bind` waits before route activation and `loaded.bind` waits after nested asynchronous activation while retaining the application binding context.
 - [x] `A8` Nested route loading runs parent-first and loaded notification runs children-first.
 - [x] `A8` Three-level nested routes preserve parent-first loading and child-first loaded ordering, including an asynchronous grandchild that delays ancestor loaded callbacks.
@@ -120,6 +124,7 @@
 - [x] Declarative redirects have an overview card and focused editable playground, while behavior is covered independently by standalone real-browser fixtures in pathname, hash, and query modes.
 - [x] Page titles have an overview card, focused guide, bound-title demo, editable playground, and real-browser coverage.
 - [x] Scrolling and Restoration has an overview card, focused guide, editable delayed-content playground, and real-browser coverage across every URL mode.
+- [x] Focus Management has an overview card, focused guide, editable marked-heading playground, API reference, and standalone browser coverage.
 - [x] Loading and loaded have an overview card, focused guide, nested editable playground, and real-browser ordering coverage without presenting planned guards as implemented.
 - [x] Navigation guards have an overview card, focused guide, editable cancellation/redirect playground, and standalone browser-adapter coverage.
 - [x] Guard Failure Modes is a dedicated sidebar and overview item with explicit `navigation` and `local` contracts.

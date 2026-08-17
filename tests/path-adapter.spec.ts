@@ -4,6 +4,7 @@ import { assert } from '@aurelia/testing';
 import { JSDOM } from 'jsdom';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
+import { BrowserRouteFocusService } from '../router/focus';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { IPathAdapter } from '../router/path-adapter';
 import { RouteContext } from '../router/route-context';
@@ -247,6 +248,72 @@ describe('route scroll restoration', function () {
       preserving.stop();
       manual.stop();
     }
+  });
+});
+
+describe('route focus management', function () {
+  it('focuses the last newly attached marker only after routed views settle', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body><main></main></body>').window.document;
+    const parent = document.createElement('h1');
+    const child = document.createElement('h2');
+    document.querySelector('main')!.append(parent, child);
+    const focus = new BrowserRouteFocusService(document, settlement);
+
+    focus.start();
+    settlement.begin();
+    focus.beforeNavigation(true);
+    focus.register(parent);
+    focus.register(child);
+    focus.afterNavigation('push');
+    await tasksSettled();
+    assert.notStrictEqual(document.activeElement, child);
+
+    settlement.end();
+    await tasksSettled();
+    assert.strictEqual(document.activeElement, child);
+    assert.strictEqual(child.getAttribute('tabindex'), '-1');
+    focus.stop();
+  });
+
+  it('skips initial and background URL updates but supports an opt-in heading fallback', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body><main><h1>Products</h1></main></body>').window.document;
+    const heading = document.querySelector('h1') as HTMLElement;
+    const focus = new BrowserRouteFocusService(document, settlement, { fallback: 'heading' });
+
+    focus.start();
+    focus.beforeNavigation(true);
+    focus.afterNavigation('initial');
+    await tasksSettled();
+    assert.notStrictEqual(document.activeElement, heading);
+
+    focus.beforeNavigation(false);
+    focus.afterNavigation('push');
+    await tasksSettled();
+    assert.notStrictEqual(document.activeElement, heading);
+
+    focus.beforeNavigation(true);
+    focus.afterNavigation('push');
+    await tasksSettled();
+    assert.strictEqual(document.activeElement, heading);
+    focus.stop();
+  });
+
+  it('discards focus candidates when navigation is cancelled', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body><main><h1>Denied</h1></main></body>').window.document;
+    const heading = document.querySelector('h1') as HTMLElement;
+    const focus = new BrowserRouteFocusService(document, settlement);
+
+    focus.start();
+    focus.beforeNavigation(true);
+    focus.register(heading);
+    focus.cancelNavigation();
+    focus.afterNavigation('push');
+    await tasksSettled();
+    assert.notStrictEqual(document.activeElement, heading);
+    focus.stop();
   });
 });
 

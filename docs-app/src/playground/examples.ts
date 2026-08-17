@@ -22,6 +22,7 @@ interface RouterExampleOptions {
   routingMode?: 'path' | 'hash' | 'query';
   routeQueryKey?: string;
   scrolling?: boolean;
+  focus?: boolean;
   interceptLinks?: boolean;
 }
 
@@ -362,6 +363,67 @@ const featureExamples: PlaygroundExample[] = [
   padding: 18px;
   border-radius: 14px;
   background: #e8f6f3;
+}`,
+  }),
+  routerExample({
+    id: 'focus-management',
+    title: 'Focus management',
+    description: 'Move keyboard focus to a marked heading after the incoming route has finished rendering.',
+    initialPath: '/welcome',
+    focus: true,
+    appHtml: `<nav>
+  <a au-link="welcome">Welcome</a>
+  <a au-link="account">Account</a>
+</nav>
+
+<p class="focus-demo-note">
+  <strong>Focus indicator:</strong>
+  after a route change, look for the dashed violet border and glow around the new heading.
+</p>
+
+<au-route path="welcome" exact>
+  <main>
+    <h1 class="route-focus-target" au-route-focus>Welcome</h1>
+    <p>Initial loading does not move focus by default.</p>
+  </main>
+</au-route>
+
+<au-route path="account" exact>
+  <main>
+    <h1 class="route-focus-target" au-route-focus>Account settings</h1>
+    <p>The heading receives focus after this routed view settles.</p>
+    <a au-link.bind="{
+      target: 'account',
+      options: { query: { panel: 'security' } }
+    }">
+      Show security settings
+    </a>
+    <p>Panel: \${$query.get('panel') || 'profile'}</p>
+  </main>
+</au-route>`,
+    appCss: `.focus-demo-note {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f3efff;
+  color: #3f2a70;
+}
+
+.route-focus-target {
+  padding: 8px 10px;
+  border-radius: 10px;
+  outline: 3px dashed transparent;
+  outline-offset: 4px;
+  transition:
+    outline-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.route-focus-target:focus {
+  outline-color: #7655d9;
+  background: #faf8ff;
+  box-shadow: 0 0 0 7px rgb(118 85 217 / 18%);
 }`,
   }),
   routerExample({
@@ -1567,6 +1629,7 @@ function routerExample(options: RouterExampleOptions): PlaygroundExample {
         options.routingMode,
         options.routeQueryKey,
         options.scrolling,
+        options.focus,
         options.interceptLinks,
       ),
       '/src/app.ts': options.appTs ?? 'export class App {}',
@@ -1581,12 +1644,14 @@ function createMainSource(
   routingMode: 'path' | 'hash' | 'query' = 'path',
   routeQueryKey?: string,
   scrolling?: boolean,
+  focus?: boolean,
   interceptLinks?: boolean,
 ): string {
   const modeLines = routingMode === 'path'
     ? ''
     : `,\n    routingMode: '${routingMode}'${routeQueryKey == null ? '' : `,\n    routeQueryKey: '${routeQueryKey}'`}`;
   const scrollLine = scrolling == null ? '' : `,\n    scrolling: ${scrolling}`;
+  const focusLine = focus == null ? '' : `,\n    focus: ${focus}`;
   const interceptLine = interceptLinks == null ? '' : `,\n    interceptLinks: ${interceptLinks}`;
   return `import Aurelia from 'aurelia';
 import { Routing } from 'aurelia-v2-router-html';
@@ -1594,7 +1659,7 @@ import { App } from './app';
 
 void Aurelia
   .register(Routing.customize({
-    animations: false${modeLines}${scrollLine}${interceptLine}
+    animations: false${modeLines}${scrollLine}${focusLine}${interceptLine}
   }))
   .app({ host: document.querySelector('#app')!, component: App })
   .start();`;

@@ -6,6 +6,7 @@ import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasicPage } from './feature-basic-page';
 import { FeatureConditionalPage } from './feature-conditional-page';
 import { FeatureErrorRecoveryPage } from './feature-error-recovery-page';
+import { FeatureFocusPage } from './feature-focus-page';
 import { FeatureKitchenSinkPage } from './feature-kitchen-sink-page';
 import { FeatureGuardFailurePage } from './feature-guard-failure-page';
 import { FeatureGuardsPage } from './feature-guards-page';
@@ -39,6 +40,7 @@ export class DocsApp {
       FeatureParamsPage,
       FeatureUrlStatePage,
       FeatureHashScrollingPage,
+      FeatureFocusPage,
       FeatureActiveLinksPage,
       FeatureProgrammaticPage,
       FeatureRedirectsPage,

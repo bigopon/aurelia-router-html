@@ -602,35 +602,41 @@ The default `restore` policy starts push and replace navigation at the top unles
 
 Custom and memory adapters remain browser-independent by default and opt into browser scrolling explicitly.
 
+## 27. Opt-in focus management
+
+Focus management uses the same settled-view boundary as titles and scrolling, but remains disabled until configured:
+
+```ts
+Routing.customize({
+  focus: {
+    fallback: 'heading',
+    initial: false,
+    preventScroll: true,
+  },
+});
+```
+
+An incoming route can declare its preferred focus target in markup:
+
+```html
+<au-route path="account" exact>
+  <main>
+    <h1 au-route-focus>Account settings</h1>
+  </main>
+</au-route>
+```
+
+`au-route-focus` registers only while a navigation is collecting newly attached route content. After the complete routed tree settles, the last attached connected marker receives focus; this naturally favors the deepest marked nested route. Non-interactive targets receive `tabindex="-1"` without joining the sequential Tab order.
+
+Initial rendering preserves browser focus unless `initial: true` is configured. Query-only and hash-only changes that retain the same route tree do not collect candidates or apply a heading fallback. Cancelled navigation discards its candidates. `preventScroll` defaults to `true`, allowing the scrolling layer to finish first without focus overriding its selected viewport. `fallback: 'heading'` selects the first level-one heading inside `<main>` only when no incoming view supplied an explicit marker.
+
+The service is implemented outside `RouteContext`, can be replaced through `IRouteFocusService`, and remains browser-independent when disabled.
+
 ---
 
 # Feature design and remaining proposals
 
-Proposal numbers preserve their original design identifiers. Proposals 1 through 5 are implemented as features 18 through 22 above. The title, hash-scrolling, and history-restoration layers of proposal 6 are implemented as features 23 and 26; focus management remains. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
-
-## Proposed 6. Browser navigation polish
-
-### Problem
-
-Matching, rendering, document titles, fragment scrolling, and history restoration are functional. The remaining browser-polish layer is predictable focus after navigation.
-
-### Design
-
-Deliver this feature in small optional layers rather than placing browser behavior in `RouteContext`.
-
-Titles, scrolling, restoration, and opt-in focus management observe the same completed rendered tree rather than maintaining independent timing heuristics.
-
-### Focus management
-
-- Navigation may focus an explicitly marked target in the incoming branch.
-- A safe fallback can focus the main heading or route container without forcing application-specific semantics.
-- Focus behavior is opt-in or configurable and must not steal focus during background URL updates.
-
-### Acceptance criteria
-
-- Keyboard focus moves only under the configured policy.
-- All browser behavior is implemented outside `RouteContext` and can be disabled.
-- Accessibility-focused browser tests cover focus behavior.
+Proposal numbers preserve their original design identifiers. Proposals 1 through 6 are implemented as features 18 through 23, 26, and 27 above. Proposal 7 is implemented as feature 25 below so its transaction and recovery contract remains recorded beside the original rationale.
 
 ## 25. Declarative guards and navigation transactions
 

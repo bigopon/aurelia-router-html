@@ -2,7 +2,7 @@ import template from './url-adapter-app.html?raw';
 
 const browserUrl = new URL(window.location.href);
 const usesPathRouting = browserUrl.searchParams.get('mode') === 'path'
-  || (browserUrl.search === '' && browserUrl.hash === '');
+  || (!browserUrl.searchParams.has('route') && browserUrl.hash === '');
 const pathPrefix = usesPathRouting ? '/__adapter-test__' : '';
 
 export class UrlAdapterApp {

@@ -181,8 +181,14 @@ export class ProductPage {
     restoration: 'restore',
     behavior: 'smooth',
     block: 'start'
+  },
+  focus: {
+    fallback: 'heading',
+    initial: false,
+    preventScroll: true
   }
 });</pre>
+    <h4>Scrolling and restoration</h4>
     <div class="option-table-wrap">
       <table class="option-table">
         <thead>
@@ -197,6 +203,21 @@ export class ProductPage {
       </table>
     </div>
     <p>Every automatic action waits for the routed view tree to settle. Set <code>hash: false</code> to keep the selected restoration policy while disabling only hash-target scrolling.</p>
+    <h4>Focus management</h4>
+    <div class="option-table-wrap">
+      <table class="option-table">
+        <thead><tr><th>Focus option</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>focus: true</code></td><td>Focuses a newly attached element marked with <code>au-route-focus</code>. Focus management is opt-in.</td></tr>
+          <tr><td><code>fallback: 'none'</code></td><td>Leaves focus unchanged when no marked target attaches. This is the default.</td></tr>
+          <tr><td><code>fallback: 'heading'</code></td><td>Falls back to the first level-one heading inside <code>&lt;main&gt;</code>.</td></tr>
+          <tr><td><code>initial: true</code></td><td>Allows focus movement after initial rendering; initial focus is preserved by default.</td></tr>
+          <tr><td><code>preventScroll: false</code></td><td>Allows focus to move the viewport; the default preserves the router's completed scroll action.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Query-only and hash-only updates do not focus an unchanged route. When nested incoming views mark targets, the last attached marker wins.</p>
+    <h4>Adapters and link interception</h4>
     <p>Supply <code>adapter</code> or <code>adapterFactory</code> for memory, WebView, SSR, or host-specific locations. Plain links need <code>interceptLinks</code> for client-side navigation; <code>au-link</code> does not.</p>
   </section>
 </section>

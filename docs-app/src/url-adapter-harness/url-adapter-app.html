@@ -1,9 +1,12 @@
 <au-route path.bind="reviewsPath" exact title="Adapter reviews">
-  <h1>Adapter reviews</h1>
+  <h1 data-e2e="reviews-heading" au-route-focus>Adapter reviews</h1>
+  <button data-e2e="review-action" type="button">Review action</button>
+  <a data-e2e="review-query-link" href.bind="$route.href(reviewsPath, {}, { query: { sort: 'new' } })">Newest reviews</a>
+  <div style="height: 1800px" aria-hidden="true"></div>
 </au-route>
 
 <au-route path.bind="productsPath" exact title="Adapter products">
-  <h1>Adapter products</h1>
+  <h1 data-e2e="products-heading" au-route-focus>Adapter products</h1>
   <a data-e2e="reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>
   <a data-e2e="legacy-link" href.bind="$route.href(legacyPath)">Legacy</a>
   <a data-e2e="details-link" href.bind="$route.href(detailsPath, {}, { hash: 'details-section' })">Details section</a>
@@ -13,8 +16,9 @@
 <au-route path.bind="legacyPath" exact redirect-to.bind="reviewsPath"></au-route>
 
 <au-route path.bind="detailsPath" exact loading.bind="() => prepareDetails()">
-  <h1>Adapter details</h1>
+  <h1 data-e2e="details-heading" au-route-focus>Adapter details</h1>
   <p data-e2e="details-status">${detailsStatus}</p>
+  <a data-e2e="details-reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>
   <div style="height: 1200px" aria-hidden="true"></div>
   <section id="details-section" data-e2e="details-section">
     <h2>Anchored details</h2>

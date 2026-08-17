@@ -92,6 +92,7 @@ void Aurelia
               <tr><td><code>animations</code></td><td>Global route-transition behavior; animation remains opt-in by default.</td></tr>
               <tr><td><code>titles</code></td><td>Browser title composition, fallback text, and custom formatting for active nested routes.</td></tr>
               <tr><td><code>scrolling</code></td><td>Post-render hash targets, new-navigation position, and Back/Forward restoration. The default browser adapter enables it automatically.</td></tr>
+              <tr><td><code>focus</code></td><td>Opt-in keyboard focus for newly attached route targets marked with <code>au-route-focus</code>.</td></tr>
               <tr><td><code>routeQueryKey</code></td><td>The query-string key used by query routing mode; it defaults to <code>app</code>.</td></tr>
             </tbody>
           </table>
@@ -149,12 +150,14 @@ void Aurelia
     restoration: 'restore',
     behavior: 'smooth',
     block: 'start'
-  }
+  },
+  focus: true
 });</pre>
 
     <div class="overview-links">
       <a class="example-jump" au-link="/features/url-state">Compare browser URL modes</a>
       <a class="example-jump" au-link="/features/hash-scrolling">Configure scrolling and restoration</a>
+      <a class="example-jump" au-link="/features/focus">Configure focus management</a>
       <a class="example-jump" au-link="/features/adapters">Choose or build an adapter</a>
     </div>
   </section>

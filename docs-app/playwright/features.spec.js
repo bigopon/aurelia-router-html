@@ -146,6 +146,7 @@ test.describe('router HTML docs features', () => {
     await expect(customization).toContainText('animations');
     await expect(customization).toContainText('titles');
     await expect(customization).toContainText('scrolling');
+    await expect(customization).toContainText('focus');
     const modeSnippets = customization.locator('[data-e2e="routing-mode-snippets"] article');
     await expect(modeSnippets).toHaveCount(3);
     await expect(modeSnippets.nth(0).locator('pre')).toContainText("routingMode: 'path'");
@@ -182,7 +183,7 @@ test.describe('router HTML docs features', () => {
     });
     expect(await longSnippet.locator('.copy-code-button').evaluate(element => element.getBoundingClientRect().left)).toBe(copyButtonLeft);
 
-    await expect(features).toHaveCount(22);
+    await expect(features).toHaveCount(23);
     const basicSyntax = features.filter({ hasText: 'Basic Routes' }).locator('pre');
     await expect(basicSyntax).toContainText('<au-route path="products">');
     await expect(basicSyntax).toContainText("$route.isActive('/products', {}, { exact: true })");
@@ -217,6 +218,8 @@ test.describe('router HTML docs features', () => {
     await expect(hashScrollingSyntax).toContainText('au-link="guide#api-reference"');
     await expect(hashScrollingSyntax).toContainText("options: { hash: 'api-reference' }");
     await expect(hashScrollingSyntax).toContainText('id="api-reference"');
+    const focusSyntax = features.filter({ hasText: 'Focus Management' }).locator('pre');
+    await expect(focusSyntax).toContainText('<h1 au-route-focus>Account settings</h1>');
     const programmaticSyntax = features.filter({ hasText: 'Programmatic Navigation' }).locator('pre');
     await expect(programmaticSyntax).toContainText('resolve(IRouteContext)');
     await expect(programmaticSyntax).toContainText('this.route.load');
@@ -236,9 +239,9 @@ test.describe('router HTML docs features', () => {
     const errorRecoverySyntax = features.filter({ hasText: 'Error Recovery' }).locator('pre');
     await expect(errorRecoverySyntax).toContainText('on-error.bind="failure => recover(failure)"');
     await expect(errorRecoverySyntax).toContainText('$route.parent.failure.error.message');
-    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(22);
+    await expect(page.getByRole('link', { name: 'Jump to example' })).toHaveCount(23);
     const editLinks = features.getByRole('link', { name: 'Edit in playground' });
-    await expect(editLinks).toHaveCount(22);
+    await expect(editLinks).toHaveCount(23);
     expect(await editLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
       '/playground/basic-routes',
       '/playground/nested-routes',
@@ -246,6 +249,7 @@ test.describe('router HTML docs features', () => {
       '/playground/url-state',
       '/playground/active-links',
       '/playground/hash-scrolling',
+      '/playground/focus-management',
       '/playground/programmatic-navigation',
       '/playground/declarative-redirects',
       '/playground/page-titles',
@@ -356,6 +360,8 @@ test.describe('router HTML docs features', () => {
     await expect(sheet).toContainText('$route.isActive');
     await expect(sheet).toContainText('IRouteContext');
     await expect(sheet).toContainText('scrolling');
+    await expect(sheet).toContainText('au-route-focus');
+    await expect(sheet).toContainText("fallback: 'heading'");
     await expect(sheet).toContainText('A target without a leading slash is contextual');
     await expect(sheet).toContainText('A leading slash is root-absolute');
     await expect(sheet).toContainText('every au-route path declaration matches the residue supplied by its parent');
@@ -379,6 +385,40 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByText('API section ready')).toBeVisible();
     await expect(frame.getByRole('heading', { name: 'API reference' })).toBeVisible();
     await expect.poll(() => frame.locator('body').evaluate(() => window.scrollY)).toBeGreaterThan(300);
+  });
+
+  test('focus-management guide moves focus only when a new route view attaches', async ({ page }) => {
+    await page.goto('/features/focus');
+    const guide = page.locator('[data-e2e="focus-guide"]');
+    await expect(guide).toContainText('Focus management is off by default');
+    await expect(guide).toContainText("fallback: 'heading'");
+
+    const playground = page.locator('.playground-page.is-embedded');
+    await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
+    const frame = playground.frameLocator('[data-e2e="playground-preview"]');
+    await expect(frame.getByText('after a route change, look for the dashed violet border and glow')).toBeVisible();
+    const welcome = frame.getByRole('heading', { name: 'Welcome' });
+    await expect(welcome).toBeVisible();
+    await expect(welcome).not.toBeFocused();
+
+    await frame.getByRole('link', { name: 'Account' }).click();
+    const account = frame.getByRole('heading', { name: 'Account settings' });
+    await expect(account).toBeFocused();
+    await expect(account).toHaveAttribute('tabindex', '-1');
+    await expect.poll(() => account.evaluate(element => getComputedStyle(element).outlineColor))
+      .toBe('rgb(118, 85, 217)');
+    const focusStyle = await account.evaluate(element => ({
+      outlineStyle: getComputedStyle(element).outlineStyle,
+      boxShadow: getComputedStyle(element).boxShadow,
+    }));
+    expect(focusStyle.outlineStyle).toBe('dashed');
+    expect(focusStyle.boxShadow).not.toBe('none');
+
+    const security = frame.getByRole('link', { name: 'Show security settings' });
+    await security.focus();
+    await security.evaluate(element => element.click());
+    await expect(playground.locator('.preview-label code')).toHaveText('/account?panel=security');
+    await expect(security).toBeFocused();
   });
 
   test('basic routes makes relative declarations and root-absolute links explicit', async ({ page }) => {
@@ -417,6 +457,7 @@ test.describe('router HTML docs features', () => {
       ['params', ':userId'],
       ['url-state', "$query.get('sort')"],
       ['active-links', 'au-link.bind'],
+      ['focus', 'au-route-focus'],
       ['programmatic', 'resolve(IRouteContext)', '/src/app.ts'],
       ['redirects', 'redirect-to.bind'],
       ['titles', 'title.bind="cameraTitle"'],

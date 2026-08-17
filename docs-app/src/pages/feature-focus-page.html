@@ -1,0 +1,52 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Focus Management</h2>
+      <p class="page-copy">Move keyboard users into newly rendered route content without stealing focus on initial loading or background URL-state updates.</p>
+    </div>
+  </header>
+
+  <div class="feature-details" data-e2e="focus-guide">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="account" exact&gt;
+  &lt;main&gt;
+    &lt;h1 au-route-focus&gt;Account settings&lt;/h1&gt;
+    &lt;p&gt;Manage your profile and security settings.&lt;/p&gt;
+  &lt;/main&gt;
+&lt;/au-route&gt;</pre>
+      <p>Add <code>au-route-focus</code> to the heading, region, or control that should receive focus when its route is newly attached.</p>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p>Focus waits for the complete routed view tree, including asynchronous activation. Initial rendering is ignored by default, and changing only query or hash state does not refocus an unchanged route. When nested incoming views provide markers, the last attached marker—normally the deepest route—wins.</p>
+      <p>Non-interactive targets such as headings receive <code>tabindex="-1"</code>, making them programmatically focusable without adding them to the Tab order.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>Routing.customize({
+  focus: {
+    fallback: 'heading',
+    initial: false,
+    preventScroll: true
+  }
+});</pre>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>focus: true</code></td><td>Enables explicit <code>au-route-focus</code> targets. Focus management is off by default.</td></tr>
+            <tr><td><code>fallback: 'none'</code></td><td>Does nothing when the incoming route tree has no marked target. This is the default.</td></tr>
+            <tr><td><code>fallback: 'heading'</code></td><td>Uses the first level-one heading inside <code>&lt;main&gt;</code> when no marked target attaches.</td></tr>
+            <tr><td><code>initial: true</code></td><td>Also focuses after the application's initial route finishes. The default preserves the browser's initial focus.</td></tr>
+            <tr><td><code>preventScroll: false</code></td><td>Allows focusing to move the viewport. The default preserves the scroll result chosen by hash scrolling or restoration.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <playground-page example-id="focus-management" embedded.bind="true"></playground-page>
+</section>

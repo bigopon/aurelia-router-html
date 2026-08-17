@@ -4,6 +4,7 @@ export type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardContext, R
 export type { RouteErrorHandler, RouteErrorResult, RouteFailure, RouteFailurePhase, RouteLocalRecovery } from './error';
 export { AuLink, routeNavigationErrorEvent } from './au-link';
 export type { LinkInstruction, RouteLinkOptions } from './au-link';
+export { AuRouteFocus } from './au-route-focus';
 export { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from './browser-path-adapter';
 export type { BrowserAdapterOptions, BrowserRoutingMode } from './browser-path-adapter';
 export { MemoryPathAdapter } from './memory-path-adapter';
@@ -24,5 +25,7 @@ export { BrowserRouteTitleService, IRouteTitleService } from './title';
 export type { RouteTitleOptions } from './title';
 export { BrowserRouteScrollService, IRouteScrollService } from './scroll';
 export type { RouteScrollNavigation, RouteScrollOptions, RouteScrollRestoration } from './scroll';
+export { BrowserRouteFocusService, IRouteFocusService } from './focus';
+export type { RouteFocusFallback, RouteFocusOptions } from './focus';
 export { IRouteViewSettlement, RouteViewSettlement } from './settlement';
 export type { RouteSettledCallback } from './settlement';

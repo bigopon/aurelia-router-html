@@ -4,6 +4,7 @@ import { RoutePhaseError, type RouteErrorResult, type RouteFailure, type RouteFa
 import type { IPathAdapter } from './path-adapter';
 import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
+import { type IRouteFocusService, noRouteFocusService } from './focus';
 import { type IRouteScrollService, noRouteScrollService, type RouteScrollNavigation } from './scroll';
 
 declare const __DEV__: boolean;
@@ -70,6 +71,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     private readonly adapter: IPathAdapter,
     private readonly createAbortController: () => AbortController = () => new AbortController(),
     private readonly scrollService: IRouteScrollService = noRouteScrollService,
+    private readonly focusService: IRouteFocusService = noRouteFocusService,
   ) {
     if (root instanceof RouteContext) {
       root._setNavigator((path, options) => this.load(path, options));
@@ -83,6 +85,7 @@ export class RouteCoordinator implements IRouteCoordinator {
 
     this.started = true;
     this.scrollService.start();
+    this.focusService.start();
     this.stopListening = this.adapter.subscribe(path => {
       const result = this.navigate(path, { external: true, scrollNavigation: 'external' });
       if (isPromise(result)) {
@@ -104,6 +107,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.stopListening = null;
     this.started = false;
     this.transaction?.controller.abort();
+    this.focusService.stop();
     this.scrollService.stop();
   }
 
@@ -239,15 +243,16 @@ export class RouteCoordinator implements IRouteCoordinator {
 
     const controller = this.createAbortController();
     const leaving = this.root instanceof RouteContext ? this.root._getLeaving(location.pathname) : [];
+    const routeChanged = leaving.length > 0 || !this.root.active;
     const guardContext = (route: RouteContext): RouteGuardContext => ({ route, signal: controller.signal });
     const canUnload = this.runCanUnload(leaving, 0, guardContext);
     if (isPromise(canUnload)) {
       return canUnload.then(allowed => allowed
-        ? this.beginNavigation(location, normalizedPath, { ...options, chain }, controller)
+        ? this.beginNavigation(location, normalizedPath, { ...options, chain }, controller, routeChanged)
         : false);
     }
     return canUnload
-      ? this.beginNavigation(location, normalizedPath, { ...options, chain }, controller)
+      ? this.beginNavigation(location, normalizedPath, { ...options, chain }, controller, routeChanged)
       : false;
   }
 
@@ -256,7 +261,9 @@ export class RouteCoordinator implements IRouteCoordinator {
     normalizedPath: string,
     options: InternalLoadOptions,
     controller: AbortController,
+    routeChanged: boolean,
   ): boolean | Promise<boolean> {
+    this.focusService.beforeNavigation(routeChanged);
     let resolve!: (value: boolean) => void;
     let reject!: (reason: unknown) => void;
     const completion = new Promise<boolean>((res, rej) => {
@@ -295,6 +302,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.sealed = true;
     if (transaction.pending === 0 && transaction.error !== undefined) {
       this.transaction = null;
+      this.focusService.cancelNavigation();
       transaction.controller.abort();
       if (this.root instanceof RouteContext) {
         this.root._cancelNavigationTransaction();
@@ -314,6 +322,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.transaction = null;
     const failed = transaction.cancelled || transaction.error !== undefined || transaction.redirect != null;
     if (failed) {
+      this.focusService.cancelNavigation();
       transaction.controller.abort();
       if (this.root instanceof RouteContext) {
         this.root._cancelNavigationTransaction();
@@ -384,6 +393,10 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.notify();
     this.scrollService.afterNavigation(
       transaction.location,
+      transaction.options.scrollNavigation
+        ?? (transaction.options.replace === true ? 'replace' : 'push'),
+    );
+    this.focusService.afterNavigation(
       transaction.options.scrollNavigation
         ?? (transaction.options.replace === true ? 'replace' : 'push'),
     );

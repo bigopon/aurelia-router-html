@@ -2,8 +2,10 @@ import { IContainer, Registration } from '@aurelia/kernel';
 import { AppTask } from 'aurelia';
 import { IRouteAnimationOptions, normalizeRouteAnimationOptions, type RouteAnimationInput } from '../../../router/animation';
 import { AuRoute } from '../../../router/au-route';
+import { AuRouteFocus } from '../../../router/au-route-focus';
 import { AuLink } from '../../../router/au-link';
 import { IRouteCoordinator, RouteCoordinator } from '../../../router/coordinator';
+import { BrowserRouteFocusService, IRouteFocusService, noRouteFocusService, type RouteFocusOptions } from '../../../router/focus';
 import { IPathAdapter, type PathAdapter } from '../../../router/path-adapter';
 import { IRouteContext, RouteContext, type SwapOrder } from '../../../router/route-context';
 import type { BrowserRoutingMode } from '../../../router/browser-path-adapter';
@@ -17,6 +19,7 @@ interface PlaygroundRoutingOptions {
   animations?: RouteAnimationInput;
   titles?: boolean | RouteTitleOptions;
   scrolling?: boolean | RouteScrollOptions;
+  focus?: boolean | RouteFocusOptions;
   interceptLinks?: boolean;
   routingMode?: BrowserRoutingMode;
   routeQueryKey?: string;
@@ -161,7 +164,14 @@ export function createPlaygroundRouting() {
         typeof options.scrolling === 'object' ? options.scrolling : {},
       )
       : noRouteScrollService;
-    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController(), scrollService);
+    const focusService = options.focus === true || typeof options.focus === 'object'
+      ? new BrowserRouteFocusService(
+        document,
+        settlement,
+        typeof options.focus === 'object' ? options.focus : {},
+      )
+      : noRouteFocusService;
+    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController(), scrollService, focusService);
     const titleService = options.titles === false
       ? { start() {}, requestUpdate() {}, stop() {} }
       : new BrowserRouteTitleService(
@@ -172,12 +182,14 @@ export function createPlaygroundRouting() {
       );
     container.register(
       AuRoute,
+      AuRouteFocus,
       AuLink,
       Registration.instance(IPathAdapter, adapter),
       Registration.instance(IRouteAnimationOptions, normalizeRouteAnimationOptions(options.animations)),
       Registration.instance(IRouteContext, root),
       Registration.instance(IRouteViewSettlement, settlement),
       Registration.instance(IRouteScrollService, scrollService),
+      Registration.instance(IRouteFocusService, focusService),
       Registration.instance(IRouteTitleService, titleService),
       Registration.instance(IRouteCoordinator, coordinator),
       AppTask.activated(() => {

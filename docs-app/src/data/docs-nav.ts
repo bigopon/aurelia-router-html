@@ -64,6 +64,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A7',
   },
   {
+    id: 'focus',
+    title: 'Focus Management',
+    path: '/features/focus',
+    summary: 'Move keyboard focus into a newly attached route without disrupting background URL updates.',
+    badge: 'A7',
+  },
+  {
     id: 'programmatic',
     title: 'Programmatic Navigation',
     path: '/features/programmatic',
