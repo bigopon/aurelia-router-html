@@ -1,6 +1,6 @@
 {
   "name": "aurelia-router-html",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "HTML-first routing for Aurelia 2 applications.",
   "license": "MIT",
   "repository": {
