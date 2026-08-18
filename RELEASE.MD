@@ -25,24 +25,20 @@ The publish workflow uses npm trusted publishing. Do not create or store an npm 
 
 1. Choose the new pre-1.0 version. Use a minor version for breaking changes, such as `0.2.0`, and a patch version for compatible fixes, such as `0.1.1`.
 
-2. Update `version` in `package.json`, then synchronize the lockfile:
+2. From a clean worktree, release the explicit version:
 
    ```sh
-   npm install --package-lock-only --ignore-scripts
+   npm run release -- 0.1.1
    ```
 
-3. Commit and push the release change, then create and push the matching tag:
+   The command updates `package.json` and `package-lock.json`, commits the
+   release, creates the matching `v0.1.1` tag, and atomically pushes the current
+   branch and tag to `origin`. It refuses a missing or invalid version, a dirty
+   worktree, or an existing local or remote tag.
 
-   ```sh
-   git commit -am "chore(release): 0.1.1"
-   git tag v0.1.1
-   git push
-   git push --tags
-   ```
+3. In GitHub Actions, open **Publish npm package** and choose `master` as the workflow ref. Enter `v0.1.1` for the tag input, type `PUBLISH` for confirmation, and run the workflow. The workflow itself checks out and verifies that tag.
 
-4. In GitHub Actions, open **Publish npm package** and choose the `v0.1.1` tag as the workflow ref. Enter `v0.1.1` for the tag input, type `PUBLISH` for confirmation, and run the workflow.
-
-5. Approve the pending `npm-publish` environment deployment. The workflow validates the library and docs, packs the package, then publishes it as npm's default `latest` tag.
+4. Approve the pending `npm-publish` environment deployment. The workflow validates the library and docs, packs the package, then publishes it as npm's default `latest` tag.
 
 ## If a release fails
 
