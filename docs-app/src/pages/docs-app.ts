@@ -81,6 +81,7 @@ export class DocsApp {
   private readonly onScroll = () => {
     this.scrolled = window.scrollY > 8;
   };
+  private navObserver: MutationObserver | null = null;
 
   public constructor() {
     this.applyTheme();
@@ -93,8 +94,23 @@ export class DocsApp {
   }
 
   public unbinding(): void {
+    this.navObserver?.disconnect();
+    this.navObserver = null;
     window.removeEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
     window.removeEventListener('scroll', this.onScroll);
+  }
+
+  public attached(): void {
+    const navigation = document.getElementById('docs-navigation');
+    if (navigation == null) return;
+
+    this.navObserver = new MutationObserver(() => this.revealActiveNavItem());
+    this.navObserver.observe(navigation, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-current'],
+    });
+    this.revealActiveNavItem();
   }
 
   public toggleMobileMenu(): void {
@@ -132,6 +148,11 @@ export class DocsApp {
 
   private applyTheme(): void {
     document.documentElement.dataset.theme = this.theme;
+  }
+
+  private revealActiveNavItem(): void {
+    document.querySelector<HTMLElement>('#docs-navigation .nav-item[aria-current="page"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 }
 

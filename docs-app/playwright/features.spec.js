@@ -38,6 +38,17 @@ test.describe('router HTML docs features', () => {
     await expect(sidebar).not.toHaveClass(/is-open/);
   });
 
+  test('sidebar reveals the active item for an initial deep link', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/features/kitchen-sink');
+
+    const navList = page.locator('#docs-navigation .nav-list');
+    const activeItem = navList.getByRole('link', { name: 'Kitchen Sink', exact: true });
+    await expect(activeItem).toHaveAttribute('aria-current', 'page');
+    await expect.poll(() => navList.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await expect(activeItem).toBeInViewport();
+  });
+
   test('playground compiles conventions and runs routes in an isolated replaceable preview', async ({ page }) => {
     await page.goto('/playground');
 
@@ -882,7 +893,7 @@ test.describe('router HTML docs features', () => {
 
     const playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
-    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('loading.bind="() => prepare');
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('loading.bind="prepare(\'Projects\')"');
     const frame = playground.frameLocator('[data-e2e="playground-preview"]');
     await frame.getByRole('link', { name: 'Project board' }).click();
     await expect(frame.getByRole('heading', { name: 'Project board' })).toBeVisible();
