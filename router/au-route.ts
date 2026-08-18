@@ -1,5 +1,5 @@
 import { isPromise, onResolve, resolve, IContainer, IPlatform, Registration } from '@aurelia/kernel';
-import { IExpressionParser } from '@aurelia/expression-parser';
+import { IExpressionParser, type IsBindingBehavior } from '@aurelia/expression-parser';
 import { astEvaluate, queueAsyncTask, Scope } from '@aurelia/runtime';
 import {
   CustomElementStaticAuDefinition,
@@ -30,7 +30,6 @@ type AnimationPlatform = IPlatform & {
 };
 
 type RedirectMode = 'replace' | 'push';
-export type RouteLifecycleCallback = (context: IRouteContext) => void | Promise<void>;
 
 export class AuRoute implements ICustomElementViewModel {
   public static readonly $au: CustomElementStaticAuDefinition = {
@@ -38,7 +37,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError', 'loading', 'loaded'],
+    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError'],
     processContent: (node, _, data) => {
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
@@ -56,6 +55,12 @@ export class AuRoute implements ICustomElementViewModel {
       }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
       data.pathExpression = pathExpression;
+      const loadingExpression = node.getAttribute('loading.bind');
+      const loadedExpression = node.getAttribute('loaded.bind');
+      node.removeAttribute('loading.bind');
+      node.removeAttribute('loaded.bind');
+      data.loadingExpression = loadingExpression;
+      data.loadedExpression = loadedExpression;
       const title = node.getAttribute('title');
       const shorthandTitleExpression = node.getAttribute(':title');
       if (shorthandTitleExpression != null) {
@@ -109,13 +114,12 @@ export class AuRoute implements ICustomElementViewModel {
   public canLoad: RouteCanLoadCallback | null = null;
   public canUnload: RouteCanUnloadCallback | null = null;
   public onError: RouteErrorHandler | null = null;
-  public loading: RouteLifecycleCallback | null = null;
-  public loaded: RouteLifecycleCallback | null = null;
   public view: ISyntheticView | null = null;
   public context: IRouteContext;
   public readonly location = resolve(IRenderLocation);
   public readonly factory: IViewFactory | null;
   public readonly overrideContext: Record<string, unknown> = {};
+  private readonly lifecycleOverrideContext: Record<string, unknown> = Object.create(this.overrideContext);
   private readonly animationOptions = resolve(IRouteAnimationOptions);
   private readonly animationsEnabled: boolean;
   private readonly expressionParser = resolve(IExpressionParser);
@@ -124,6 +128,10 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly settlement = resolve(IRouteViewSettlement);
   private readonly coordinator = resolve(IRouteCoordinator) as RouteCoordinator;
   private readonly pathExpression: string | null;
+  private readonly loadingExpression: string | null;
+  private readonly loadedExpression: string | null;
+  private loadingAst: IsBindingBehavior | null = null;
+  private loadedAst: IsBindingBehavior | null = null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
   private readonly unsubscribe: () => void;
@@ -137,8 +145,8 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
-    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
+    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -153,6 +161,8 @@ export class AuRoute implements ICustomElementViewModel {
     this.title = title;
     (this.context as RouteContext)._setTitle(title);
     this.pathExpression = pathExpression;
+    this.loadingExpression = loadingExpression;
+    this.loadedExpression = loadedExpression;
     this.redirectTo = redirectTo;
     this.redirectMode = redirectMode;
     this.isRedirect = isRedirect;
@@ -180,15 +190,19 @@ export class AuRoute implements ICustomElementViewModel {
   $controller!: ICustomElementController<this>;
 
   private scope?: Scope | null = null;
+  private lifecycleScope?: Scope | null = null;
   public $params?: Record<string, unknown>;
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
+    this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
     this.updateErrorHandler();
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
       this.path = String(astEvaluate(expression, this.scope, null, null));
     }
+    this.loadingAst ??= this.loadingExpression == null ? null : this.expressionParser.parse(this.loadingExpression, 'None');
+    this.loadedAst ??= this.loadedExpression == null ? null : this.expressionParser.parse(this.loadedExpression, 'None');
     this.updatePath(this.path);
 
     this.requestedViewActive = this.isActive && !this.isRedirect;
@@ -276,6 +290,8 @@ export class AuRoute implements ICustomElementViewModel {
 
   public unbinding(_initiator: IHydratedController, _parent: IHydratedController): void | Promise<void> {
     this.scope = void 0;
+    this.lifecycleScope = void 0;
+    this.lifecycleOverrideContext.$lifecycle = undefined;
     this.requestedViewActive = false;
     return this.queueViewUpdate();
   }
@@ -344,9 +360,13 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
+    const loading = this.loadingAst;
     return this.coordinator._runRouteActivation(this.context as RouteContext, this.canLoad, () => onResolve(
-      this.coordinator._runRoutePhase('loading', () => this.loading?.(this.context)),
-      () => {
+      this.invokeLifecycle('loading', loading),
+      value => {
+        if (loading != null) {
+          (this.context as RouteContext)._setData('loading', value);
+        }
         if (!this.requestedViewActive || this.scope == null) {
           return;
         }
@@ -364,10 +384,15 @@ export class AuRoute implements ICustomElementViewModel {
           throw error;
         }
 
-        const ready = onResolve(
-          activation,
-          () => this.coordinator._runRoutePhase('loaded', () => this.loaded?.(this.context)),
-        );
+        const loaded = this.loadedAst;
+        const ready = onResolve(activation, () => onResolve(
+          this.invokeLifecycle('loaded', loaded),
+          value => {
+            if (loaded != null) {
+              (this.context as RouteContext)._setData('loaded', value);
+            }
+          },
+        ));
         if (isPromise(ready)) {
           return ready.then(
             () => {
@@ -384,6 +409,19 @@ export class AuRoute implements ICustomElementViewModel {
         return this.coordinator._runEnterAnimation(() => this.animate('enter'));
       },
     ));
+  }
+
+  private invokeLifecycle(phase: 'loading' | 'loaded', expression: IsBindingBehavior | null): unknown | Promise<unknown> {
+    if (expression == null || this.lifecycleScope == null) {
+      return;
+    }
+    const context = this.coordinator._createLifecycleContext(this.context as RouteContext);
+    this.lifecycleOverrideContext.$lifecycle = context;
+    try {
+      return this.coordinator._runRoutePhase(phase, () => astEvaluate(expression, this.lifecycleScope!, null, null));
+    } finally {
+      this.lifecycleOverrideContext.$lifecycle = undefined;
+    }
   }
 
   private deactivateView(): void | Promise<void> {

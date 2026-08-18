@@ -100,7 +100,7 @@ export class OverviewPage {
       summary: 'Prepare data before activation and observe when the complete nested route branch is ready.',
       path: '/features/lifecycle',
       playgroundId: 'route-lifecycle',
-      syntax: '<au-route\n  path="products/:id"\n  loading.bind="() => loadProduct()"\n  loaded.bind="() => productIsReady()">\n  Product\n</au-route>',
+      syntax: '<au-route\n  path="products/:id"\n  loading.bind="loadProduct()"\n  loaded.bind="productIsReady()">\n  Product\n</au-route>',
     },
     {
       title: 'Navigation Guards',
@@ -121,7 +121,7 @@ export class OverviewPage {
       summary: 'Handle route exceptions at the nearest boundary, then redirect or rematch a local fallback with the failure attached.',
       path: '/features/error-recovery',
       playgroundId: 'error-recovery',
-      syntax: '<au-route\n  path="reports"\n  loading.bind="() => loadReports()"\n  on-error.bind="failure => recover(failure)">\n  Reports\n</au-route>\n<au-route path="*" fallback>\n  ${$route.parent.failure.error.message}\n</au-route>',
+      syntax: '<au-route\n  path="reports"\n  loading.bind="loadReports()"\n  on-error.bind="failure => recover(failure)">\n  Reports\n</au-route>\n<au-route path="*" fallback>\n  ${$route.parent.failure.error.message}\n</au-route>',
     },
     {
       title: 'Routing Adapters',

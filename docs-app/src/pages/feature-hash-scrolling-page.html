@@ -22,7 +22,7 @@
 
 &lt;au-route
   path="guide"
-  loading.bind="() =&gt; prepareApi()"&gt;
+  loading.bind="prepareApi()"&gt;
   &lt;section id="api-reference"&gt;...&lt;/section&gt;
 &lt;/au-route&gt;</pre>
       <p>Both links generate the same URL. Use the compact target when the path and fragment are static. Use an <code>au-link.bind</code> instruction object when the target, hash, parameters, or matching options are dynamic.</p>

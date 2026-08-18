@@ -24,8 +24,8 @@
   path="products/:id"
   exact
   title.bind="product.name"
-  loading.bind="() =&gt; loadProduct()"
-  loaded.bind="() =&gt; productReady()"
+  loading.bind="loadProduct()"
+  loaded.bind="productReady()"
   can-load.bind="() =&gt; canOpenProduct()"
   can-unload.bind="() =&gt; canLeaveProduct()"
   on-error.bind="failure =&gt; recover(failure)"
@@ -153,14 +153,14 @@ export class ProductPage {
       <table class="option-table">
         <thead><tr><th>Callback</th><th>Supported result</th></tr></thead>
         <tbody>
-          <tr><td><code>loading</code> / <code>loaded</code></td><td><code>void</code> or <code>Promise&lt;void&gt;</code>.</td></tr>
+          <tr><td><code>loading</code> / <code>loaded</code></td><td>Any value or promise.</td></tr>
           <tr><td><code>can-load</code></td><td>Approve, return <code>false</code>, or return a contextual/root redirect result.</td></tr>
           <tr><td><code>can-unload</code></td><td>Approve or return <code>false</code> to keep the current route active.</td></tr>
           <tr><td><code>on-error</code></td><td>Return nothing to bubble, return a redirect, or return <code>{ recover: 'local' }</code>.</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Bind callbacks as functions, for example <code>loading.bind="() =&gt; load()"</code>. Aurelia v2 does not use <code>.call</code> here.</p>
+    <p>Lifecycle bindings are Aurelia expressions evaluated at their lifecycle phase, for example <code>loading.bind="load()"</code>. Pass <code>$lifecycle</code> when the expression needs lifecycle state.</p>
   </section>
 
   <section class="route-stack" id="configuration">

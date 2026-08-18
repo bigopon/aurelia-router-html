@@ -3,11 +3,13 @@ import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 import type { RouteErrorHandler, RouteFailure } from './error';
+import type { RouteLifecycleData } from './lifecycle';
 
 export interface RouteState {
   readonly active: boolean;
   readonly failure: RouteFailure | null;
   readonly title: string | null;
+  readonly data: RouteLifecycleData;
   readonly params: Readonly<Record<string, string>>;
   readonly residue: string;
   readonly path: string;
@@ -55,6 +57,7 @@ export interface IRouteContext {
   readonly pattern: string;
   readonly fullPath: string;
   readonly title: string | null;
+  readonly data: RouteLifecycleData;
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
   load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): boolean | Promise<boolean>;
@@ -80,6 +83,7 @@ export class RouteContext implements IRouteContext {
   public $hash: string = '';
   public pattern: string = '*';
   public title: string | null = null;
+  public readonly data: RouteLifecycleData = { loading: undefined, loaded: undefined };
   private _failure: RouteFailure | null = null;
 
   public get failure(): RouteFailure | null {
@@ -123,6 +127,7 @@ export class RouteContext implements IRouteContext {
   private _deferredDeactivations: Set<RouteContext> | null = null;
   private _localGuardFailures: Set<RouteContext> | null = null;
   private _failureSnapshot: Map<RouteContext, RouteFailure | null> | null = null;
+  private _dataSnapshot: Map<RouteContext, RouteLifecycleData> | null = null;
   private _transactionFailureOwners: Set<RouteContext> | null = null;
   /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
   /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
@@ -188,6 +193,22 @@ export class RouteContext implements IRouteContext {
   }
 
   /** @internal */
+  public _getData(): RouteLifecycleData {
+    return { ...this.data };
+  }
+
+  /** @internal */
+  public _setData(phase: keyof RouteLifecycleData, value: unknown): void {
+    (this.data as { loading: unknown; loaded: unknown })[phase] = value;
+  }
+
+  private _restoreData(data: RouteLifecycleData | undefined): void {
+    const values = this.data as { loading: unknown; loaded: unknown };
+    values.loading = data?.loading;
+    values.loaded = data?.loaded;
+  }
+
+  /** @internal */
   public _hasGuards(): boolean {
     if (this._canLoad != null || this._canUnload != null) {
       return true;
@@ -216,6 +237,7 @@ export class RouteContext implements IRouteContext {
     root._deferredDeactivations = new Set();
     root._localGuardFailures = new Set();
     root._failureSnapshot = new Map(root._getContexts().map(context => [context, context.failure]));
+    root._dataSnapshot = new Map(root._getContexts().map(context => [context, context._getData()]));
     root._transactionFailureOwners = new Set();
   }
 
@@ -227,6 +249,7 @@ export class RouteContext implements IRouteContext {
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
     root._failureSnapshot = null;
+    root._dataSnapshot = null;
     root._transactionFailureOwners = null;
     for (const context of root._getContexts()) {
       if (context.failure != null && failureOwners?.has(context) !== true) {
@@ -247,13 +270,20 @@ export class RouteContext implements IRouteContext {
   public _cancelNavigationTransaction(): void {
     const root = this.root as RouteContext;
     const failureSnapshot = root._failureSnapshot;
+    const dataSnapshot = root._dataSnapshot;
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
     root._failureSnapshot = null;
+    root._dataSnapshot = null;
     root._transactionFailureOwners = null;
     if (failureSnapshot != null) {
       for (const context of root._getContexts()) {
         context._setFailure(failureSnapshot.get(context) ?? null);
+      }
+    }
+    if (dataSnapshot != null) {
+      for (const context of root._getContexts()) {
+        context._restoreData(dataSnapshot.get(context));
       }
     }
   }
@@ -294,6 +324,7 @@ export class RouteContext implements IRouteContext {
     root._deferredDeactivations = null;
     root._localGuardFailures = null;
     root._failureSnapshot = null;
+    root._dataSnapshot = null;
     root._transactionFailureOwners = null;
     for (const child of root.children) {
       child._deactivateBranch('/__inactive__', location.query, location.hash);
@@ -706,6 +737,7 @@ export class RouteContext implements IRouteContext {
       active: this.active,
       failure: this.failure,
       title: this.title,
+      data: this.data,
       params: this.$params,
       residue: this.residue,
       path: this.$path,

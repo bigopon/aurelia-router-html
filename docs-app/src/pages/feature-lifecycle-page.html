@@ -11,37 +11,39 @@
       <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route
   path="products/:id"
-  loading.bind="() =&gt; loadProduct()"
-  loaded.bind="() =&gt; productIsReady()"&gt;
-  &lt;h1&gt;${product.name}&lt;/h1&gt;
+  loading.bind="loadProduct($lifecycle)"
+  loaded.bind="productIsReady()"&gt;
+  &lt;h1&gt;${$route.data.loading.name}&lt;/h1&gt;
 &lt;/au-route&gt;</pre>
-      <p>Use Aurelia v2 function bindings for both callbacks. The arrow function retains the surrounding binding context; the removed <code>.call</code> command is neither needed nor supported.</p>
+      <p>The router evaluates each Aurelia expression once at its lifecycle phase, in the route's live binding scope. Use <code>$lifecycle</code> when the expression needs route state, prior data, or the abort signal.</p>
     </section>
 
     <section>
       <h3>Meaning</h3>
       <p><code>loading</code> runs before the route template activates and waits for a returned promise. <code>loaded</code> runs after the template and its asynchronous Aurelia activation lifecycle are ready.</p>
       <p>Nested branches load from parent to child and report loaded from child to parent. This lets a parent prepare shared data first while its loaded callback observes a complete child branch.</p>
+      <p>The fulfilled return values are available as <code>$route.data.loading</code> and <code>$route.data.loaded</code>. The router does not cache them: applications decide whether to reuse <code>context.previousData</code>, a service cache, or a fresh request.</p>
     </section>
 
     <section>
       <h3>Apply it</h3>
       <pre class="code-block" syntax-typescript>export class App {
-  public async loadProduct(): Promise&lt;void&gt; {
-    this.product = await this.products.getCurrent();
+  public loadProduct(context: RouteLifecycleContext) {
+    return this.products.get(context.params.id, context.signal);
   }
 
-  public productIsReady(): void {
-    this.analytics.pageReady('product');
+  public productIsReady() {
+    return this.analytics.pageReady('product');
   }
 }</pre>
-      <p>Return nothing for synchronous work. Return a promise only when activation must wait, keeping ordinary routes on the synchronous path.</p>
+      <p>The lifecycle context includes the route, params, query, hash, abort signal, and prior lifecycle results. Return any value or promise; activation still waits only for promises.</p>
     </section>
 
     <section>
       <h3>Loading errors today</h3>
       <p>A thrown error or rejected loading promise prevents that route view from activating, and its <code>loaded</code> callback does not run. Handle expected data failures inside the callback when the page should present a recoverable error state.</p>
       <p>The navigation transaction keeps the outgoing URL and view available while loading is pending. A rejected loading callback discards the incoming branch, restores route state, and rejects programmatic navigation with the original error.</p>
+      <p>Cancelled and unhandled failed navigations restore <code>$route.data</code> to its pre-navigation values. When an error boundary locally recovers by replacing a failed subtree with a sibling fallback, that failed route context may retain its last fulfilled lifecycle result. This is route state for <code>previousData</code>, not router-managed caching; applications must not rely on local recovery to clear it.</p>
     </section>
   </div>
 

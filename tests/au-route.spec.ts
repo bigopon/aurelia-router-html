@@ -6,8 +6,9 @@ import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
-import { RouteContext } from '../router/route-context';
+import { RouteContext, type IRouteContext } from '../router/route-context';
 import type { RouteFailure } from '../router/error';
+import type { RouteLifecycleContext } from '../router/lifecycle';
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [
@@ -762,6 +763,100 @@ describe('au-route animation scheduling', function () {
 });
 
 describe('au-route template lifecycle', function () {
+  it('exposes lifecycle results and route state without owning application caching', async function () {
+    class App {
+      public readonly loadingContexts: RouteLifecycleContext[] = [];
+      public readonly loadedContexts: RouteLifecycleContext[] = [];
+
+      public loading(context: RouteLifecycleContext): { id: string; previous: string | null } {
+        this.loadingContexts.push(context);
+        const previous = context.previousData.loading as { id: string } | undefined;
+        return { id: context.params.id, previous: previous?.id ?? null };
+      }
+
+      public loaded(context: RouteLifecycleContext): string {
+        this.loadedContexts.push(context);
+        return `ready:${(context.previousData.loading as { id: string }).id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <au-route
+        path="ready/:id"
+        exact
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-loading>\${$route.data.loading.id}:\${$route.data.loading.previous}</span>
+        <span data-loaded>\${$route.data.loaded}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await fixture.container.get(IRouteCoordinator).load('/ready/first');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-loading]')?.textContent, 'first:');
+      assert.strictEqual(fixture.appHost.querySelector('[data-loaded]')?.textContent, 'ready:first');
+      assert.strictEqual(fixture.component.loadingContexts[0].route.$path, '/ready/first');
+      assert.strictEqual(fixture.component.loadingContexts[0].signal.aborted, false);
+
+      await fixture.container.get(IRouteCoordinator).load('/idle');
+      await fixture.container.get(IRouteCoordinator).load('/ready/second');
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-loading]')?.textContent, 'second:first');
+      assert.strictEqual(fixture.appHost.querySelector('[data-loaded]')?.textContent, 'ready:second');
+      assert.strictEqual((fixture.component.loadingContexts[1].previousData.loading as { id: string }).id, 'first');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('restores lifecycle data when a newer navigation cancels the route activation', async function () {
+    let finishSecondLoad!: () => void;
+    const secondLoad = new Promise<void>(resolve => { finishSecondLoad = resolve; });
+    let route: RouteLifecycleContext['route'];
+
+    class App {
+      public loading(context: RouteLifecycleContext): { id: string } | Promise<{ id: string }> {
+        route = context.route;
+        return context.params.id === 'second'
+          ? secondLoad.then(() => ({ id: 'second' }))
+          : { id: context.params.id };
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <au-route path="ready/:id" exact loading.bind="loading($lifecycle)">
+        <span>\${$route.data.loading.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      await router.load('/ready/first');
+      await router.load('/idle');
+
+      const second = router.load('/ready/second');
+      await Promise.resolve();
+      const idle = router.load('/idle');
+      finishSecondLoad();
+      await second;
+      await idle;
+
+      assert.strictEqual((route!.data.loading as { id: string }).id, 'first');
+    } finally {
+      finishSecondLoad();
+      await fixture.tearDown();
+    }
+  });
+
   it('awaits loading and loaded callbacks bound to the application context', async function () {
     const events: string[] = [];
     let finishLoading!: () => void;
@@ -786,8 +881,8 @@ describe('au-route template lifecycle', function () {
       `<au-route
         path="ready"
         exact
-        loading.bind="() => loading()"
-        loaded.bind="() => loaded()">
+        loading.bind="loading()"
+        loaded.bind="loaded()">
         <span data-ready>Ready</span>
       </au-route>`,
       App,
@@ -815,6 +910,116 @@ describe('au-route template lifecycle', function () {
     }
   });
 
+  it('evaluates a lifecycle expression only when its route activates', async function () {
+    class App {
+      public calls: number = 0;
+
+      public load(): number {
+        this.calls++;
+        return 42;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <au-route path="ready" exact loading.bind="load()"><span data-result>\${$route.data.loading}</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.component.calls, 0);
+      await fixture.container.get(IRouteCoordinator).load('/ready');
+      assert.strictEqual(fixture.component.calls, 1);
+      assert.strictEqual(fixture.appHost.querySelector('[data-result]')?.textContent, '42');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('evaluates a lifecycle expression in the scope containing its au-route', async function () {
+    class App {
+      public readonly items = [{ id: 'first' }, { id: 'second' }];
+
+      public load(id: string): string {
+        return `loaded:${id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <template repeat.for="item of items">
+        <au-route path.bind="item.id" exact loading.bind="load(item.id)">
+          <span data-result>\${$route.data.loading}</span>
+        </au-route>
+      </template>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await fixture.container.get(IRouteCoordinator).load('/second');
+      assert.strictEqual(fixture.appHost.querySelector('[data-result]')?.textContent, 'loaded:second');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('exposes the owning route context to a nested lifecycle expression', async function () {
+    class App {
+      public readonly items = [{ id: 'first' }, { id: 'second' }];
+
+      public load(route: IRouteContext, id: string): string {
+        return `${route.fullPath}:${id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <au-route path="parent">
+        <template repeat.for="item of items">
+          <au-route path.bind="item.id" exact loading.bind="load($route, item.id)">
+            <span data-result>\${$route.data.loading}</span>
+          </au-route>
+        </template>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await fixture.container.get(IRouteCoordinator).load('/parent/second');
+      assert.strictEqual(fixture.appHost.querySelector('[data-result]')?.textContent, '/parent/second:second');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('clears the phase-local lifecycle value without falling through to an outer scope', async function () {
+    class App {
+      public readonly $lifecycle = 'outer value';
+    }
+
+    const adapter = new MemoryPathAdapter('/idle');
+    const fixture = await createFixture(
+      `<au-route path="idle" exact>Idle</au-route>
+      <au-route path="ready" exact loading.bind="() => $lifecycle">Ready</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await fixture.container.get(IRouteCoordinator).load('/ready');
+      const route = fixture.container.get(IRouteCoordinator).root.children.find(child => child.fullPath === '/ready')!;
+      assert.strictEqual((route.data.loading as () => unknown)(), undefined);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('runs nested loading parent-first and loaded children-first', async function () {
     const events: string[] = [];
     class App {
@@ -825,8 +1030,8 @@ describe('au-route template lifecycle', function () {
 
     const adapter = new MemoryPathAdapter('/idle');
     const fixture = await createFixture(
-      `<au-route path="parent" loading.bind="() => record('parent loading')" loaded.bind="() => record('parent loaded')">
-        <au-route path="child" exact loading.bind="() => record('child loading')" loaded.bind="() => record('child loaded')">
+      `<au-route path="parent" loading.bind="record('parent loading')" loaded.bind="record('parent loaded')">
+        <au-route path="child" exact loading.bind="record('child loading')" loaded.bind="record('child loaded')">
           <span data-child>Child</span>
         </au-route>
       </au-route>`,
@@ -858,9 +1063,9 @@ describe('au-route template lifecycle', function () {
 
     const adapter = new MemoryPathAdapter('/idle');
     const fixture = await createFixture(
-      `<au-route path="catalog" loading.bind="() => record('catalog loading')" loaded.bind="() => record('catalog loaded')">
-        <au-route path="products" loading.bind="() => record('products loading')" loaded.bind="() => record('products loaded')">
-          <au-route path=":id" exact loading.bind="() => record('product loading')" loaded.bind="() => record('product loaded')">
+      `<au-route path="catalog" loading.bind="record('catalog loading')" loaded.bind="record('catalog loaded')">
+        <au-route path="products" loading.bind="record('products loading')" loaded.bind="record('products loaded')">
+          <au-route path=":id" exact loading.bind="record('product loading')" loaded.bind="record('product loaded')">
             <span data-product>\${$params.id}</span>
           </au-route>
         </au-route>
@@ -904,9 +1109,9 @@ describe('au-route template lifecycle', function () {
 
     const adapter = new MemoryPathAdapter('/idle');
     const fixture = await createFixture(
-      `<au-route path="catalog" loading.bind="() => record('catalog loading')" loaded.bind="() => record('catalog loaded')">
-        <au-route path="products" loading.bind="() => record('products loading')" loaded.bind="() => record('products loaded')">
-          <au-route path=":id" exact loading.bind="() => record('product loading')" loaded.bind="() => recordProductLoaded()">
+      `<au-route path="catalog" loading.bind="record('catalog loading')" loaded.bind="record('catalog loaded')">
+        <au-route path="products" loading.bind="record('products loading')" loaded.bind="record('products loaded')">
+          <au-route path=":id" exact loading.bind="record('product loading')" loaded.bind="recordProductLoaded()">
             <span data-product-ready>Ready</span>
           </au-route>
         </au-route>
@@ -1126,7 +1331,7 @@ describe('au-route navigation guards', function () {
         <au-route path="admin" exact can-load.bind="() => denyAdmin()" guard-failure="local">
           <h2 data-admin>Admin</h2>
         </au-route>
-        <au-route path="*" fallback loading.bind="() => fallbackLoading()">
+        <au-route path="*" fallback loading.bind="fallbackLoading()">
           <h2 data-denied>Access denied</h2>
         </au-route>
       </au-route>`,
@@ -1301,7 +1506,7 @@ describe('au-route navigation guards', function () {
     const adapter = new MemoryPathAdapter('/home');
     const fixture = await createFixture(
       `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
-      <au-route path="product" exact loading.bind="() => loadProduct()"><h1 data-product>Product</h1></au-route>`,
+      <au-route path="product" exact loading.bind="loadProduct()"><h1 data-product>Product</h1></au-route>`,
       App,
       [Routing.customize({ adapter })],
     ).started;
@@ -1337,7 +1542,7 @@ describe('au-route navigation guards', function () {
     const fixture = await createFixture(
       `<a au-link="broken">Broken</a>
       <au-route path="home" exact>Home</au-route>
-      <au-route path="broken" exact loading.bind="() => fail()">Broken route</au-route>`,
+      <au-route path="broken" exact loading.bind="fail()">Broken route</au-route>`,
       App,
       [Routing.customize({ adapter })],
     ).started;
@@ -1386,7 +1591,7 @@ describe('au-route error recovery', function () {
         <au-route
           path="reports"
           exact
-          loading.bind="() => loadReports()"
+          loading.bind="loadReports()"
           on-error.bind="failure => recover(failure)">
           <h2 data-reports>Reports</h2>
         </au-route>
@@ -1424,7 +1629,7 @@ describe('au-route error recovery', function () {
 
   for (const testCase of [
     { phase: 'can-load', callback: 'can-load.bind="() => fail()"', content: 'Protected' },
-    { phase: 'loaded', callback: 'loaded.bind="() => fail()"', content: 'Loaded content' },
+    { phase: 'loaded', callback: 'loaded.bind="fail()"', content: 'Loaded content' },
   ] as const) {
     it(`attributes ${testCase.phase} failures before local recovery`, async function () {
       let observed: RouteFailure | null = null;
@@ -1534,7 +1739,7 @@ describe('au-route error recovery', function () {
         <au-route
           path="target"
           exact
-          loading.bind="() => fail()"
+          loading.bind="fail()"
           on-error.bind="() => pass()">
           Target
         </au-route>
@@ -1573,7 +1778,7 @@ describe('au-route error recovery', function () {
     const fixture = await createFixture(
       `<au-route path="home" exact>Home</au-route>
       <au-route path="workspace">
-        <au-route path="private" exact loading.bind="() => fail()" on-error.bind="() => redirect()">
+        <au-route path="private" exact loading.bind="fail()" on-error.bind="() => redirect()">
           Private
         </au-route>
         <au-route path="error" exact><span data-error>Error page</span></au-route>
@@ -1613,7 +1818,7 @@ describe('au-route error recovery', function () {
     const fixture = await createFixture(
       `<au-route path="home" exact>Home</au-route>
       <au-route path="workspace">
-        <au-route path="target" exact loading.bind="() => load()" on-error.bind="failure => recover(failure)">
+        <au-route path="target" exact loading.bind="load()" on-error.bind="failure => recover(failure)">
           <span data-target>Ready</span>
         </au-route>
         <au-route path="*" fallback><span data-recovery>Retry available</span></au-route>
@@ -1658,7 +1863,7 @@ describe('au-route error recovery', function () {
     const adapter = new MemoryPathAdapter('/home');
     const fixture = await createFixture(
       `<au-route path="home" exact><span data-home>Home</span></au-route>
-      <au-route path="broken" exact loading.bind="() => fail()" on-error.bind="() => failHandler()">
+      <au-route path="broken" exact loading.bind="fail()" on-error.bind="() => failHandler()">
         Broken
       </au-route>`,
       App,
@@ -1710,8 +1915,8 @@ describe('au-route error recovery', function () {
         <span data-shell>Shell</span>
         <au-route path="workspace" on-error.bind="() => recoverWorkspace()">
           <span data-workspace>Workspace</span>
-          <au-route path="target" exact loading.bind="() => failTarget()">Target</au-route>
-          <au-route path="*" fallback loading.bind="() => failFallback()">Fallback</au-route>
+          <au-route path="target" exact loading.bind="failTarget()">Target</au-route>
+          <au-route path="*" fallback loading.bind="failFallback()">Fallback</au-route>
         </au-route>
       </au-route>`,
       App,
@@ -1751,7 +1956,7 @@ describe('au-route error recovery', function () {
     const adapter = new MemoryPathAdapter('/home');
     const fixture = await createFixture(
       `<au-route path="home" exact><span data-home>Home</span></au-route>
-      <au-route path="broken" exact loading.bind="() => fail()" on-error.bind="failure => recover(failure)">
+      <au-route path="broken" exact loading.bind="fail()" on-error.bind="failure => recover(failure)">
         Broken
       </au-route>
       <au-route path="other" exact><span data-other>Other</span></au-route>

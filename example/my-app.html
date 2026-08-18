@@ -418,7 +418,7 @@
               path="reports"
               exact
               title="Reports"
-              loading.bind="() => loadRecoverableRoute()"
+              loading.bind="loadRecoverableRoute()"
               on-error.bind="failure => recoverRouteError(failure)">
               <div class="route-callout" data-e2e="recovery-reports">Reports are ready</div>
             </au-route>

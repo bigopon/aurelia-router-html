@@ -15,7 +15,7 @@
 
 <au-route path.bind="legacyPath" exact redirect-to.bind="reviewsPath"></au-route>
 
-<au-route path.bind="detailsPath" exact loading.bind="() => prepareDetails()">
+<au-route path.bind="detailsPath" exact loading.bind="prepareDetails()">
   <h1 data-e2e="details-heading" au-route-focus>Adapter details</h1>
   <p data-e2e="details-status">${detailsStatus}</p>
   <a data-e2e="details-reviews-link" href.bind="$route.href(reviewsPath)">Reviews</a>

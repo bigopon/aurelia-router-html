@@ -1,5 +1,5 @@
 export { AuRoute } from './au-route';
-export type { RouteLifecycleCallback } from './au-route';
+export type { RouteLifecycleContext, RouteLifecycleData } from './lifecycle';
 export type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardContext, RouteGuardRedirect, RouteGuardResult } from './guard';
 export type { RouteErrorHandler, RouteErrorResult, RouteFailure, RouteFailurePhase, RouteLocalRecovery } from './error';
 export { AuLink, routeNavigationErrorEvent } from './au-link';

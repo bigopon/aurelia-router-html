@@ -187,13 +187,17 @@ Parameters remain local to their declaring route. Query and hash state represent
 ```html
 <au-route
   path="products/:id"
-  loading.bind="() => loadProduct()"
-  loaded.bind="() => productReady()">
+  loading.bind="loadProduct()"
+  loaded.bind="productReady()">
   ...
 </au-route>
 ```
 
-Callbacks use Aurelia v2 function bindings so they retain the application binding context. `loading` runs parent-first before activation. `loaded` runs children-first after the complete nested branch and its asynchronous Aurelia activation lifecycle have settled. A synchronous callback may return `void`; promises are awaited only when returned.
+Lifecycle bindings are Aurelia expressions, evaluated once in the route's live binding scope at the relevant phase. `loading` runs parent-first before activation. `loaded` runs children-first after the complete nested branch and its asynchronous Aurelia activation lifecycle have settled. An expression may return any value; promises are awaited only when returned. Fulfilled values are exposed in the route template as `$route.data.loading` and `$route.data.loaded`.
+
+Pass the phase-local `$lifecycle` value when an expression needs that context, for example `loading.bind="loadProduct($lifecycle)"`. It contains the route, params, query, hash, abort signal, and `previousData`. The router deliberately does not cache lifecycle results: applications can use `previousData` or their own cache to decide whether a request is needed.
+
+Cancelled and unhandled failed navigations restore lifecycle data to its pre-navigation values. A locally recovered failure may leave the failed route context's last fulfilled lifecycle result available through `previousData`; local recovery does not currently clear that route state.
 
 ### Guards and transactions
 
@@ -222,7 +226,7 @@ The coordinator stages incoming work before mutating the adapter. Successful nav
 <au-route
   path="workspace"
   on-error.bind="failure => recover(failure)">
-  <au-route path="reports" loading.bind="() => loadReports()">
+  <au-route path="reports" loading.bind="loadReports()">
     <reports-panel></reports-panel>
   </au-route>
 

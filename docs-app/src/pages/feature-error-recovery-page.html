@@ -11,7 +11,7 @@
       <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route
   path="reports"
-  loading.bind="() =&gt; loadReports()"
+  loading.bind="loadReports()"
   on-error.bind="failure =&gt; recover(failure)"&gt;
   &lt;reports-panel&gt;&lt;/reports-panel&gt;
 &lt;/au-route&gt;

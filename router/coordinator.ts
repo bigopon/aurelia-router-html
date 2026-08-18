@@ -6,6 +6,7 @@ import { RouteContext, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
 import { type IRouteFocusService, noRouteFocusService } from './focus';
 import { type IRouteScrollService, noRouteScrollService, type RouteScrollNavigation } from './scroll';
+import type { RouteLifecycleContext } from './lifecycle';
 
 declare const __DEV__: boolean;
 
@@ -178,6 +179,19 @@ export class RouteCoordinator implements IRouteCoordinator {
     return result.catch(error => {
       throw error instanceof RoutePhaseError ? error : new RoutePhaseError(phase, error);
     });
+  }
+
+  /** @internal */
+  public _createLifecycleContext(route: RouteContext): RouteLifecycleContext {
+    const transaction = this.transaction;
+    return {
+      route,
+      params: route.$params,
+      query: route.$query,
+      hash: route.$hash,
+      previousData: route._getData(),
+      signal: transaction?.controller.signal ?? this.createAbortController().signal,
+    };
   }
 
   /** @internal */

@@ -378,7 +378,7 @@ const featureExamples: PlaygroundExample[] = [
 <au-route
   path="guide"
   exact
-  loading.bind="() => prepareApi()">
+  loading.bind="prepareApi()">
   <main>
     <h1>Product guide</h1>
     <p>\${status}</p>
@@ -710,15 +710,15 @@ export class App {
 
   <au-route
     path="projects"
-    loading.bind="() => prepare('Projects')"
-    loaded.bind="() => ready('Projects')">
+  loading.bind="prepare('Projects')"
+  loaded.bind="ready('Projects')">
     <h1>Projects</h1>
 
     <au-route
       path="board"
       exact
-      loading.bind="() => prepare('Board')"
-      loaded.bind="() => ready('Board')">
+      loading.bind="prepare('Board')"
+      loaded.bind="ready('Board')">
       <h2>Project board</h2>
       <p>The complete nested branch is ready.</p>
     </au-route>
@@ -959,7 +959,7 @@ export class App {
   <au-route
     path="reports"
     exact
-    loading.bind="() => loadReports()"
+    loading.bind="loadReports()"
     on-error.bind="failure => recover(failure)">
     <section class="route-box">
       <span class="layer-label">Failing route + its own boundary</span>
@@ -1023,7 +1023,7 @@ export class App {
         <au-route
           path="reports"
           exact
-          loading.bind="() => loadReports()">
+          loading.bind="loadReports()">
           <section class="route-box">
             <span class="layer-label">Failing child · no boundary</span>
             <h2>Reports</h2>
@@ -1095,7 +1095,7 @@ export class App {
             <au-route
               path="reports"
               exact
-              loading.bind="() => loadReports()">
+              loading.bind="loadReports()">
               <section class="route-box">
                 <span class="layer-label">Failing grandchild · no boundary</span>
                 <h3>Reports</h3>

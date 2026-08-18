@@ -274,8 +274,8 @@ test.describe('router HTML docs features', () => {
     const titleSyntax = features.filter({ hasText: 'Page Titles' }).locator('pre');
     await expect(titleSyntax).toContainText('title.bind="cameraTitle"');
     const lifecycleSyntax = features.filter({ hasText: 'Loading & Loaded' }).locator('pre');
-    await expect(lifecycleSyntax).toContainText('loading.bind="() => loadProduct()"');
-    await expect(lifecycleSyntax).toContainText('loaded.bind="() => productIsReady()"');
+    await expect(lifecycleSyntax).toContainText('loading.bind="loadProduct($lifecycle)"');
+    await expect(lifecycleSyntax).toContainText('loaded.bind="productIsReady()"');
     const guardSyntax = features.filter({ hasText: 'Navigation Guards' }).locator('pre');
     await expect(guardSyntax).toContainText('can-load.bind="() => canOpenAccount()"');
     await expect(guardSyntax).toContainText('can-unload.bind="() => canLeaveAccount()"');
