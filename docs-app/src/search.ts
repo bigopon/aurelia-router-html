@@ -16,7 +16,7 @@ export function enableSearch(): void {
   script.onload = () => {
     const PagefindUI = (window as PagefindWindow).PagefindUI;
     if (PagefindUI != null) {
-      new PagefindUI({ element, showImages: false, showSubResults: false });
+      new PagefindUI({ element: '#pagefind-search', showImages: false, showSubResults: false });
       enableResultKeyboardNavigation(element);
     }
   };
