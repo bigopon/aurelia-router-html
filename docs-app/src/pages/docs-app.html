@@ -11,12 +11,22 @@
   <a class="mobile-github-link" href="https://github.com/bigopon/aurelia-router-html" target="_blank" rel="noreferrer" aria-label="Open Router HTML on GitHub">
     <img src="/github.svg" alt="" aria-hidden="true">
   </a>
+  <button class="theme-switch mobile-theme-switch" type="button" aria-label.bind="theme === 'dark' ? 'Use light mode' : 'Use dark mode'" aria-pressed.bind="theme === 'dark'" click.trigger="toggleTheme()">
+    <span class="theme-segment theme-segment-light" aria-hidden="true">☀</span>
+    <span class="theme-segment theme-segment-dark" aria-hidden="true">☾</span>
+  </button>
 
   <div if.bind="mobileMenuOpen" class="mobile-menu-scrim" click.trigger="closeMobileMenu()"></div>
 
   <div class="docs-grid">
     <main class="main-panel" data-pagefind-body>
-      <section id="pagefind-search" class="docs-search" aria-label="Search documentation"></section>
+      <div class="desktop-tools">
+        <button class="theme-switch desktop-theme-switch" type="button" aria-label.bind="theme === 'dark' ? 'Use light mode' : 'Use dark mode'" aria-pressed.bind="theme === 'dark'" click.trigger="toggleTheme()">
+          <span class="theme-segment theme-segment-light" aria-hidden="true">☀</span>
+          <span class="theme-segment theme-segment-dark" aria-hidden="true">☾</span>
+        </button>
+        <section id="pagefind-search" class="docs-search" aria-label="Search documentation"></section>
+      </div>
 
       <au-route path="/" title="Overview">
         <overview-page></overview-page>

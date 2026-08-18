@@ -31,6 +31,9 @@ import { PrivacyPage } from './privacy-page';
 import { enableAnalytics, getAnalyticsConsent, saveAnalyticsConsent, type AnalyticsConsent } from '../analytics';
 import template from './docs-app.html?raw';
 
+type Theme = 'light' | 'dark';
+const themeKey = 'router-html-theme';
+
 export class DocsApp {
   public static readonly $au = {
     type: 'custom-element',
@@ -72,6 +75,7 @@ export class DocsApp {
   public readonly nav = docNav;
   public mobileMenuOpen: boolean = false;
   public scrolled: boolean = false;
+  public theme: Theme = getTheme();
   public analyticsConsent: AnalyticsConsent = getAnalyticsConsent();
   private readonly onPrivacyChoices = () => this.showPrivacyChoices();
   private readonly onScroll = () => {
@@ -79,6 +83,7 @@ export class DocsApp {
   };
 
   public constructor() {
+    this.applyTheme();
     window.addEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
     window.addEventListener('scroll', this.onScroll, { passive: true });
     this.onScroll();
@@ -100,6 +105,16 @@ export class DocsApp {
     this.mobileMenuOpen = false;
   }
 
+  public toggleTheme(): void {
+    this.theme = this.theme === 'light' ? 'dark' : 'light';
+    this.applyTheme();
+    try {
+      window.localStorage.setItem(themeKey, this.theme);
+    } catch {
+      // The selected theme remains active for this visit when storage is unavailable.
+    }
+  }
+
   public acceptAnalytics(): void {
     this.analyticsConsent = 'accepted';
     saveAnalyticsConsent(this.analyticsConsent);
@@ -113,5 +128,17 @@ export class DocsApp {
 
   public showPrivacyChoices(): void {
     this.analyticsConsent = null;
+  }
+
+  private applyTheme(): void {
+    document.documentElement.dataset.theme = this.theme;
+  }
+}
+
+function getTheme(): Theme {
+  try {
+    return window.localStorage.getItem(themeKey) === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
   }
 }
