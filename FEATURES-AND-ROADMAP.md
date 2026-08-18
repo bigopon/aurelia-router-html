@@ -398,7 +398,49 @@ The public configuration covers rendering order, opt-in animation, browser URL m
 
 ## Roadmap
 
-No additional feature is committed for the next implementation pass. The following ideas remain deliberately deferred:
+Navigation lifecycle v2 items 1-3 delivered matched-route transitions,
+observable navigation state, and transactional cancellation and history
+settlement. The next feature sequence is:
+
+4. **Real relative URL resolution.** Give route targets URL-like navigation
+   semantics across `au-link`, redirects, `href()`, `isActive()`, and `load()`.
+   A plain target such as `reviews` remains a descendant of the calling route;
+   `./reviews` is its explicit form; `../reviews` removes one URL segment from
+   that contextual base; repeated `../` segments remove further segments; and
+   `/reviews` starts at the route root. A query-only target such as `?page=2`
+   retains the current pathname and replaces its query, while `#comments`
+   retains the current pathname and query and replaces only the hash.
+   Resolution must be shared by registered route targets and concrete paths,
+   normalize `.` and `..`, and define attempts to traverse above the route
+   root.
+
+5. **Retained route views.** Add an opt-in `retain` or `cache-view` policy for
+   deactivated routed views so editors, wizards, and tabs can preserve
+   component-local state. Define cache keys, parameter sensitivity, lifecycle
+   behavior, explicit invalidation, and bounded LRU eviction before exposing
+   the API.
+
+6. **Pathless route groups.** Allow a route context to contribute layout,
+   guards, titles, and error boundaries without consuming a URL segment.
+   Template nesting must remain the source of ownership and child residue.
+
+7. **Route metadata and active-match introspection.** Add bound metadata and a
+   public active route chain for breadcrumbs, generated navigation,
+   permissions, and analytics. Stable route names may follow if contextual
+   paths and metadata do not provide sufficient identity.
+
+8. **Opt-in exclusive matching.** Preserve match-all sibling behavior by
+   default, while allowing a parent to select one best regular match through a
+   mode such as `match-mode="best"` or `exclusive`. Specificity, ties,
+   fallbacks, constraints, and dynamic route registration require deterministic
+   rules.
+
+9. **Accessibility-aware transitions.** Announce settled route changes, honor
+   `prefers-reduced-motion`, and complete transitions from actual animation or
+   transition completion while retaining a bounded fallback for missing
+   browser events.
+
+The following broader ideas remain deliberately deferred:
 
 - Named-route registries, until context and path-based generation prove insufficient.
 - Router-owned data loading, retries, backoff, or caching.
@@ -409,7 +451,8 @@ No additional feature is committed for the next implementation pass. The followi
 
 These should be introduced only for concrete application needs that cannot be expressed cleanly through route contexts, adapters, and existing Aurelia features.
 
-The active workstream is release hardening under the `aurelia-router-html` package name. See `RELEASE-PLAN.md` for the publishing gates and published-Aurelia compatibility matrix.
+Release hardening under the `aurelia-router-html` package name continues
+alongside this sequence.
 
 ## Definition of done
 

@@ -385,7 +385,13 @@ The coordinator is not:
 - a retry or offline policy;
 - a global logger or analytics service;
 - a browser-history implementation;
+- a guard for full-document reload, tab close, or navigation away through
+  `beforeunload`;
 - an adapter over Aurelia's viewport router.
 
 The route tree remains the routing model. Transactions and adapters exist to
 keep that model coherent across asynchronous work and host navigation.
+`canUnload` protects SPA navigation coordinated by Router HTML. Applications
+that need a generic browser prompt for unsaved state own that integration
+separately; full-document unloading cannot await the router's asynchronous
+guard contract or provide the same destination and rollback semantics.
