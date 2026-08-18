@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v6
