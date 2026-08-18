@@ -38,8 +38,18 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
-          git tag --points-at HEAD | grep --fixed-strings --line-regexp "$RELEASE_TAG"
+          expected_tag="v$(node -p 'require("./package.json").version')"
+          if [ "$RELEASE_TAG" != "$expected_tag" ]; then
+            echo "::error title=Release tag does not match package version::Expected $expected_tag but received $RELEASE_TAG."
+            exit 1
+          fi
+
+          if ! git tag --points-at HEAD | grep --fixed-strings --line-regexp "$RELEASE_TAG"; then
+            echo "::error title=Release tag does not point at HEAD::Expected $RELEASE_TAG to point at $(git rev-parse --short HEAD)."
+            echo "Tags pointing at HEAD:"
+            git tag --points-at HEAD
+            exit 1
+          fi
 
       - run: npm ci
       - run: npm --prefix docs-app ci
