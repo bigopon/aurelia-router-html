@@ -3,7 +3,7 @@ import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 import type { RouteErrorHandler, RouteFailure } from './error';
-import type { RouteLifecycleData } from './lifecycle';
+import type { RouteLifecycleData, RouteTransitionPlan, RouteTransitionTrigger } from './lifecycle';
 
 export interface RouteState {
   readonly active: boolean;
@@ -20,6 +20,8 @@ export interface RouteState {
 export type RouteContextCallback = (state: RouteState) => void;
 export type SwapOrder = 'attach-next-detach-current' | 'detach-current-attach-next' | 'parallel';
 export type RouteParams = Readonly<Record<string, string | number>>;
+
+const defaultRouteTransitionTriggers: ReadonlySet<RouteTransitionTrigger> = new Set(['params']);
 export interface RouteActiveOptions extends RouteHrefOptions {
   exact?: boolean;
   matchQuery?: boolean;
@@ -28,11 +30,19 @@ export interface RouteActiveOptions extends RouteHrefOptions {
 
 export interface RouteLoadOptions extends RouteHrefOptions {
   replace?: boolean;
+  reload?: boolean;
+  plan?: RouteTransitionPlan;
+}
+
+export interface RouteReloadOptions {
+  plan?: RouteTransitionPlan;
 }
 
 interface RouteNavigationOptions {
   replace?: boolean;
   redirect?: boolean;
+  reload?: boolean;
+  plan?: RouteTransitionPlan;
 }
 
 export interface RouteContextOptions {
@@ -61,6 +71,7 @@ export interface IRouteContext {
 
   href(target?: string | IRouteContext, params?: RouteParams, options?: RouteHrefOptions): string;
   load(target?: string | IRouteContext, params?: RouteParams, options?: RouteLoadOptions): boolean | Promise<boolean>;
+  reload(options?: RouteReloadOptions): boolean | Promise<boolean>;
   isActive(target?: string | IRouteContext, params?: RouteParams, options?: RouteActiveOptions): boolean;
   getPaths(includeSelf?: boolean): readonly string[];
   usePattern(pattern: string): void;
@@ -83,7 +94,10 @@ export class RouteContext implements IRouteContext {
   public $hash: string = '';
   public pattern: string = '*';
   public title: string | null = null;
-  public readonly data: RouteLifecycleData = { loading: undefined, loaded: undefined };
+  public readonly data: RouteLifecycleData = {
+    loading: undefined,
+    loaded: undefined,
+  };
   private _failure: RouteFailure | null = null;
 
   public get failure(): RouteFailure | null {
@@ -129,8 +143,12 @@ export class RouteContext implements IRouteContext {
   private _failureSnapshot: Map<RouteContext, RouteFailure | null> | null = null;
   private _dataSnapshot: Map<RouteContext, RouteLifecycleData> | null = null;
   private _transactionFailureOwners: Set<RouteContext> | null = null;
+  private _reloadRequested: boolean = false;
   /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
   /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
+  /** @internal */ public _transitionOn: ReadonlySet<RouteTransitionTrigger> = defaultRouteTransitionTriggers;
+  /** @internal */ public _transitionPlan: RouteTransitionPlan = 'rerun';
+  private _hasLifecycleHooks: boolean = false;
   /** @internal */ public _onError: RouteErrorHandler | null = null;
   /** @internal */ public readonly _guardFailure: RouteGuardFailure;
 
@@ -158,8 +176,19 @@ export class RouteContext implements IRouteContext {
   }
 
   public load(target: string | IRouteContext = this, params: RouteParams = {}, options: RouteLoadOptions = {}): boolean | Promise<boolean> {
-    const { replace, ...hrefOptions } = options;
-    return this._navigate(target, params, hrefOptions, { replace });
+    const { plan, reload, replace, ...hrefOptions } = options;
+    return this._navigate(target, params, hrefOptions, { plan, reload, replace });
+  }
+
+  public reload(options: RouteReloadOptions = {}): boolean | Promise<boolean> {
+    const target = this.active ? this.root.$path : this.parent == null ? this.$path : this;
+    return this.load(target, {}, {
+      plan: options.plan,
+      preserveHash: true,
+      preserveQuery: true,
+      reload: true,
+      replace: true,
+    });
   }
 
   /** @internal */
@@ -182,9 +211,23 @@ export class RouteContext implements IRouteContext {
   }
 
   /** @internal */
-  public _setGuards(canLoad: RouteCanLoadCallback | null, canUnload: RouteCanUnloadCallback | null): void {
+  public _setGuards(
+    canLoad: RouteCanLoadCallback | null,
+    canUnload: RouteCanUnloadCallback | null,
+  ): void {
     this._canLoad = canLoad;
     this._canUnload = canUnload;
+  }
+
+  /** @internal */
+  public _setTransitionPolicy(
+    transitionOn: ReadonlySet<RouteTransitionTrigger> = defaultRouteTransitionTriggers,
+    transitionPlan: RouteTransitionPlan = 'rerun',
+    hasLifecycleHooks: boolean = false,
+  ): void {
+    this._transitionOn = transitionOn;
+    this._transitionPlan = transitionPlan;
+    this._hasLifecycleHooks = hasLifecycleHooks;
   }
 
   /** @internal */
@@ -199,11 +242,11 @@ export class RouteContext implements IRouteContext {
 
   /** @internal */
   public _setData(phase: keyof RouteLifecycleData, value: unknown): void {
-    (this.data as { loading: unknown; loaded: unknown })[phase] = value;
+    (this.data as Record<keyof RouteLifecycleData, unknown>)[phase] = value;
   }
 
   private _restoreData(data: RouteLifecycleData | undefined): void {
-    const values = this.data as { loading: unknown; loaded: unknown };
+    const values = this.data as Record<keyof RouteLifecycleData, unknown>;
     values.loading = data?.loading;
     values.loaded = data?.loaded;
   }
@@ -217,12 +260,63 @@ export class RouteContext implements IRouteContext {
   }
 
   /** @internal */
-  public _getLeaving(path: string): RouteContext[] {
-    const next = new Set<RouteContext>();
-    this._collectMatches(normalizePath(path), next);
+  public _getLeaving(
+    path: string,
+    location?: Pick<RouteLocation, 'query' | 'hash'>,
+    reload: boolean = false,
+    planOverride?: RouteTransitionPlan,
+  ): RouteContext[] {
+    const next = new Map<RouteContext, Readonly<Record<string, string>>>();
+    this._collectMatchParams(normalizePath(path), next);
+    const replacementRoots = location == null
+      ? []
+      : [...next].filter(([context, params]) =>
+        context.parent != null
+        && context.active
+        && (planOverride ?? context._transitionPlan) === 'replace'
+        && context._isRetainedTransitionTriggered(params, location, reload),
+      ).map(([context]) => context);
     return this._getContexts()
-      .filter((context): context is RouteContext => context instanceof RouteContext && context.active && !next.has(context))
+      .filter(context => context.active && (
+        !next.has(context)
+        || replacementRoots.some(root => context === root || context._isDescendantOf(root))
+      ))
       .sort((left, right) => right._depth() - left._depth());
+  }
+
+  /** @internal */
+  public _hasRetainedTransitionWork(
+    path: string,
+    location: Pick<RouteLocation, 'query' | 'hash'>,
+    reload: boolean,
+    planOverride?: RouteTransitionPlan,
+  ): boolean {
+    const matches = new Map<RouteContext, Readonly<Record<string, string>>>();
+    this._collectMatchParams(normalizePath(path), matches);
+    for (const [context, params] of matches) {
+      if (!context.active || context.parent == null) {
+        continue;
+      }
+      const plan = planOverride ?? context._transitionPlan;
+      if (plan === 'none' || plan === 'rerun' && context._canLoad == null && !context._hasLifecycleHooks) {
+        continue;
+      }
+      if (context._isRetainedTransitionTriggered(params, location, reload)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private _isRetainedTransitionTriggered(
+    params: Readonly<Record<string, string>>,
+    location: Pick<RouteLocation, 'query' | 'hash'>,
+    reload: boolean,
+  ): boolean {
+    return reload
+      || this._transitionOn.has('params') && !shallowEqual(this.$params, params)
+      || this._transitionOn.has('query') && this.$query.toString() !== location.query.toString()
+      || this._transitionOn.has('hash') && this.$hash !== location.hash;
   }
 
   /** @internal */
@@ -336,6 +430,33 @@ export class RouteContext implements IRouteContext {
     root.$path = location.pathname;
     root.$query = location.query;
     root.$hash = location.hash;
+  }
+
+  /** @internal */
+  public _setReloadRequested(value: boolean): void {
+    (this.root as RouteContext)._reloadRequested = value;
+  }
+
+  /** @internal */
+  public _isReloadRequested(): boolean {
+    return (this.root as RouteContext)._reloadRequested;
+  }
+
+  /** @internal */
+  public _isDisposed(): boolean {
+    return this._disposed;
+  }
+
+  /** @internal */
+  public _isDescendantOf(ancestor: RouteContext): boolean {
+    let context = this.parent;
+    while (context instanceof RouteContext) {
+      if (context === ancestor) {
+        return true;
+      }
+      context = context.parent;
+    }
+    return false;
   }
 
   /** @internal */
@@ -468,7 +589,7 @@ export class RouteContext implements IRouteContext {
     this.$query = location.query;
     this.$hash = location.hash;
 
-    if (stateChanged) {
+    if (stateChanged || root._reloadRequested) {
       this._notify();
     }
 
@@ -712,6 +833,26 @@ export class RouteContext implements IRouteContext {
       : matchingChildren.filter(child => child._fallback);
     for (const child of selected) {
       child._collectMatches(residue, matches);
+    }
+  }
+
+  private _collectMatchParams(
+    path: string,
+    matches: Map<RouteContext, Readonly<Record<string, string>>>,
+  ): void {
+    const match = this._matcher.exec(normalizePath(path));
+    if (match == null) {
+      return;
+    }
+    matches.set(this, extractParams(match.groups ?? {}));
+    const residue = normalizeResidue(match.groups?.rest__);
+    const matchingChildren = this.children.filter(child => child._match(residue) !== null);
+    const regularMatches = matchingChildren.filter(child => !child._fallback);
+    const selected = regularMatches.length > 0
+      ? regularMatches
+      : matchingChildren.filter(child => child._fallback);
+    for (const child of selected) {
+      child._collectMatchParams(residue, matches);
     }
   }
 

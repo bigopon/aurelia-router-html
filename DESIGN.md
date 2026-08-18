@@ -1,167 +1,391 @@
-# HTML Router Design
+# Router HTML Design
 
-See [Router HTML Features and Roadmap](./FEATURES-AND-ROADMAP.md) for the complete implemented feature inventory and the design of the next six features.
+## Purpose
 
-## Goal
+Router HTML is an HTML-first router for Aurelia. Templates own route topology;
+TypeScript owns application behavior such as data access, permissions, and state.
 
-Build a new router package where HTML is the primary way to author routes.
+The package is independent from Aurelia's viewport router. Its model is a
+declarative route tree, a small navigation coordinator, and an environment
+adapter. Each part has one boundary:
 
-This router is intentionally independent from Aurelia's existing `packages/router`.
-It may overlap in capability, but it should stay simpler, smaller, and easier to
-reason about.
+- route contexts match paths and hold route-local state;
+- route elements connect contexts to Aurelia views and lifecycle expressions;
+- the coordinator owns navigation transactions;
+- path adapters own host locations and history.
 
-## Core Idea
+Small does not mean that asynchronous navigation may expose an incoherent
+result. A navigation commits once or preserves the last successful location.
 
-The route tree is the router.
+## Design invariants
 
-`RouteContext` is the main primitive:
+1. The template route tree is the source of route structure.
+2. Matching is independent of browser globals.
+3. Parent routes consume path segments and pass residue to their children.
+4. Route state and host history settle to the same location.
+5. Internal navigation writes history only after guards and lifecycle work
+   succeed.
+6. Rejected traversal across router-managed history, including the adjacent
+   entry from which the router started, restores the prior cursor without
+   overwriting either entry.
+7. A newer navigation aborts and supersedes older asynchronous work.
+8. Each navigation reaches one terminal outcome: completed, cancelled, failed,
+   or superseded.
+9. Synchronous navigation remains synchronous when application work is
+   synchronous.
+10. A route that remains matched follows its declared transition policy without
+    surprising changes to view identity.
 
-- it matches a path against a pattern
-- it stores active state
-- it exposes route params
-- it tracks unmatched residue for child routes
-- it propagates updates to child contexts
+## Route tree
 
-There is no heavy central router runtime required for core behavior. The root
-`RouteContext` tree is the routing engine.
-
-## HTML Authoring Model
-
-Routes are authored with nested `<au-route>` elements.
-
-Example:
+Routes are declared with nested `<au-route>` elements:
 
 ```html
 <au-route path="store">
-  <au-route path="/">
-    Store index
+  <h1>Store</h1>
+
+  <au-route path="/" exact>
+    Choose a product
   </au-route>
 
-  <au-route path=":storeId">
-    Store id: ${$params.storeId}
-
-    <au-route path="order">
-      Order page
-    </au-route>
+  <au-route path="products/:id" exact>
+    Product: ${$params.id}
   </au-route>
 </au-route>
 ```
 
-Semantics:
+Each element creates one `RouteContext`. A context:
 
-- each `au-route` declares one route segment or nested route scope
-- parent routes consume part of the path
-- child routes match against the parent's residue
-- markup inside an active route renders as part of that route branch
-- route params are exposed to the branch as `$params`
+- stores its parent and registered children;
+- compiles and applies one route pattern;
+- exposes `active`, `$path`, `$params`, `$query`, and `$hash`;
+- passes its unmatched `residue` to child contexts;
+- owns route metadata, lifecycle data, and local recovery state;
+- resolves contextual links and programmatic navigation.
 
-## Main Pieces
+Parameters belong to the context that captures them. Query and hash values
+describe the complete location and are shared by every active context.
 
-### `RouteContext`
+The root context applies a location from parent to child. A parent view can
+therefore register nested routes before its remaining residue is matched.
+Fallback selection remains local to a sibling set.
 
-The domain model for routing state.
-
-Responsibilities:
-
-- store `parent` and child contexts
-- compile and apply a route pattern
-- derive `active`, `$params`, and `residue`
-- notify subscribers when match state changes
-- propagate residue to connected child contexts
+## HTML primitives
 
 ### `au-route`
 
-The view primitive for HTML-authored routes.
+`au-route` turns a route context into a structural view. It reads route
+declarations, creates a child context, activates the captured template when the
+context matches, and supplies these scope values:
 
-Responsibilities:
+- `$route`: the nearest route context;
+- `$params`: parameters captured by that context;
+- `$query`: read-only query values;
+- `$hash`: the fragment without `#`;
+- `$navigation`: the coordinator's immutable navigation snapshot;
+- `$lifecycle`: the phase-local lifecycle context while an expression runs.
 
-- read the `path` attribute
-- create a child `RouteContext`
-- capture its inner content as the branch view
-- activate/deactivate that view based on the child context
-- provide route-scoped state like `$params` to descendants
+Nested Aurelia composition remains valid. Conditional routes, repeated routes,
+components, slots, and template controllers create and dispose route contexts
+through normal Aurelia lifecycles.
 
-### Environment Adapter
+### `au-link`
 
-Browser integration should stay outside `RouteContext`.
+`au-link` resolves its target through the nearest route context, writes a real
+`href`, initiates client-side navigation for an unmodified primary click, and
+maintains active state.
 
-Responsibilities:
+```html
+<a au-link="reviews">Reviews</a>
 
-- read the current location
-- subscribe to external location changes
-- push or replace history entries
-- forward resolved paths into the root `RouteContext`
+<a au-link.bind="{
+  target: '/products/:id',
+  params: { id: product.id },
+  options: { query: { tab: 'details' } },
+  activeClass: 'selected',
+  pendingClass: 'is-loading'
+}">
+  Product
+</a>
+```
 
-This can be backed by:
+While the link's resolved href is the pending destination, it receives its
+`pendingClass` (default `is-pending`) and `aria-busy="true"`. Exact active
+links receive `aria-current="page"`.
 
-- real browser history
-- memory history for tests
-- other host-specific implementations later
+## Location model
 
-## Architectural Boundary
+An internal route location has three parts:
 
-Keep these concerns out of `RouteContext`:
+```ts
+interface RouteLocation {
+  readonly pathname: string;
+  readonly query: RouteQuery;
+  readonly hash: string;
+}
+```
 
-- direct `window` access
-- `history.pushState` / `replaceState`
-- click interception
-- host-specific URL policy
+Only the pathname participates in route matching. Query and hash remain
+reactive URL state. Adapters translate the internal location into pathname,
+hash, query-key, memory, or host-specific forms.
 
-Those belong in the adapter/wiring layer.
+Route declarations are contextual even when their pattern begins with `/`.
+Navigation targets are different: a leading slash resolves from the root,
+while a plain or `./` target resolves from the calling context.
 
-Keep these concerns inside `RouteContext`:
+## Navigation transaction
 
-- path matching
-- route activation state
-- params and residue
-- nested propagation
+The coordinator owns at most one navigation transaction. A transaction contains
+the requested location, previous committed location, navigation ID, abort
+controller, route-tree snapshots, adapter settlement, pending asynchronous work,
+redirect intent, and terminal result.
 
-## Intended Shape
+A navigation proceeds through these observable phases:
 
-The implementation should feel like:
+1. **guarding** — normalize the target and run outgoing and incoming guards;
+2. **loading** — prepare entering, replacing, and rerunning routes;
+3. **activating** — activate incoming Aurelia views;
+4. **settling** — wait for nested branches and post-activation work;
+5. **committing** — settle host history and publish the successful location.
 
-- a small path-matching tree
-- a structural rendering primitive for matched branches
-- a thin adapter layer for browser or test environments
+Route contexts use a transaction snapshot while candidate state is applied.
+That candidate state lets nested matching, bindings, and lifecycle callbacks
+use the destination values. Cancellation or failure restores the
+previous route values, lifecycle data, failure state, rendered branch, and host
+location before the transaction settles.
 
-Not like:
+Programmatic navigation does not call adapter `push` or `replace` until all
+pre-commit work succeeds. Application callbacks receive the transaction's
+`AbortSignal`. Their promises are raced against it, so a newer navigation can
+continue without waiting for stale work to settle. The underlying application
+operation may still finish, but its late value is ignored by the router.
 
-- a large navigation transaction engine
-- a viewport-based orchestration system
-- an adapter over the existing Aurelia router
+Aurelia view activation is a framework transition rather than an application
+callback. If cancellation arrives after that transition has begun, a newer
+transaction may prepare its destination, but it does not commit until the
+aborted view has settled and its DOM has been removed. This keeps preemption
+from publishing a location over partially activated content.
 
-## Initial Scope
+## Entering, transitioning, and leaving routes
 
-Start with:
+```html
+<au-route
+  path="account"
+  can-load.bind="transition => canOpen(transition)"
+  loading.bind="loadAccount($lifecycle)"
+  loaded.bind="accountReady($lifecycle)"
+  can-unload.bind="transition => canLeave(transition)">
+  ...
+</au-route>
+```
 
-- nested routes
-- parameter segments like `/:id`
-- index routes via `path="/"`
-- browser back/forward support
-- normal anchor navigation support
-- programmatic navigation through a thin coordinator or adapter
+- `canUnload` runs deepest-first on routes absent from the target branch and on
+  current views selected for replacement.
+- `canLoad` runs before an entering route or a selected matched-route
+  transition.
+- `loading` prepares that route before activation or in-place refresh.
+- `loaded` runs after its complete nested branch settles.
+- `false` cancels the transaction.
+- `canLoad` may return a contextual or root-absolute redirect.
 
-Defer until needed:
+`guard-failure="local"` applies only to `canLoad`. It excludes the denied
+subtree for that transaction and rematches siblings at the immediate parent.
+`canUnload` denial remains navigation-wide.
 
-- route generation by name
-- redirects
-- guards and lifecycle parity with the main router
-- advanced path syntax
-- full query/hash handling
+## Matched-route transitions
 
-## Non-Goals
+When an active `au-route` also matches the destination, its transition policy
+decides whether selected URL changes rerun its lifecycle, replace its view, or
+only update reactive route state:
 
-- reuse `packages/router` internals
-- match the main router architecture
-- chase feature parity before the core model is solid
+```html
+<au-route
+  path="products/:id"
+  transition-on="params query"
+  transition-plan="rerun"
+  can-load.bind="transition => canOpenProduct(transition)"
+  loading.bind="loadProduct($lifecycle)"
+  loaded.bind="productReady($lifecycle)">
+  ...
+</au-route>
+```
 
-## Working Principle
+`transition-on` accepts `params`, `query`, `hash`, `all`, or `none`. The
+`params`, `query`, and `hash` inputs may be combined with spaces or commas;
+`all` and `none` are standalone values. It defaults to `params`; query and
+hash transitions are opt-in because those values are shared by the active tree.
 
-If a feature makes the route tree harder to understand, it should be questioned.
+`transition-plan` accepts:
 
-The main measure of success is that the full routing model can still be understood
-by reading:
+- `rerun` (the default), which preserves the route context, view, component,
+  controller, and DOM nodes while running `canLoad`, `loading`, and `loaded`
+  again;
+- `replace`, which runs `canUnload` on the current view, prepares the candidate
+  through `canLoad` and `loading`, replaces the routed view and its descendant
+  branch with fresh instances, and then runs `loaded`;
+- `none`, which updates `$params`, `$query`, and `$hash` without rerunning route
+  lifecycle callbacks or replacing the view.
 
-- `RouteContext`
-- `au-route`
-- the environment adapter
+Replacement `canUnload` guards run deepest-first. Every affected guard on an
+already-declared route then completes before any selected transition begins
+loading or changes the rendered tree. Descendants declared inside a fresh
+replacement view do not exist during that preflight; they run their normal
+entry `canLoad` as the candidate activates. A denial, redirect, or failure in
+that candidate branch still rolls back the complete replacement.
+
+The same frozen `RouteLifecycleContext` is available to `canLoad`, `loading`,
+and `loaded`:
+
+```ts
+type RouteLifecycleKind = 'enter' | 'replace' | 'rerun';
+
+interface RouteLifecycleContext {
+  readonly kind: RouteLifecycleKind;
+  readonly from: RouteValueSnapshot | null;
+  readonly to: RouteValueSnapshot;
+  readonly changes: readonly ('params' | 'query' | 'hash' | 'reload')[];
+  readonly route: IRouteContext;
+  readonly params: RouteParams;
+  readonly query: RouteQuery;
+  readonly hash: string;
+  readonly signal: AbortSignal;
+  readonly previousData: RouteLifecycleData;
+}
+```
+
+`kind` is `enter` for initial activation, `rerun` for an in-place lifecycle
+pass, and `replace` when the matched view is recreated. `from` is `null` for an
+entry and a snapshot for a matched-route transition. `to`, `params`, `query`,
+and `hash` reflect the destination. `changes` lists every actual params, query,
+and hash difference, even when only one of them intersected `transition-on` and
+caused the plan to run.
+
+Lifecycle data keeps one vocabulary across all three kinds. Fulfilled
+`loading` and `loaded` values replace `$route.data.loading` and
+`$route.data.loaded`; `previousData` lets the next pass inspect the prior
+values. A rerun invokes the callbacks in the retained view's live binding
+scope. A replacement rebuilds that view normally, and newly declared children
+enter through their own lifecycle.
+
+`route.reload()` forces the configured transition plan at the route's current
+location, preserves its query and hash, replaces the current history entry,
+and reports `reload` in `changes`. `route.reload({ plan: 'rerun' })` and
+`route.reload({ plan: 'replace' })` override the policy for that attempt. The
+coordinator equivalent is `load(path, { reload: true })`.
+
+## Lifecycle data and errors
+
+`loading` and `loaded` expressions may return any value or promise. Fulfilled
+values live in `$route.data`. Their lifecycle context also contains:
+
+- the owning route;
+- destination params, query, and hash;
+- the transaction abort signal;
+- a snapshot of prior lifecycle data.
+
+Errors are attributed to one of `can-load`, `loading`, `activation`, or
+`loaded`. An `on-error` callback may let the error bubble, redirect, or return
+`{ recover: 'local' }` to exclude the failing subtree and rematch a sibling.
+Unhandled failures reject programmatic navigation with the original error and
+roll back the transaction.
+
+The router does not cache application data or compensate application side
+effects. Applications use `previousData`, their own cache, and the supplied
+abort signal where appropriate.
+
+## Observable navigation state
+
+The coordinator publishes one immutable `RouteNavigationState` through its
+`navigation` property and `subscribeNavigation()`. The nearest route scope
+also exposes it as `$navigation`.
+
+```ts
+interface RouteNavigationState {
+  readonly id: number;
+  readonly pending: boolean;
+  readonly phase:
+    | 'idle'
+    | 'guarding'
+    | 'loading'
+    | 'activating'
+    | 'settling'
+    | 'committing';
+  readonly source: 'initial' | 'load' | 'external' | 'redirect' | null;
+  readonly from: RouteLocation;
+  readonly to: RouteLocation | null;
+  readonly href: string | null;
+  readonly signal: AbortSignal | null;
+  readonly result: RouteNavigationResult | null;
+}
+```
+
+Observers can render progress, disable duplicate actions, announce changes, or
+record telemetry without controlling the transaction. Existing path
+subscriptions remain commit-only.
+
+## Path adapter settlement
+
+`IPathAdapter` is the host boundary:
+
+```ts
+interface IPathAdapter {
+  getCurrentPath(): string;
+  formatHref(path: string): string;
+  push(path: string): void;
+  replace(path: string): void;
+  subscribe(
+    callback: (path: string, navigation?: PathNavigation) => void,
+  ): () => void;
+}
+```
+
+The optional `PathNavigation` describes host-originated work:
+
+- `intent` is an intercepted link whose host location has not changed;
+- `traverse` is Back/Forward movement whose host cursor changed first;
+- `commit()` applies an intent or accepts a traversal;
+- `rollback()` abandons an intent or restores the accepted traversal entry.
+
+The browser adapter gives its entries a private key and monotonic index in
+`history.state` while preserving application-owned state. A rejected traversal
+uses compensating `history.go()` and suppresses the resulting internal
+`popstate`. Replacing the traversed URL is not a valid rollback because it
+would destroy an entry and corrupt later Back/Forward behavior.
+
+When the host exposes Navigation API entry indexes, the adapter can also
+compensate exact multi-entry movement into same-document history that predates
+router startup. With the plain History API, which exposes neither direction nor
+distance for an unmarked entry, the defined fallback is the immediately
+preceding startup entry. Other unmarked jumps are outside router-managed SPA
+history.
+
+The memory adapter follows the same settlement model with its entry array and
+cursor. Custom adapters that omit navigation metadata retain the callback-only
+contract; precise rollback is the responsibility of adapters that report
+host-first movement.
+
+## Browser settlement
+
+Title, scroll, focus, and animation work remain outside route matching. They use
+the complete route-tree settlement boundary:
+
+- titles compose metadata from the active branch;
+- fragment scrolling and history restoration run after routed views settle;
+- focus targets newly attached route content;
+- enter animation begins only for the committed incoming view.
+
+Cancelled work is discarded before it can publish stale browser effects.
+
+## Non-goals
+
+The coordinator is not:
+
+- a second route registry;
+- an application data cache;
+- a retry or offline policy;
+- a global logger or analytics service;
+- a browser-history implementation;
+- an adapter over Aurelia's viewport router.
+
+The route tree remains the routing model. Transactions and adapters exist to
+keep that model coherent across asynchronous work and host navigation.

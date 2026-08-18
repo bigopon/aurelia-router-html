@@ -7,7 +7,7 @@ import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
 import { BrowserRouteFocusService } from '../router/focus';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
-import { IPathAdapter } from '../router/path-adapter';
+import { IPathAdapter, type PathNavigation } from '../router/path-adapter';
 import { RouteContext } from '../router/route-context';
 import { parseRouteLocation } from '../router/route-location';
 import { BrowserRouteScrollService } from '../router/scroll';
@@ -46,6 +46,29 @@ describe('route view settlement', function () {
     settlement.end();
     await tasksSettled();
     assert.strictEqual(called, false);
+  });
+
+  it('waits only for real pending views and coalesces work restarted before the flush', async function () {
+    const settlement = new RouteViewSettlement();
+    const events: string[] = [];
+
+    assert.strictEqual(settlement.whenSettled(), undefined);
+    settlement.begin();
+    const waiting = settlement.whenSettled();
+    assert.strictEqual(waiting instanceof Promise, true);
+    void Promise.resolve(waiting).then(() => events.push('waited'));
+    settlement.queue(() => events.push('callback'));
+
+    settlement.end();
+    settlement.begin();
+    await tasksSettled();
+    assert.deepStrictEqual(events, []);
+
+    settlement.end();
+    await tasksSettled();
+    await Promise.resolve();
+    await tasksSettled();
+    assert.deepStrictEqual(events, ['waited', 'callback']);
   });
 });
 
@@ -319,6 +342,119 @@ describe('route focus management', function () {
 });
 
 describe('memory path adapter', function () {
+  it('serializes newer navigation behind an asynchronous adapter commit', async function () {
+    let releaseCommit!: () => void;
+    class DeferredCommitAdapter extends MemoryPathAdapter {
+      public override subscribe(callback: (path: string, navigation?: PathNavigation) => void): () => void {
+        return super.subscribe((path, navigation) => {
+          callback(path, navigation == null
+            ? undefined
+            : {
+              kind: navigation.kind,
+              commit: (destination, options) => new Promise<void>(resolve => {
+                releaseCommit = () => {
+                  navigation.commit(destination, options);
+                  resolve();
+                };
+              }),
+              rollback: () => navigation.rollback(),
+            });
+        });
+      }
+    }
+
+    const adapter = new DeferredCommitAdapter('/home');
+    const root = new RouteContext(null, '*');
+    root.createChild('/home', { exact: true });
+    root.createChild('/one', { exact: true });
+    root.createChild('/two', { exact: true });
+    const coordinator = new RouteCoordinator(root, adapter);
+    coordinator.start();
+
+    adapter.navigate('/one');
+    const committingSignal = coordinator.navigation.signal!;
+    assert.strictEqual(coordinator.navigation.phase, 'committing');
+
+    const newer = coordinator.load('/two');
+    assert.strictEqual(committingSignal.aborted, false);
+    assert.strictEqual(coordinator.currentPath, '/home');
+
+    releaseCommit();
+    assert.strictEqual(await newer, true);
+    assert.strictEqual(adapter.getCurrentPath(), '/two');
+    assert.strictEqual(coordinator.currentPath, '/two');
+    assert.strictEqual(coordinator.navigation.result?.outcome, 'completed');
+    coordinator.stop();
+  });
+
+  it('settles an external traversal at its redirected destination', function () {
+    const adapter = new MemoryPathAdapter('/home');
+    let navigation: PathNavigation | undefined;
+    const unsubscribe = adapter.subscribe((_path, pending) => {
+      navigation = pending;
+    });
+
+    adapter.navigate('/legacy');
+    navigation!.commit('/target', { replace: true });
+
+    assert.strictEqual(adapter.getCurrentPath(), '/target');
+    assert.strictEqual(adapter.back(), true);
+    assert.strictEqual(adapter.getCurrentPath(), '/home');
+    unsubscribe();
+  });
+
+  it('rolls back and publishes failure when redirect settlement rejects', async function () {
+    const failure = new Error('commit failed');
+    class RejectingAdapter extends MemoryPathAdapter {
+      public override subscribe(callback: (path: string, navigation?: PathNavigation) => void): () => void {
+        return super.subscribe((path, navigation) => {
+          callback(path, navigation == null
+            ? undefined
+            : {
+              kind: navigation.kind,
+              commit: () => Promise.reject(failure),
+              rollback: () => navigation.rollback(),
+            });
+        });
+      }
+    }
+
+    const adapter = new RejectingAdapter('/home');
+    const root = new RouteContext(null, '*');
+    root.createChild('/home', { exact: true });
+    const legacy = root.createChild('/legacy', { exact: true }) as RouteContext;
+    root.createChild('/target', { exact: true });
+    let coordinator!: RouteCoordinator;
+    legacy._setGuards(
+      () => ({ target: '/target', options: { replace: false } }),
+      null,
+    );
+    legacy.subscribe(state => {
+      if (state.active) {
+        void coordinator._runRouteActivation(
+          legacy,
+          legacy._canLoad,
+          coordinator._createLifecycleContext(legacy, 'enter'),
+          () => {},
+        );
+      }
+    });
+    coordinator = new RouteCoordinator(root, adapter);
+    coordinator.start();
+
+    adapter.navigate('/legacy');
+    for (let index = 0; index < 10 && coordinator.navigation.pending; index++) {
+      await Promise.resolve();
+    }
+
+    assert.strictEqual(adapter.getCurrentPath(), '/home');
+    assert.strictEqual(coordinator.currentLocation.pathname, '/home');
+    assert.strictEqual(coordinator.navigation.pending, false);
+    assert.strictEqual(coordinator.navigation.result?.outcome, 'failed');
+    assert.strictEqual(coordinator.navigation.result?.error, failure);
+    coordinator.stop();
+  });
+
   it('normalizes locations and emits only external history movement', function () {
     const adapter = new MemoryPathAdapter('/products?sort=price#reviews');
     const paths: string[] = [];
@@ -428,6 +564,92 @@ describe('memory path adapter', function () {
   });
 });
 
+describe('browser history settlement', function () {
+  it('uses Navigation API indexes to compensate an unmarked multi-entry traversal', async function () {
+    const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/editor' });
+    const window = dom.window as unknown as Window;
+    window.history.replaceState({ source: 'oldest' }, '', '/guard/home');
+    window.history.pushState({ source: 'middle' }, '', '/guard/private');
+    window.history.pushState({ source: 'router-start' }, '', '/guard/editor');
+    let navigationIndex = 2;
+    Object.defineProperty(window, 'navigation', {
+      configurable: true,
+      value: {
+        get currentEntry() {
+          return { index: navigationIndex };
+        },
+      },
+    });
+
+    const adapter = new BrowserPathAdapter(window);
+    let resolveNavigation!: (navigation: PathNavigation) => void;
+    const pendingNavigation = new Promise<PathNavigation>(resolve => { resolveNavigation = resolve; });
+    const unsubscribe = adapter.subscribe((_path, navigation) => {
+      if (navigation != null) {
+        resolveNavigation(navigation);
+      }
+    });
+
+    try {
+      navigationIndex = 0;
+      window.history.go(-2);
+      const denied = await pendingNavigation;
+      assert.strictEqual(window.location.pathname, '/guard/home');
+      assert.deepStrictEqual(window.history.state, { source: 'oldest' });
+
+      navigationIndex = 2;
+      await denied.rollback();
+      assert.strictEqual(window.location.pathname, '/guard/editor');
+      assert.strictEqual(window.history.state.source, 'router-start');
+    } finally {
+      unsubscribe();
+      dom.window.close();
+    }
+  });
+
+  it('preserves the unmarked startup predecessor when a denied Back is rolled forward', async function () {
+    const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/editor' });
+    const window = dom.window as unknown as Window;
+    const predecessorState = { source: 'before-router' };
+    window.history.replaceState(predecessorState, '', '/guard/private');
+    window.history.pushState({ source: 'router-start' }, '', '/guard/editor');
+
+    const adapter = new BrowserPathAdapter(window);
+    let resolveNavigation!: (navigation: PathNavigation) => void;
+    const nextNavigation = () => new Promise<PathNavigation>(resolve => { resolveNavigation = resolve; });
+    let pendingNavigation = nextNavigation();
+    const unsubscribe = adapter.subscribe((_path, navigation) => {
+      if (navigation != null) {
+        resolveNavigation(navigation);
+      }
+    });
+
+    try {
+      window.history.back();
+      const denied = await pendingNavigation;
+      assert.strictEqual(window.location.pathname, '/guard/private');
+      assert.deepStrictEqual(window.history.state, predecessorState);
+
+      await denied.rollback();
+      assert.strictEqual(window.location.pathname, '/guard/editor');
+      assert.strictEqual(window.history.state.source, 'router-start');
+
+      pendingNavigation = nextNavigation();
+      window.history.back();
+      const accepted = await pendingNavigation;
+      assert.strictEqual(window.location.pathname, '/guard/private');
+      assert.deepStrictEqual(window.history.state, predecessorState);
+
+      accepted.commit();
+      assert.strictEqual(window.location.pathname, '/guard/private');
+      assert.strictEqual(window.history.state.source, 'before-router');
+    } finally {
+      unsubscribe();
+      dom.window.close();
+    }
+  });
+});
+
 describe('browser base paths', function () {
   it('derives the mount path from a same-origin base element', function () {
     const dom = new JSDOM(
@@ -437,7 +659,11 @@ describe('browser base paths', function () {
     const window = dom.window as unknown as Window;
     const adapter = new BrowserPathAdapter(window, { interceptLinks: true });
     const navigations: string[] = [];
-    const unsubscribe = adapter.subscribe(path => navigations.push(path));
+    let intent: PathNavigation | undefined;
+    const unsubscribe = adapter.subscribe((path, navigation) => {
+      navigations.push(path);
+      intent = navigation;
+    });
 
     try {
       assert.strictEqual(adapter.getCurrentPath(), '/products?sort=recent#details');
@@ -450,6 +676,9 @@ describe('browser base paths', function () {
       anchor.dispatchEvent(event);
 
       assert.strictEqual(event.defaultPrevented, true);
+      assert.strictEqual(window.location.pathname, '/store/products');
+      assert.strictEqual(intent?.kind, 'intent');
+      intent!.commit();
       assert.strictEqual(window.location.pathname, '/store/products/camera');
       assert.deepStrictEqual(navigations, ['/products/camera']);
     } finally {

@@ -171,7 +171,7 @@ export function createPlaygroundRouting() {
         typeof options.focus === 'object' ? options.focus : {},
       )
       : noRouteFocusService;
-    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController(), scrollService, focusService);
+    const coordinator = new RouteCoordinator(root, adapter, () => new window.AbortController(), scrollService, focusService, settlement);
     const titleService = options.titles === false
       ? { start() {}, requestUpdate() {}, stop() {} }
       : new BrowserRouteTitleService(

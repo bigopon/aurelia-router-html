@@ -114,9 +114,9 @@ export const docNav: DocNavItem[] = [
   },
   {
     id: 'lifecycle',
-    title: 'Lifecycle',
+    title: 'Route Lifecycle',
     path: '/features/lifecycle',
-    summary: 'Prepare route data before activation and observe when the complete nested branch is ready.',
+    summary: 'Share one lifecycle across entry, fresh-view replacement, and in-place reruns.',
     badge: 'A8',
   },
   {

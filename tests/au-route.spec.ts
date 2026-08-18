@@ -3,7 +3,7 @@ import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
 import { CustomElement } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
-import { IRouteCoordinator, RouteCoordinator } from '../router/coordinator';
+import { IRouteCoordinator, RouteCoordinator, type RouteNavigationState } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { RouteContext, type IRouteContext } from '../router/route-context';
@@ -776,7 +776,7 @@ describe('au-route template lifecycle', function () {
 
       public loaded(context: RouteLifecycleContext): string {
         this.loadedContexts.push(context);
-        return `ready:${(context.previousData.loading as { id: string }).id}`;
+        return `ready:${(context.route.data.loading as { id: string }).id}`;
       }
     }
 
@@ -802,6 +802,9 @@ describe('au-route template lifecycle', function () {
       assert.strictEqual(fixture.appHost.querySelector('[data-loaded]')?.textContent, 'ready:first');
       assert.strictEqual(fixture.component.loadingContexts[0].route.$path, '/ready/first');
       assert.strictEqual(fixture.component.loadingContexts[0].signal.aborted, false);
+      assert.strictEqual(fixture.component.loadedContexts[0], fixture.component.loadingContexts[0]);
+      assert.strictEqual(fixture.component.loadedContexts[0].previousData.loading, undefined);
+      assert.strictEqual(fixture.component.loadedContexts[0].previousData.loaded, undefined);
 
       await fixture.container.get(IRouteCoordinator).load('/idle');
       await fixture.container.get(IRouteCoordinator).load('/ready/second');
@@ -809,6 +812,9 @@ describe('au-route template lifecycle', function () {
       assert.strictEqual(fixture.appHost.querySelector('[data-loading]')?.textContent, 'second:first');
       assert.strictEqual(fixture.appHost.querySelector('[data-loaded]')?.textContent, 'ready:second');
       assert.strictEqual((fixture.component.loadingContexts[1].previousData.loading as { id: string }).id, 'first');
+      assert.strictEqual(fixture.component.loadedContexts[1], fixture.component.loadingContexts[1]);
+      assert.strictEqual((fixture.component.loadedContexts[1].previousData.loading as { id: string }).id, 'first');
+      assert.strictEqual(fixture.component.loadedContexts[1].previousData.loaded, 'ready:first');
     } finally {
       await fixture.tearDown();
     }
@@ -895,8 +901,9 @@ describe('au-route template lifecycle', function () {
       assert.strictEqual(fixture.appHost.querySelector('[data-ready]'), null);
 
       finishLoading();
-      await Promise.resolve();
-      await Promise.resolve();
+      for (let index = 0; index < 10 && events.length < 2; index++) {
+        await Promise.resolve();
+      }
       assert.deepStrictEqual(events, ['loading', 'loaded']);
       assert.strictEqual(fixture.appHost.querySelector('[data-ready]')?.textContent, 'Ready');
 
@@ -1205,9 +1212,1752 @@ describe('au-route template lifecycle', function () {
       await fixture.tearDown();
     }
   });
+
+  it('keeps a newer navigation pending until stale async activation DOM is removed', async function () {
+    const events: string[] = [];
+    let finishAttaching!: () => void;
+    const attaching = new Promise<void>(resolve => {
+      finishAttaching = resolve;
+    });
+
+    class SlowActivationContent {
+      public attaching(): Promise<void> {
+        events.push('attaching');
+        return attaching;
+      }
+
+      public attached(): void {
+        events.push('attached');
+      }
+
+      public detaching(): void {
+        events.push('detaching');
+      }
+    }
+
+    const SlowActivationContentElement = CustomElement.define({
+      name: 'slow-activation-content',
+      template: '<span data-slow-activation>Slow activation</span>',
+    }, SlowActivationContent);
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="slow" exact><slow-activation-content></slow-activation-content></au-route>
+      <au-route path="next" exact><span data-next>Next</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter }), SlowActivationContentElement],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const stale = router.load('/slow');
+      assert.strictEqual(stale instanceof Promise, true);
+      assert.deepStrictEqual(events, ['attaching']);
+
+      const next = router.load('/next');
+      assert.strictEqual(next instanceof Promise, true);
+      assert.strictEqual(await stale, false);
+
+      let nextSettled = false;
+      void Promise.resolve(next).then(() => { nextSettled = true; });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      assert.strictEqual(nextSettled, false);
+      assert.strictEqual(router.currentLocation.pathname, '/home');
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+
+      finishAttaching();
+      assert.strictEqual(await next, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, ['attaching', 'attached', 'detaching']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-slow-activation]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-next]')?.textContent, 'Next');
+      assert.strictEqual(router.currentLocation.pathname, '/next');
+      assert.strictEqual(adapter.getCurrentPath(), '/next');
+    } finally {
+      finishAttaching();
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route same-declaration transitions', function () {
+  type LifecycleCall = {
+    readonly phase: 'can-load' | 'loading' | 'loaded';
+    readonly context: RouteLifecycleContext;
+  };
+
+  function assertLifecycleContext(
+    context: RouteLifecycleContext,
+    kind: RouteLifecycleContext['kind'],
+    fromId: string | null,
+    toId: string,
+    changes: RouteLifecycleContext['changes'],
+  ): void {
+    assert.strictEqual(context.kind, kind);
+    assert.strictEqual(context.from?.params.id ?? null, fromId);
+    assert.strictEqual(context.to.params.id, toId);
+    assert.strictEqual(context.params.id, toId);
+    assert.deepStrictEqual(context.changes, changes);
+    assert.strictEqual(context.signal.aborted, false);
+  }
+
+  function assertSharedFrozenContext(calls: readonly LifecycleCall[]): void {
+    assert.strictEqual(calls.length, 3);
+    assert.strictEqual(calls[1].context, calls[0].context);
+    assert.strictEqual(calls[2].context, calls[0].context);
+    assert.strictEqual(Object.isFrozen(calls[0].context), true);
+    assert.strictEqual(Object.isFrozen(calls[0].context.to), true);
+    assert.strictEqual(Object.isFrozen(calls[0].context.changes), true);
+    if (calls[0].context.from != null) {
+      assert.strictEqual(Object.isFrozen(calls[0].context.from), true);
+    }
+  }
+
+  it('reruns can-load, loading, and loaded in place for parameter changes by default', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        return true;
+      }
+
+      public loading(context: RouteLifecycleContext): string {
+        calls.push({ phase: 'loading', context });
+        return `post:${context.params.id}`;
+      }
+
+      public loaded(context: RouteLifecycleContext): string {
+        calls.push({ phase: 'loaded', context });
+        return `ready:${context.params.id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1?preview=false#summary');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const route = router.root.children[0];
+      const post = fixture.appHost.querySelector('[data-post]');
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:enter',
+        'loading:enter',
+        'loaded:enter',
+      ]);
+      assertSharedFrozenContext(calls);
+      for (const call of calls) {
+        assertLifecycleContext(call.context, 'enter', null, '1', []);
+      }
+
+      calls.length = 0;
+      const changed = router.load('/posts/2?preview=true#comments');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:rerun',
+        'loading:rerun',
+        'loaded:rerun',
+      ]);
+      assertSharedFrozenContext(calls);
+      for (const call of calls) {
+        assertLifecycleContext(call.context, 'rerun', '1', '2', ['params', 'query', 'hash']);
+        assert.strictEqual(call.context.from?.query.get('preview'), 'false');
+        assert.strictEqual(call.context.to.query.get('preview'), 'true');
+        assert.strictEqual(call.context.from?.hash, 'summary');
+        assert.strictEqual(call.context.to.hash, 'comments');
+        assert.strictEqual(call.context.previousData.loading, 'post:1');
+        assert.strictEqual(call.context.previousData.loaded, 'ready:1');
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 2');
+      assert.strictEqual(route.data.loading, 'post:2');
+      assert.strictEqual(route.data.loaded, 'ready:2');
+
+      calls.length = 0;
+      const queryOnly = router.load('/posts/2?preview=review#discussion');
+      assert.strictEqual(queryOnly instanceof Promise ? await queryOnly : queryOnly, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('expands transition-on all to params, query, and hash', async function () {
+    const contexts: RouteLifecycleContext[] = [];
+    class App {
+      public loading(context: RouteLifecycleContext): void {
+        contexts.push(context);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1?q=one#top');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-on="all"
+        loading.bind="loading($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const post = fixture.appHost.querySelector('[data-post]');
+      contexts.length = 0;
+
+      await router.load('/posts/1?q=two#top');
+      assert.deepStrictEqual(contexts.map(context => context.changes), [['query']]);
+      contexts.length = 0;
+
+      await router.load('/posts/1?q=two#results');
+      assert.deepStrictEqual(contexts.map(context => context.changes), [['hash']]);
+      contexts.length = 0;
+
+      await router.load('/posts/2?q=two#results');
+      assert.deepStrictEqual(contexts.map(context => context.changes), [['params']]);
+      assert.deepStrictEqual(contexts.map(context => context.kind), ['rerun']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('uses transition-on none for reactive URL state without lifecycle work', async function () {
+    const contexts: RouteLifecycleContext[] = [];
+    class App {
+      public loading(context: RouteLifecycleContext): void {
+        contexts.push(context);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1?q=one#top');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-on="none"
+        loading.bind="loading($lifecycle)">
+        <span data-post>\${$params.id}</span>
+        <span data-query>\${$query.get('q')}</span>
+        <span data-hash>\${$hash}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const post = fixture.appHost.querySelector('[data-post]');
+      contexts.length = 0;
+
+      await router.load('/posts/2?q=two#results');
+      await tasksSettled();
+
+      assert.deepStrictEqual(contexts, []);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+      assert.strictEqual(post?.textContent, '2');
+      assert.strictEqual(fixture.appHost.querySelector('[data-query]')?.textContent, 'two');
+      assert.strictEqual(fixture.appHost.querySelector('[data-hash]')?.textContent, 'results');
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/2?q=two#results');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('accepts comma-separated transition-on values', async function () {
+    const contexts: RouteLifecycleContext[] = [];
+    class App {
+      public loading(context: RouteLifecycleContext): void {
+        contexts.push(context);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/search?q=one#top');
+    const fixture = await createFixture(
+      `<au-route
+        path="search"
+        exact
+        transition-on="query,hash"
+        loading.bind="loading($lifecycle)">
+        <span data-search>Search</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const search = fixture.appHost.querySelector('[data-search]');
+      contexts.length = 0;
+
+      await router.load('/search?q=two#results');
+      await tasksSettled();
+
+      assert.deepStrictEqual(contexts.map(context => context.kind), ['rerun']);
+      assert.deepStrictEqual(contexts.map(context => context.changes), [['query', 'hash']]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-search]'), search);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('replaces the view and reports replace when transition-plan is replace', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        return true;
+      }
+
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-plan="replace"
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const firstPost = fixture.appHost.querySelector('[data-post]');
+      calls.length = 0;
+
+      const changed = router.load('/posts/2');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:replace',
+        'loading:replace',
+        'loaded:replace',
+      ]);
+      for (const call of calls) {
+        assertLifecycleContext(call.context, 'replace', '1', '2', ['params']);
+      }
+      const secondPost = fixture.appHost.querySelector('[data-post]');
+      assert.notStrictEqual(secondPost, firstPost);
+      assert.strictEqual(firstPost?.isConnected, false);
+      assert.strictEqual(secondPost?.textContent, 'Post 2');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('uses the configured reload plan and accepts a one-attempt override', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        return true;
+      }
+
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1?view=full#notes');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-plan="replace"
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const route = fixture.container.get(IRouteCoordinator).root.children[0];
+      const initialPost = fixture.appHost.querySelector('[data-post]');
+      calls.length = 0;
+
+      const configured = route.reload();
+      assert.strictEqual(configured instanceof Promise ? await configured : configured, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:replace',
+        'loading:replace',
+        'loaded:replace',
+      ]);
+      assertSharedFrozenContext(calls);
+      for (const call of calls) {
+        assertLifecycleContext(call.context, 'replace', '1', '1', ['reload']);
+        assert.strictEqual(call.context.query.get('view'), 'full');
+        assert.strictEqual(call.context.hash, 'notes');
+      }
+      const replacedPost = fixture.appHost.querySelector('[data-post]');
+      assert.notStrictEqual(replacedPost, initialPost);
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/1?view=full#notes');
+
+      calls.length = 0;
+      const overridden = route.reload({ plan: 'rerun' });
+      assert.strictEqual(overridden instanceof Promise ? await overridden : overridden, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:rerun',
+        'loading:rerun',
+        'loaded:rerun',
+      ]);
+      assertSharedFrozenContext(calls);
+      for (const call of calls) {
+        assertLifecycleContext(call.context, 'rerun', '1', '1', ['reload']);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), replacedPost);
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/1?view=full#notes');
+
+      calls.length = 0;
+      const configuredAgain = route.reload();
+      assert.strictEqual(configuredAgain instanceof Promise ? await configuredAgain : configuredAgain, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => call.context.kind), ['replace', 'replace', 'replace']);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-post]'), replacedPost);
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/1?view=full#notes');
+      assert.strictEqual(adapter.back(), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('reloads an active ancestor at the complete descendant location', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/projects/alpha/tasks/42?view=full#notes');
+    const fixture = await createFixture(
+      `<au-route
+        path="projects/:projectId"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-project>Project \${$params.projectId}</span>
+        <au-route path="tasks/:taskId" exact>
+          <span data-task>Task \${$params.taskId}</span>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const projectRoute = router.root.children[0];
+      const taskRoute = projectRoute.children[0];
+      const project = fixture.appHost.querySelector('[data-project]');
+      const task = fixture.appHost.querySelector('[data-task]');
+      calls.length = 0;
+
+      const reloaded = projectRoute.reload();
+      assert.strictEqual(reloaded instanceof Promise ? await reloaded : reloaded, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'loading:rerun',
+        'loaded:rerun',
+      ]);
+      assert.strictEqual(calls[1].context, calls[0].context);
+      for (const { context } of calls) {
+        assert.deepStrictEqual(context.changes, ['reload']);
+        assert.strictEqual(context.from?.params.projectId, 'alpha');
+        assert.strictEqual(context.to.params.projectId, 'alpha');
+        assert.strictEqual(context.query.get('view'), 'full');
+        assert.strictEqual(context.hash, 'notes');
+      }
+      assert.strictEqual(router.currentLocation.pathname, '/projects/alpha/tasks/42');
+      assert.strictEqual(adapter.getCurrentPath(), '/projects/alpha/tasks/42?view=full#notes');
+      assert.strictEqual(projectRoute.$params.projectId, 'alpha');
+      assert.strictEqual(taskRoute.$params.taskId, '42');
+      assert.strictEqual(fixture.appHost.querySelector('[data-project]'), project);
+      assert.strictEqual(fixture.appHost.querySelector('[data-task]'), task);
+      assert.strictEqual(adapter.back(), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const testCase of [
+    {
+      attribute: 'transition-on="state"',
+      expected: /Invalid au-route transition-on value "state"/,
+    },
+    {
+      attribute: 'transition-plan="refresh"',
+      expected: /Invalid au-route transition-plan value "refresh"/,
+    },
+    {
+      attribute: 'transition-on="all state"',
+      expected: /Invalid au-route transition-on value "state"/,
+    },
+    {
+      attribute: 'transition-on="none state"',
+      expected: /Invalid au-route transition-on value "state"/,
+    },
+    {
+      attribute: 'transition-on="all params"',
+      expected: /transition-on.*all.*alone/i,
+    },
+    {
+      attribute: 'transition-on="none query"',
+      expected: /transition-on.*none.*alone/i,
+    },
+  ]) {
+    it(`rejects ${testCase.attribute}`, function () {
+      assert.throws(
+        () => createFixture(
+          `<au-route path="posts/:id" ${testCase.attribute}>Post</au-route>`,
+          class App {},
+          [Routing],
+        ),
+        testCase.expected,
+      );
+    });
+  }
+
+  it('reruns for configured query and hash changes', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        return true;
+      }
+
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/search?q=one#top');
+    const fixture = await createFixture(
+      `<au-route
+        path="search"
+        exact
+        transition-on="query hash"
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-search>Search</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const search = fixture.appHost.querySelector('[data-search]');
+      calls.length = 0;
+
+      const queryChanged = router.load('/search?q=two#top');
+      assert.strictEqual(queryChanged instanceof Promise ? await queryChanged : queryChanged, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:rerun',
+        'loading:rerun',
+        'loaded:rerun',
+      ]);
+      for (const { context } of calls) {
+        assert.strictEqual(context.kind, 'rerun');
+        assert.strictEqual(context.from?.query.get('q'), 'one');
+        assert.strictEqual(context.to.query.get('q'), 'two');
+        assert.strictEqual(context.query.get('q'), 'two');
+        assert.strictEqual(context.from?.hash, 'top');
+        assert.strictEqual(context.to.hash, 'top');
+        assert.deepStrictEqual(context.changes, ['query']);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-search]'), search);
+
+      calls.length = 0;
+      const hashChanged = router.load('/search?q=two#results');
+      assert.strictEqual(hashChanged instanceof Promise ? await hashChanged : hashChanged, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), [
+        'can-load:rerun',
+        'loading:rerun',
+        'loaded:rerun',
+      ]);
+      for (const { context } of calls) {
+        assert.strictEqual(context.kind, 'rerun');
+        assert.strictEqual(context.from?.query.get('q'), 'two');
+        assert.strictEqual(context.to.query.get('q'), 'two');
+        assert.strictEqual(context.from?.hash, 'top');
+        assert.strictEqual(context.to.hash, 'results');
+        assert.strictEqual(context.hash, 'results');
+        assert.deepStrictEqual(context.changes, ['hash']);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-search]'), search);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('updates route values without lifecycle work when transition-plan is none', async function () {
+    const calls: LifecycleCall[] = [];
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        return true;
+      }
+
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-plan="none"
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const post = fixture.appHost.querySelector('[data-post]');
+      assert.deepStrictEqual(calls.map(call => call.context.kind), ['enter', 'enter', 'enter']);
+      calls.length = 0;
+
+      const changed = router.load('/posts/2');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(router.root.children[0].$params.id, '2');
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 2');
+      assert.strictEqual(router.currentLocation.pathname, '/posts/2');
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/2');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('uses can-load to reject a rerun before loading or loaded executes', async function () {
+    const calls: LifecycleCall[] = [];
+    let allowed = true;
+    let guardSawAborted = false;
+    class App {
+      public canLoad(context: RouteLifecycleContext): boolean {
+        calls.push({ phase: 'can-load', context });
+        guardSawAborted = context.signal.aborted;
+        return allowed;
+      }
+
+      public loading(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loading', context });
+      }
+
+      public loaded(context: RouteLifecycleContext): void {
+        calls.push({ phase: 'loaded', context });
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        can-load.bind="transition => canLoad(transition)"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const post = fixture.appHost.querySelector('[data-post]');
+      calls.length = 0;
+      allowed = false;
+
+      const changed = router.load('/posts/2');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, false);
+      await tasksSettled();
+
+      assert.deepStrictEqual(calls.map(call => `${call.phase}:${call.context.kind}`), ['can-load:rerun']);
+      assert.strictEqual(guardSawAborted, false);
+      assert.strictEqual(calls[0].context.kind, 'rerun');
+      assert.strictEqual(calls[0].context.from?.params.id, '1');
+      assert.strictEqual(calls[0].context.to.params.id, '2');
+      assert.strictEqual(calls[0].context.params.id, '2');
+      assert.deepStrictEqual(calls[0].context.changes, ['params']);
+      assert.strictEqual(calls[0].context.signal.aborted, true);
+      assert.strictEqual(router.root.children[0].$params.id, '1');
+      assert.strictEqual(router.currentLocation.pathname, '/posts/1');
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/1');
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('runs replacement can-unload deepest-first before candidate lifecycle work', async function () {
+    const events: string[] = [];
+    let allowParentUnload = false;
+    class App {
+      public canUnload(name: string): boolean {
+        events.push(`${name} can-unload`);
+        return name !== 'parent' || allowParentUnload;
+      }
+
+      public canLoad(name: string): boolean {
+        events.push(`${name} can-load`);
+        return true;
+      }
+
+      public loading(name: string): void {
+        events.push(`${name} loading`);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/section/1/detail');
+    const fixture = await createFixture(
+      `<au-route
+        path="section/:id"
+        transition-plan="replace"
+        can-unload.bind="() => canUnload('parent')"
+        can-load.bind="() => canLoad('parent')"
+        loading.bind="loading('parent')">
+        <span data-parent>Section \${$params.id}</span>
+        <au-route
+          path="detail"
+          exact
+          can-unload.bind="() => canUnload('child')"
+          can-load.bind="() => canLoad('child')"
+          loading.bind="loading('child')">
+          <span data-child>Detail</span>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const originalParent = fixture.appHost.querySelector('[data-parent]');
+      const originalChild = fixture.appHost.querySelector('[data-child]');
+      events.length = 0;
+
+      const denied = router.load('/section/2/detail');
+      assert.strictEqual(denied instanceof Promise ? await denied : denied, false);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, ['child can-unload', 'parent can-unload']);
+      assert.strictEqual(router.currentLocation.pathname, '/section/1/detail');
+      assert.strictEqual(adapter.getCurrentPath(), '/section/1/detail');
+      assert.strictEqual(fixture.appHost.querySelector('[data-parent]'), originalParent);
+      assert.strictEqual(fixture.appHost.querySelector('[data-child]'), originalChild);
+
+      allowParentUnload = true;
+      events.length = 0;
+      const accepted = router.load('/section/2/detail');
+      assert.strictEqual(accepted instanceof Promise ? await accepted : accepted, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, [
+        'child can-unload',
+        'parent can-unload',
+        'parent can-load',
+        'parent loading',
+        'child can-load',
+        'child loading',
+      ]);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-parent]'), originalParent);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-child]'), originalChild);
+      assert.strictEqual(router.currentLocation.pathname, '/section/2/detail');
+      assert.strictEqual(adapter.getCurrentPath(), '/section/2/detail');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const failurePhase of ['loading', 'activation', 'loaded'] as const) {
+    it(`restores the prior view when replacement ${failurePhase} fails`, async function () {
+      const failure = new Error(`replacement ${failurePhase} failed`);
+      let activeFailure: typeof failurePhase | null = null;
+      let instanceId = 0;
+      class App {
+        public loading(context: RouteLifecycleContext): string {
+          if (context.kind === 'replace' && activeFailure === 'loading') {
+            throw failure;
+          }
+          return `post:${context.params.id}`;
+        }
+
+        public loaded(context: RouteLifecycleContext): string {
+          if (context.kind === 'replace' && activeFailure === 'loaded') {
+            throw failure;
+          }
+          return `ready:${context.params.id}`;
+        }
+      }
+
+      const Probe = CustomElement.define(
+        { name: `replacement-${failurePhase}-probe`, template: 'Probe' },
+        class {
+          private readonly instance = ++instanceId;
+
+          public attaching(): void {
+            if (this.instance > 1 && activeFailure === 'activation') {
+              throw failure;
+            }
+          }
+        },
+      );
+      const adapter = new MemoryPathAdapter('/posts/1');
+      const fixture = await createFixture(
+        `<au-route
+          path="posts/:id"
+          exact
+          transition-plan="replace"
+          loading.bind="loading($lifecycle)"
+          loaded.bind="loaded($lifecycle)">
+          <span data-post>Post \${$params.id}</span>
+          <replacement-${failurePhase}-probe></replacement-${failurePhase}-probe>
+        </au-route>`,
+        App,
+        [Routing.customize({ adapter }), Probe],
+      ).started;
+
+      try {
+        const router = fixture.container.get(IRouteCoordinator);
+        const route = router.root.children[0];
+        const originalPost = fixture.appHost.querySelector('[data-post]');
+        assert.strictEqual(route.data.loading, 'post:1');
+        assert.strictEqual(route.data.loaded, 'ready:1');
+        activeFailure = failurePhase;
+
+        let caught: unknown;
+        try {
+          await router.load('/posts/2');
+        } catch (error) {
+          caught = error;
+        }
+        assert.strictEqual(caught, failure);
+        await tasksSettled();
+
+        assert.strictEqual(router.currentLocation.pathname, '/posts/1');
+        assert.strictEqual(adapter.getCurrentPath(), '/posts/1');
+        assert.strictEqual(route.$params.id, '1');
+        assert.strictEqual(route.data.loading, 'post:1');
+        assert.strictEqual(route.data.loaded, 'ready:1');
+        assert.strictEqual(fixture.appHost.querySelector('[data-post]'), originalPost);
+        assert.strictEqual(originalPost?.isConnected, true);
+        assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 1');
+      } finally {
+        activeFailure = null;
+        await fixture.tearDown();
+      }
+    });
+  }
+
+  it('supersedes a pending rerun without publishing its late lifecycle result', async function () {
+    let finishStale!: (value: string) => void;
+    const staleLoading = new Promise<string>(resolve => { finishStale = resolve; });
+    let staleContext: RouteLifecycleContext | null = null;
+    class App {
+      public loading(context: RouteLifecycleContext): string | Promise<string> {
+        if (context.params.id === '2') {
+          staleContext = context;
+          return staleLoading;
+        }
+        return `post:${context.params.id}`;
+      }
+
+      public loaded(context: RouteLifecycleContext): string {
+        return `ready:${context.params.id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const route = router.root.children[0];
+      const post = fixture.appHost.querySelector('[data-post]');
+
+      const stale = router.load('/posts/2');
+      assert.strictEqual(stale instanceof Promise, true);
+      for (let index = 0; index < 10 && staleContext == null; index++) {
+        await Promise.resolve();
+      }
+      assert.notStrictEqual(staleContext, null);
+
+      const latest = router.load('/posts/3');
+      assert.strictEqual((staleContext as unknown as RouteLifecycleContext).signal.aborted, true);
+      assert.strictEqual(await stale, false);
+      assert.strictEqual(latest instanceof Promise ? await latest : latest, true);
+      await tasksSettled();
+
+      assert.strictEqual(route.$params.id, '3');
+      assert.strictEqual(route.data.loading, 'post:3');
+      assert.strictEqual(route.data.loaded, 'ready:3');
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), post);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 3');
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/3');
+
+      finishStale('post:2');
+      await Promise.resolve();
+      await tasksSettled();
+      assert.strictEqual(route.data.loading, 'post:3');
+      assert.strictEqual(route.data.loaded, 'ready:3');
+      assert.strictEqual(route.$params.id, '3');
+    } finally {
+      finishStale('post:2');
+      await fixture.tearDown();
+    }
+  });
+
+  it('clears rollback mode after superseding a never-settling replacement loaded callback', async function () {
+    let finishStale!: (value: string) => void;
+    const staleLoaded = new Promise<string>(resolve => { finishStale = resolve; });
+    let signalStaleStarted!: () => void;
+    const staleStarted = new Promise<void>(resolve => { signalStaleStarted = resolve; });
+    let staleContext: RouteLifecycleContext | null = null;
+    let staleNavigation: boolean | Promise<boolean> | null = null;
+    let latestNavigation: boolean | Promise<boolean> | null = null;
+    class App {
+      public loading(context: RouteLifecycleContext): string {
+        return `post:${context.params.id}`;
+      }
+
+      public loaded(context: RouteLifecycleContext): string | Promise<string> {
+        if (context.kind === 'replace' && context.params.id === '2') {
+          staleContext = context;
+          signalStaleStarted();
+          return staleLoaded;
+        }
+        return `ready:${context.params.id}`;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        transition-plan="replace"
+        loading.bind="loading($lifecycle)"
+        loaded.bind="loaded($lifecycle)">
+        <span data-post>Post \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator) as RouteCoordinator;
+      staleNavigation = router.load('/posts/2');
+      await staleStarted;
+      assert.notStrictEqual(staleContext, null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 2');
+
+      latestNavigation = router.load('/posts/3');
+      assert.strictEqual((staleContext as unknown as RouteLifecycleContext).signal.aborted, true);
+      assert.strictEqual(staleNavigation instanceof Promise ? await staleNavigation : staleNavigation, false);
+      assert.strictEqual(latestNavigation instanceof Promise ? await latestNavigation : latestNavigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(router._isRollingBack, false);
+      assert.strictEqual(router.currentLocation.pathname, '/posts/3');
+      assert.strictEqual(adapter.getCurrentPath(), '/posts/3');
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 3');
+
+      const later = router.load('/posts/4');
+      assert.strictEqual(later instanceof Promise ? await later : later, true);
+      await tasksSettled();
+      assert.strictEqual(router._isRollingBack, false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]')?.textContent, 'Post 4');
+
+      finishStale('ready:2');
+      await tasksSettled();
+      assert.strictEqual(router.root.children[0].data.loaded, 'ready:4');
+    } finally {
+      finishStale('ready:2');
+      if (staleNavigation != null || latestNavigation != null) {
+        await Promise.allSettled([
+          Promise.resolve(staleNavigation),
+          Promise.resolve(latestNavigation),
+        ]);
+      }
+      await fixture.tearDown();
+    }
+  });
+
+  it('does not let a never-settling replacement descendant block newer navigation', async function () {
+    let finishDescendant!: () => void;
+    const pendingDescendant = new Promise<void>(resolve => { finishDescendant = resolve; });
+    let signalDescendantStarted!: () => void;
+    const descendantStarted = new Promise<void>(resolve => { signalDescendantStarted = resolve; });
+    let childEntries = 0;
+    let staleContext: RouteLifecycleContext | null = null;
+    let staleNavigation: boolean | Promise<boolean> | null = null;
+    let latestNavigation: boolean | Promise<boolean> | null = null;
+    class App {
+      public childLoaded(context: RouteLifecycleContext): void | Promise<void> {
+        childEntries++;
+        if (childEntries === 2) {
+          staleContext = context;
+          signalDescendantStarted();
+          return pendingDescendant;
+        }
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/section/1/detail');
+    const fixture = await createFixture(
+      `<au-route path="section/:id" transition-plan="replace">
+        <span data-section>Section \${$params.id}</span>
+        <au-route path="detail" exact loaded.bind="childLoaded($lifecycle)">
+          <span data-detail>Detail</span>
+        </au-route>
+      </au-route>
+      <au-route path="other" exact>
+        <span data-other>Other</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator) as RouteCoordinator;
+      staleNavigation = router.load('/section/2/detail');
+      await descendantStarted;
+      assert.notStrictEqual(staleContext, null);
+
+      latestNavigation = router.load('/other');
+      assert.strictEqual((staleContext as unknown as RouteLifecycleContext).signal.aborted, true);
+      assert.strictEqual(staleNavigation instanceof Promise ? await staleNavigation : staleNavigation, false);
+      assert.strictEqual(latestNavigation instanceof Promise ? await latestNavigation : latestNavigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(router._isRollingBack, false);
+      assert.strictEqual(router.currentLocation.pathname, '/other');
+      assert.strictEqual(adapter.getCurrentPath(), '/other');
+      assert.strictEqual(fixture.appHost.querySelector('[data-section]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-detail]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-other]')?.textContent, 'Other');
+    } finally {
+      finishDescendant();
+      if (staleNavigation != null || latestNavigation != null) {
+        await Promise.allSettled([
+          Promise.resolve(staleNavigation),
+          Promise.resolve(latestNavigation),
+        ]);
+      }
+      await fixture.tearDown();
+    }
+  });
+
+  it('continues sibling replacement rollback after one prior view fails to restore', async function () {
+    const navigationFailure = new Error('bad sibling loaded failed');
+    const rollbackFailure = new Error('bad sibling rollback failed');
+    const events: string[] = [];
+    let goodAttachments = 0;
+    let badAttachments = 0;
+    const GoodProbe = CustomElement.define(
+      { name: 'good-sibling-rollback-probe', template: 'Good probe' },
+      class {
+        public attaching(): void {
+          goodAttachments++;
+          events.push(`good attaching:${goodAttachments}`);
+        }
+      },
+    );
+    const BadProbe = CustomElement.define(
+      { name: 'bad-sibling-rollback-probe', template: 'Bad probe' },
+      class {
+        public attaching(): void {
+          badAttachments++;
+          events.push(`bad attaching:${badAttachments}`);
+          if (badAttachments === 3) {
+            throw rollbackFailure;
+          }
+        }
+      },
+    );
+    class App {
+      public loaded(name: string, context: RouteLifecycleContext): void {
+        if (name === 'failure' && context.kind === 'rerun') {
+          throw navigationFailure;
+        }
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/items/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="items/:id"
+        exact
+        transition-plan="replace">
+        <span data-good>Good \${$params.id}</span>
+        <good-sibling-rollback-probe></good-sibling-rollback-probe>
+      </au-route>
+      <au-route
+        path="items/:id"
+        exact
+        transition-plan="replace">
+        <span data-bad>Bad \${$params.id}</span>
+        <bad-sibling-rollback-probe></bad-sibling-rollback-probe>
+      </au-route>
+      <au-route
+        path="items/:id"
+        exact
+        loaded.bind="loaded('failure', $lifecycle)">
+        <span data-failure>Failure trigger \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter }), GoodProbe, BadProbe],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator) as RouteCoordinator;
+      const originalGood = fixture.appHost.querySelector('[data-good]');
+      assert.strictEqual(goodAttachments, 1);
+      assert.strictEqual(badAttachments, 1);
+      events.length = 0;
+
+      let caught: unknown;
+      try {
+        await router.load('/items/2');
+      } catch (error) {
+        caught = error;
+      }
+      await tasksSettled();
+
+      assert.strictEqual(caught instanceof AggregateError, true);
+      assert.strictEqual((caught as AggregateError).errors.includes(navigationFailure), true);
+      assert.strictEqual((caught as AggregateError).errors.includes(rollbackFailure), true);
+      assert.strictEqual(badAttachments, 3);
+      assert.strictEqual(goodAttachments, 3);
+      assert.strictEqual(events.includes('bad attaching:3'), true);
+      assert.strictEqual(events.includes('good attaching:3'), true);
+      assert.strictEqual(router._isRollingBack, false);
+      assert.strictEqual(router.currentLocation.pathname, '/items/1');
+      assert.strictEqual(adapter.getCurrentPath(), '/items/1');
+      assert.strictEqual(fixture.appHost.querySelector('[data-good]'), originalGood);
+      assert.strictEqual(originalGood?.isConnected, true);
+      assert.strictEqual(originalGood?.textContent, 'Good 1');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('creates a replaced parent descendant branch exactly once', async function () {
+    const events: string[] = [];
+    let attached = 0;
+    class App {
+      public parentLoading(context: RouteLifecycleContext): void {
+        events.push(`parent loading:${context.kind}`);
+      }
+
+      public parentLoaded(context: RouteLifecycleContext): void {
+        events.push(`parent loaded:${context.kind}`);
+      }
+
+      public childLoading(context: RouteLifecycleContext): void {
+        events.push(`child loading:${context.kind}`);
+        assert.strictEqual(context.from, null);
+        assert.deepStrictEqual(context.changes, []);
+      }
+
+      public childLoaded(context: RouteLifecycleContext): void {
+        events.push(`child loaded:${context.kind}`);
+      }
+    }
+
+    const DescendantProbe = CustomElement.define(
+      { name: 'replacement-descendant-probe', template: '<span>Detail</span>' },
+      class {
+        public attaching(): void {
+          attached++;
+        }
+      },
+    );
+    const adapter = new MemoryPathAdapter('/section/1/detail');
+    const fixture = await createFixture(
+      `<au-route
+        path="section/:id"
+        transition-plan="replace"
+        loading.bind="parentLoading($lifecycle)"
+        loaded.bind="parentLoaded($lifecycle)">
+        <span data-parent>Section \${$params.id}</span>
+        <au-route
+          path="detail"
+          exact
+          loading.bind="childLoading($lifecycle)"
+          loaded.bind="childLoaded($lifecycle)">
+          <replacement-descendant-probe data-child></replacement-descendant-probe>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter }), DescendantProbe],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const oldParent = fixture.appHost.querySelector('[data-parent]');
+      const oldChild = fixture.appHost.querySelector('[data-child]');
+      assert.strictEqual(attached, 1);
+      events.length = 0;
+
+      const changed = router.load('/section/2/detail');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, [
+        'parent loading:replace',
+        'child loading:enter',
+        'child loaded:enter',
+        'parent loaded:replace',
+      ]);
+      assert.strictEqual(attached, 2);
+      assert.strictEqual(fixture.appHost.querySelectorAll('[data-child]').length, 1);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-parent]'), oldParent);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-child]'), oldChild);
+      assert.strictEqual(oldParent?.isConnected, false);
+      assert.strictEqual(oldChild?.isConnected, false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-parent]')?.textContent, 'Section 2');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('runs nested retained rerun loading parent-first and loaded children-first', async function () {
+    const events: string[] = [];
+    class App {
+      public loading(name: string, context: RouteLifecycleContext): void {
+        events.push(`${name} loading:${context.kind}`);
+      }
+
+      public loaded(name: string, context: RouteLifecycleContext): void {
+        events.push(`${name} loaded:${context.kind}`);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/groups/one/items/alpha');
+    const fixture = await createFixture(
+      `<au-route
+        path="groups/:groupId"
+        loading.bind="loading('parent', $lifecycle)"
+        loaded.bind="loaded('parent', $lifecycle)">
+        <span data-parent>Group \${$params.groupId}</span>
+        <au-route
+          path="items/:itemId"
+          exact
+          loading.bind="loading('child', $lifecycle)"
+          loaded.bind="loaded('child', $lifecycle)">
+          <span data-child>Item \${$params.itemId}</span>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const parent = fixture.appHost.querySelector('[data-parent]');
+      const child = fixture.appHost.querySelector('[data-child]');
+      events.length = 0;
+
+      const changed = router.load('/groups/two/items/beta');
+      assert.strictEqual(changed instanceof Promise ? await changed : changed, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, [
+        'parent loading:rerun',
+        'child loading:rerun',
+        'child loaded:rerun',
+        'parent loaded:rerun',
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-parent]'), parent);
+      assert.strictEqual(fixture.appHost.querySelector('[data-child]'), child);
+      assert.strictEqual(parent?.textContent, 'Group two');
+      assert.strictEqual(child?.textContent, 'Item beta');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('completes every retained can-load guard before any loading callback', async function () {
+    const events: string[] = [];
+    let finishSecondGuard!: (allowed: boolean) => void;
+    class App {
+      public guard(name: string, context: RouteLifecycleContext): boolean | Promise<boolean> {
+        events.push(`${name} can-load`);
+        if (name === 'second' && context.kind === 'rerun') {
+          return new Promise(resolve => { finishSecondGuard = resolve; });
+        }
+        return true;
+      }
+
+      public loading(name: string): void {
+        events.push(`${name} loading`);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/posts/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="posts/:id"
+        exact
+        can-load.bind="transition => guard('first', transition)"
+        loading.bind="loading('first')">First</au-route>
+      <au-route
+        path="posts/:id"
+        exact
+        can-load.bind="transition => guard('second', transition)"
+        loading.bind="loading('second')">Second</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      events.length = 0;
+      const navigation = fixture.container.get(IRouteCoordinator).load('/posts/2');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.deepStrictEqual(events, ['first can-load', 'second can-load']);
+
+      finishSecondGuard(true);
+      assert.strictEqual(await navigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(events.filter(event => event === 'first loading').length, 1);
+      assert.strictEqual(events.filter(event => event === 'second loading').length, 1);
+      assert.strictEqual(events.indexOf('first loading') > events.indexOf('second can-load'), true);
+      assert.strictEqual(events.indexOf('second loading') > events.indexOf('second can-load'), true);
+    } finally {
+      finishSecondGuard?.(false);
+      await fixture.tearDown();
+    }
+  });
+
+  it('finishes a retained can-load guard before an entering child loads or activates', async function () {
+    const events: string[] = [];
+    let finishGuard!: (allowed: boolean) => void;
+    class App {
+      public canLoadParent(context: RouteLifecycleContext): boolean | Promise<boolean> {
+        events.push(`parent can-load:${context.kind}`);
+        return context.kind === 'rerun'
+          ? new Promise(resolve => { finishGuard = resolve; })
+          : true;
+      }
+
+      public loadParent(): void {
+        events.push('parent loading');
+      }
+
+      public loadChild(): void {
+        events.push('child loading');
+      }
+    }
+
+    const ChildB = CustomElement.define(
+      { name: 'transition-child-b', template: '<span data-b>B</span>' },
+      class {
+        public attaching(): void {
+          events.push('child attaching');
+        }
+      },
+    );
+    const adapter = new MemoryPathAdapter('/section/1/a');
+    const fixture = await createFixture(
+      `<au-route
+        path="section/:id"
+        can-load.bind="transition => canLoadParent(transition)"
+        loading.bind="loadParent()">
+        <au-route path="a" exact><span data-a>A</span></au-route>
+        <au-route path="b" exact loading.bind="loadChild()">
+          <transition-child-b></transition-child-b>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter }), ChildB],
+    ).started;
+
+    try {
+      events.length = 0;
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/section/2/b');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.deepStrictEqual(events, ['parent can-load:rerun']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-b]'), null);
+
+      finishGuard(true);
+      assert.strictEqual(await navigation, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(events, [
+        'parent can-load:rerun',
+        'parent loading',
+        'child loading',
+        'child attaching',
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-b]')?.textContent, 'B');
+    } finally {
+      finishGuard?.(false);
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('route navigation state', function () {
+  it('publishes pending phases and drives pending au-link state', async function () {
+    let finishLoading!: () => void;
+    const loading = new Promise<void>(resolve => { finishLoading = resolve; });
+
+    class App {
+      public load(): Promise<void> {
+        return loading;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<a data-slow au-link="slow">Slow</a>
+      <au-route path="home" exact>Home</au-route>
+      <au-route path="slow" exact loading.bind="load()"><span data-slow-view>Slow</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    const states: RouteNavigationState[] = [];
+    let unsubscribe: (() => void) | null = null;
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const link = fixture.appHost.querySelector('[data-slow]')!;
+      unsubscribe = router.subscribeNavigation(state => states.push(state));
+      states.length = 0;
+
+      const navigation = router.load('/slow');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.strictEqual(router.navigation.pending, true);
+      assert.strictEqual(router.navigation.href, '/slow');
+      assert.strictEqual(router.navigation.signal?.aborted, false);
+      assert.strictEqual(link.classList.contains('is-pending'), true);
+      assert.strictEqual(link.getAttribute('aria-busy'), 'true');
+
+      finishLoading();
+      assert.strictEqual(await navigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(states.every(Object.isFrozen), true);
+      assert.strictEqual(states.some(state => state.phase === 'guarding'), true);
+      assert.strictEqual(states.some(state => state.phase === 'loading'), true);
+      assert.strictEqual(states.some(state => state.phase === 'committing'), true);
+      assert.strictEqual(router.navigation.pending, false);
+      assert.strictEqual(router.navigation.result?.outcome, 'completed');
+      assert.strictEqual(router.navigation.result?.committed.pathname, '/slow');
+      assert.strictEqual(link.classList.contains('is-pending'), false);
+      assert.strictEqual(link.hasAttribute('aria-busy'), false);
+    } finally {
+      unsubscribe?.();
+      finishLoading();
+      await fixture.tearDown();
+    }
+  });
 });
 
 describe('au-route navigation guards', function () {
+  it('preempts a pending initial navigation', async function () {
+    let initialSignal: AbortSignal | null = null;
+    const root = new RouteContext(null, '*');
+    const initial = root.createChild('/initial', { exact: true }) as RouteContext;
+    let coordinator!: RouteCoordinator;
+    initial._setGuards(
+      transition => {
+        initialSignal = transition.signal;
+        return new Promise<boolean>(() => {});
+      },
+      null,
+    );
+    initial.subscribe(state => {
+      if (state.active) {
+        void coordinator._runRouteActivation(
+          initial,
+          initial._canLoad,
+          coordinator._createLifecycleContext(initial, 'enter'),
+          () => {},
+        );
+      }
+    });
+
+    const adapter = new MemoryPathAdapter('/initial');
+    coordinator = new RouteCoordinator(root, adapter);
+    const starting = coordinator.start();
+    const next = coordinator.load('/next');
+
+    assert.strictEqual(starting instanceof Promise, true);
+    assert.strictEqual((initialSignal as unknown as AbortSignal).aborted, true);
+    assert.strictEqual(await starting, false);
+    assert.strictEqual(next instanceof Promise ? await next : next, true);
+    assert.strictEqual(adapter.getCurrentPath(), '/next');
+    assert.strictEqual(coordinator.currentLocation.pathname, '/next');
+    coordinator.stop();
+  });
+
+  it('preempts a never-settling can-unload before the next attempt runs', async function () {
+    let calls = 0;
+    let firstSignal: AbortSignal | null = null;
+    class App {
+      public canLeave(transition: { signal: AbortSignal }): boolean | Promise<boolean> {
+        calls++;
+        if (calls === 1) {
+          firstSignal = transition.signal;
+          return new Promise<boolean>(() => {});
+        }
+        return true;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/editor');
+    const fixture = await createFixture(
+      `<au-route path="editor" exact can-unload.bind="transition => canLeave(transition)">Editor</au-route>
+      <au-route path="one" exact>One</au-route>
+      <au-route path="two" exact><span data-two>Two</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const first = router.load('/one');
+      const second = router.load('/two');
+
+      assert.strictEqual(first instanceof Promise, true);
+      assert.strictEqual((firstSignal as unknown as AbortSignal).aborted, true);
+      assert.strictEqual(await first, false);
+      assert.strictEqual(second instanceof Promise ? await second : second, true);
+      await tasksSettled();
+      assert.strictEqual(calls, 2);
+      assert.strictEqual(adapter.getCurrentPath(), '/two');
+      assert.strictEqual(fixture.appHost.querySelector('[data-two]')?.textContent, 'Two');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('does not continue a stale asynchronous can-unload chain', async function () {
+    let finishChild!: (allowed: boolean) => void;
+    const childGuard = new Promise<boolean>(resolve => { finishChild = resolve; });
+    let parentCalls = 0;
+
+    class App {
+      public child(): Promise<boolean> {
+        return childGuard;
+      }
+
+      public parent(): boolean {
+        parentCalls++;
+        return true;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/area/editor');
+    const fixture = await createFixture(
+      `<au-route path="area" can-unload.bind="() => parent()">
+        <au-route path="editor" exact can-unload.bind="() => child()">Editor</au-route>
+      </au-route>
+      <au-route path="other" exact>Other</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const stale = router.load('/other');
+      const current = router.load('/area/editor');
+
+      assert.strictEqual(stale instanceof Promise, true);
+      assert.strictEqual(await stale, false);
+      assert.strictEqual(current instanceof Promise ? await current : current, true);
+      finishChild(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      assert.strictEqual(parentCalls, 0);
+      assert.strictEqual(adapter.getCurrentPath(), '/area/editor');
+    } finally {
+      finishChild(true);
+      await fixture.tearDown();
+    }
+  });
+
+  it('lets the latest rapid traversal own rollback and history settlement', async function () {
+    let calls = 0;
+    let firstSignal: AbortSignal | null = null;
+    class App {
+      public canLeave(transition: { signal: AbortSignal }): boolean | Promise<boolean> {
+        calls++;
+        if (calls === 1) {
+          firstSignal = transition.signal;
+          return new Promise<boolean>(() => {});
+        }
+        return true;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/zero');
+    const fixture = await createFixture(
+      `<au-route path="zero" exact><span data-zero>Zero</span></au-route>
+      <au-route path="one" exact><span data-one>One</span></au-route>
+      <au-route path="two" exact can-unload.bind="transition => canLeave(transition)">Two</au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      await router.load('/one');
+      await router.load('/two');
+
+      assert.strictEqual(adapter.back(), true);
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+
+      assert.strictEqual((firstSignal as unknown as AbortSignal).aborted, true);
+      assert.strictEqual(calls, 2);
+      assert.strictEqual(adapter.getCurrentPath(), '/zero');
+      assert.strictEqual(router.currentLocation.pathname, '/zero');
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero]')?.textContent, 'Zero');
+
+      assert.strictEqual(adapter.forward(), true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/one');
+      assert.strictEqual(fixture.appHost.querySelector('[data-one]')?.textContent, 'One');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('restores a denied external traversal without damaging forward history', async function () {
+    class App {
+      public allowLeave: boolean = false;
+
+      public canLeave(): boolean {
+        return this.allowLeave;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="editor" exact can-unload.bind="() => canLeave()"><span data-editor>Editor</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      await router.load('/editor');
+      await tasksSettled();
+
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/editor');
+      assert.strictEqual(router.currentLocation.pathname, '/editor');
+      assert.strictEqual(fixture.appHost.querySelector('[data-editor]')?.textContent, 'Editor');
+
+      fixture.component.allowLeave = true;
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+
+      assert.strictEqual(adapter.forward(), true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/editor');
+      assert.strictEqual(fixture.appHost.querySelector('[data-editor]')?.textContent, 'Editor');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('rejects an unknown guard-failure mode', function () {
     assert.throws(
       () => createFixture(

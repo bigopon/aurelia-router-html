@@ -1,4 +1,5 @@
 import type { IRouteContext, RouteLoadOptions, RouteParams } from './route-context';
+import type { RouteLifecycleContext } from './lifecycle';
 
 export type RouteGuardFailure = 'navigation' | 'local';
 
@@ -14,5 +15,5 @@ export interface RouteGuardContext {
 }
 
 export type RouteGuardResult = boolean | string | RouteGuardRedirect | null | undefined;
-export type RouteCanLoadCallback = (transition: RouteGuardContext) => RouteGuardResult | Promise<RouteGuardResult>;
+export type RouteCanLoadCallback = (transition: RouteLifecycleContext) => RouteGuardResult | Promise<RouteGuardResult>;
 export type RouteCanUnloadCallback = (transition: RouteGuardContext) => boolean | null | undefined | Promise<boolean | null | undefined>;

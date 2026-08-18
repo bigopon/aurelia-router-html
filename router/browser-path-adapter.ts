@@ -1,4 +1,4 @@
-import type { IPathAdapter } from './path-adapter';
+import type { IPathAdapter, PathNavigation } from './path-adapter';
 import { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
 
 export type BrowserRoutingMode = 'path' | 'hash' | 'query';
@@ -10,10 +10,35 @@ export interface BrowserAdapterOptions {
   basePath?: string;
 }
 
+interface BrowserHistoryEntry {
+  readonly key: string;
+  readonly index: number;
+}
+
+interface BrowserNavigationEntry {
+  readonly index: number;
+}
+
+interface BrowserNavigation {
+  readonly currentEntry: BrowserNavigationEntry | null;
+}
+
+type BrowserWindow = Window & {
+  readonly navigation?: BrowserNavigation;
+};
+
+const browserHistoryEntryKey = '__auRouteNavigationEntry';
+
 export class BrowserPathAdapter implements IPathAdapter {
   protected readonly routingMode: BrowserRoutingMode;
   protected readonly routeQueryKey: string;
   protected readonly basePath: string;
+  private historyKey: string | null = null;
+  private historyIndex: number = 0;
+  private acceptedNavigationIndex: number | null = null;
+  private acceptedHref: string | null = null;
+  private acceptedState: unknown = null;
+  private compensatingPop: { expectedIndex: number; resolve: () => void } | null = null;
 
   public constructor(
     protected readonly window: Window,
@@ -50,16 +75,87 @@ export class BrowserPathAdapter implements IPathAdapter {
   }
 
   public push(path: string): void {
-    this.window.history.pushState(null, '', this.formatHref(path));
+    this.ensureHistoryEntry();
+    const index = this.historyIndex + 1;
+    this.window.history.pushState(this.withHistoryEntry(null, index), '', this.formatHref(path));
+    this.acceptHistoryEntry(index);
   }
 
   public replace(path: string): void {
-    this.window.history.replaceState(this.window.history.state, '', this.formatHref(path));
+    this.ensureHistoryEntry();
+    this.window.history.replaceState(this.withHistoryEntry(this.window.history.state, this.historyIndex), '', this.formatHref(path));
+    this.acceptHistoryEntry(this.historyIndex);
   }
 
-  public subscribe(callback: (path: string) => void): () => void {
+  public subscribe(callback: (path: string, navigation?: PathNavigation) => void): () => void {
+    this.ensureHistoryEntry();
     const onPopState = () => {
-      callback(this.getCurrentPath());
+      const entry = this.readHistoryEntry();
+      const compensation = this.compensatingPop;
+      if (compensation != null && entry?.key === this.historyKey && entry.index === compensation.expectedIndex) {
+        this.compensatingPop = null;
+        this.acceptHistoryEntry(entry.index);
+        compensation.resolve();
+        return;
+      }
+
+      const previousIndex = this.historyIndex;
+      const previousHref = this.acceptedHref ?? this.window.location.href;
+      const previousState = this.acceptedState;
+      const isManagedEntry = entry?.key === this.historyKey;
+      const targetIndex = isManagedEntry
+        ? entry.index
+        : this.inferHistoryIndex(previousIndex);
+      let settled = false;
+      const navigation: PathNavigation = {
+        kind: 'traverse',
+        commit: (path?: string) => {
+          if (settled) {
+            return;
+          }
+          const index = targetIndex ?? previousIndex - 1;
+          if (path != null && !this.isCurrentHref(this.formatHref(path))) {
+            this.window.history.replaceState(this.withHistoryEntry(this.window.history.state, index), '', this.formatHref(path));
+          } else if (!isManagedEntry) {
+            this.window.history.replaceState(this.withHistoryEntry(this.window.history.state, index), '');
+          }
+          this.acceptHistoryEntry(index);
+          settled = true;
+        },
+        rollback: () => {
+          if (settled) {
+            return;
+          }
+          if (isManagedEntry && targetIndex === previousIndex) {
+            this.window.history.replaceState(previousState, '', previousHref);
+            this.acceptHistoryEntry(previousIndex);
+            settled = true;
+            return;
+          }
+          const delta = targetIndex == null
+            // Plain History exposes no traversal index. The only safe fallback we
+            // promise is restoring the managed entry after Back reaches the
+            // immediately preceding entry that existed when the router started.
+            ? 1
+            : previousIndex - targetIndex;
+          if (delta === 0) {
+            settled = true;
+            return;
+          }
+          let resolveRollback!: () => void;
+          const rollback = new Promise<void>(resolve => { resolveRollback = resolve; });
+          this.compensatingPop = { expectedIndex: previousIndex, resolve: resolveRollback };
+          try {
+            this.window.history.go(delta);
+          } catch (error) {
+            this.compensatingPop = null;
+            throw error;
+          }
+          settled = true;
+          return rollback;
+        },
+      };
+      callback(this.getCurrentPath(), navigation);
     };
 
     const onClick = (event: MouseEvent) => {
@@ -100,8 +196,24 @@ export class BrowserPathAdapter implements IPathAdapter {
       }
 
       event.preventDefault();
-      this.push(nextPath);
-      callback(nextPath);
+      let settled = false;
+      callback(nextPath, {
+        kind: 'intent',
+        commit: (path = nextPath, options = {}) => {
+          if (settled) {
+            return;
+          }
+          if (options.replace === true) {
+            this.replace(path);
+          } else {
+            this.push(path);
+          }
+          settled = true;
+        },
+        rollback: () => {
+          settled = true;
+        },
+      });
     };
 
     this.window.addEventListener('popstate', onPopState);
@@ -115,6 +227,76 @@ export class BrowserPathAdapter implements IPathAdapter {
         this.window.document.removeEventListener('click', onClick);
       }
     };
+  }
+
+  private ensureHistoryEntry(): void {
+    const entry = this.readHistoryEntry();
+    if (entry != null) {
+      this.historyKey = entry.key;
+      this.acceptHistoryEntry(entry.index);
+      return;
+    }
+    this.historyKey = this.createHistoryKey();
+    this.historyIndex = 0;
+    this.window.history.replaceState(this.withHistoryEntry(this.window.history.state, 0), '');
+    this.acceptHistoryEntry(0);
+  }
+
+  private acceptHistoryEntry(index: number): void {
+    this.historyIndex = index;
+    this.acceptedNavigationIndex = this.readNavigationIndex();
+    this.acceptedHref = this.window.location.href;
+    this.acceptedState = this.window.history.state;
+  }
+
+  private inferHistoryIndex(previousIndex: number): number | null {
+    const targetNavigationIndex = this.readNavigationIndex();
+    return this.acceptedNavigationIndex == null || targetNavigationIndex == null
+      ? null
+      : previousIndex + targetNavigationIndex - this.acceptedNavigationIndex;
+  }
+
+  private readNavigationIndex(): number | null {
+    const index = (this.window as BrowserWindow).navigation?.currentEntry?.index;
+    return typeof index === 'number' ? index : null;
+  }
+
+  private readHistoryEntry(): BrowserHistoryEntry | null {
+    const state = this.window.history.state;
+    if (typeof state !== 'object' || state == null) {
+      return null;
+    }
+    const entry = (state as Record<string, unknown>)[browserHistoryEntryKey];
+    if (typeof entry !== 'object' || entry == null) {
+      return null;
+    }
+    const { key, index } = entry as Partial<BrowserHistoryEntry>;
+    return typeof key === 'string' && typeof index === 'number'
+      ? { key, index }
+      : null;
+  }
+
+  private withHistoryEntry(state: unknown, index: number): Record<string, unknown> {
+    const source = typeof state === 'object' && state != null
+      ? state as Record<string, unknown>
+      : {};
+    return {
+      ...source,
+      [browserHistoryEntryKey]: {
+        key: this.historyKey!,
+        index,
+      },
+    };
+  }
+
+  private createHistoryKey(): string {
+    return typeof this.window.crypto?.randomUUID === 'function'
+      ? this.window.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  private isCurrentHref(href: string): boolean {
+    return new URL(href, this.window.location.href).href === this.window.location.href;
   }
 
   protected routeFromUrl(url: URL): string | null {

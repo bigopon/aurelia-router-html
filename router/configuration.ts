@@ -86,6 +86,7 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
     () => new (platform?.globalThis.AbortController ?? AbortController)(),
     scrollService,
     focusService,
+    settlement,
   );
   const titleService = c.has(IRouteTitleService, true)
     ? c.get(IRouteTitleService)

@@ -5,6 +5,7 @@ import {
   type ICustomAttributeViewModel,
   type INode as INodeType,
 } from '@aurelia/runtime-html';
+import { IRouteCoordinator, type RouteNavigationState } from './coordinator';
 import { IRouteContext, RouteContext, type RouteActiveOptions, type RouteLoadOptions, type RouteParams } from './route-context';
 
 export interface RouteLinkOptions extends RouteActiveOptions, RouteLoadOptions {}
@@ -14,6 +15,7 @@ export interface LinkInstruction {
   readonly params?: RouteParams;
   readonly options?: RouteLinkOptions;
   readonly activeClass?: string;
+  readonly pendingClass?: string;
 }
 
 export const routeNavigationErrorEvent = 'au-route-navigation-error';
@@ -30,10 +32,14 @@ export class AuLink implements ICustomAttributeViewModel {
 
   private readonly element = resolve(INode) as INodeType<HTMLElement>;
   private readonly route = resolve(IRouteContext);
+  private readonly coordinator = resolve(IRouteCoordinator);
   private unsubscribeState: (() => void) | null = null;
   private unsubscribeRegistry: (() => void) | null = null;
+  private unsubscribeNavigation: (() => void) | null = null;
   private isAttached: boolean = false;
   private appliedActiveClass: string | null = null;
+  private appliedPendingClass: string | null = null;
+  private navigation: RouteNavigationState = this.coordinator.navigation;
 
   public attaching(): void {
     this.isAttached = true;
@@ -42,6 +48,10 @@ export class AuLink implements ICustomAttributeViewModel {
     this.unsubscribeRegistry = this.route.root instanceof RouteContext
       ? this.route.root._subscribeRegistry(() => this.update())
       : null;
+    this.unsubscribeNavigation = this.coordinator.subscribeNavigation(state => {
+      this.navigation = state;
+      this.update();
+    });
   }
 
   public detaching(): void {
@@ -51,6 +61,8 @@ export class AuLink implements ICustomAttributeViewModel {
     this.unsubscribeState = null;
     this.unsubscribeRegistry?.();
     this.unsubscribeRegistry = null;
+    this.unsubscribeNavigation?.();
+    this.unsubscribeNavigation = null;
   }
 
   public valueChanged(): void {
@@ -101,7 +113,7 @@ export class AuLink implements ICustomAttributeViewModel {
       return;
     }
 
-    const { target, params = {}, options = {}, activeClass = 'is-active' } = instruction;
+    const { target, params = {}, options = {}, activeClass = 'is-active', pendingClass = 'is-pending' } = instruction;
     let href: string;
     try {
       href = this.route.href(target, params, options);
@@ -115,6 +127,13 @@ export class AuLink implements ICustomAttributeViewModel {
 
     this.element.setAttribute('href', href);
     this.updateActiveClass(activeClass, this.route.isActive(target, params, options));
+    const pending = this.navigation.pending && this.navigation.href === href;
+    this.updatePendingClass(pendingClass, pending);
+    if (pending) {
+      this.element.setAttribute('aria-busy', 'true');
+    } else {
+      this.element.removeAttribute('aria-busy');
+    }
     if (this.route.isActive(target, params, { ...options, exact: true })) {
       this.element.setAttribute('aria-current', 'page');
     } else {
@@ -125,7 +144,9 @@ export class AuLink implements ICustomAttributeViewModel {
   private clear(): void {
     this.element.removeAttribute('href');
     this.updateActiveClass(null, false);
+    this.updatePendingClass(null, false);
     this.element.removeAttribute('aria-current');
+    this.element.removeAttribute('aria-busy');
   }
 
   private getInstruction(): LinkInstruction | null {
@@ -146,6 +167,16 @@ export class AuLink implements ICustomAttributeViewModel {
     this.appliedActiveClass = activeClass;
     if (activeClass != null && activeClass !== '') {
       this.element.classList.toggle(activeClass, active);
+    }
+  }
+
+  private updatePendingClass(pendingClass: string | null, pending: boolean): void {
+    if (this.appliedPendingClass != null && this.appliedPendingClass !== pendingClass) {
+      this.element.classList.remove(this.appliedPendingClass);
+    }
+    this.appliedPendingClass = pendingClass;
+    if (pendingClass != null && pendingClass !== '') {
+      this.element.classList.toggle(pendingClass, pending);
     }
   }
 }

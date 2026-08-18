@@ -287,9 +287,11 @@ test.describe('router HTML docs features', () => {
     await expect(redirectSyntax).toContainText('redirect-to="/products/:productId"');
     const titleSyntax = features.filter({ hasText: 'Page Titles' }).locator('pre');
     await expect(titleSyntax).toContainText('title.bind="cameraTitle"');
-    const lifecycleSyntax = features.filter({ hasText: 'Loading & Loaded' }).locator('pre');
-    await expect(lifecycleSyntax).toContainText('loading.bind="loadProduct()"');
-    await expect(lifecycleSyntax).toContainText('loaded.bind="productIsReady()"');
+    const lifecycleSyntax = features.filter({ hasText: 'Route Lifecycle' }).locator('pre');
+    await expect(lifecycleSyntax).toContainText('transition-on="params"');
+    await expect(lifecycleSyntax).toContainText('transition-plan="rerun"');
+    await expect(lifecycleSyntax).toContainText('loading.bind="loadProduct($lifecycle)"');
+    await expect(lifecycleSyntax).toContainText('loaded.bind="productIsReady($lifecycle)"');
     const guardSyntax = features.filter({ hasText: 'Navigation Guards' }).locator('pre');
     await expect(guardSyntax).toContainText('can-load.bind="() => canOpenAccount()"');
     await expect(guardSyntax).toContainText('can-unload.bind="() => canLeaveAccount()"');
@@ -882,28 +884,41 @@ test.describe('router HTML docs features', () => {
     await expect(visibleTitle).toHaveText('Products · Lens details');
   });
 
-  test('loading and loaded guide runs nested lifecycle callbacks in its embedded playground', async ({ page }) => {
+  test('route lifecycle guide demonstrates entry, rerun, and replacement', async ({ page }) => {
     await page.goto('/features/lifecycle');
-    await expect(page).toHaveTitle('Loading & Loaded | Aurelia Router HTML');
+    await expect(page).toHaveTitle('Route Lifecycle | Aurelia Router HTML');
 
     const guide = page.locator('[data-e2e="lifecycle-guide"]');
     await expect(guide).toContainText('loading.bind');
     await expect(guide).toContainText('loaded.bind');
-    await expect(guide).toContainText('parent to child');
-    await expect(guide).toContainText('child to parent');
-    await expect(guide).toContainText('Loading errors today');
+    await expect(guide).toContainText('transition-on');
+    await expect(guide).toContainText('transition-plan="rerun"');
+    await expect(guide).toContainText("kind: 'enter' | 'replace' | 'rerun'");
     await expect(guide).not.toContainText('.call="');
 
     const playground = page.locator('.playground-page.is-embedded');
     await expect(playground.getByRole('status')).toContainText('Running', { timeout: 60000 });
-    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('loading.bind="prepare(\'Projects\')"');
+    await expect(playground.getByRole('textbox', { name: 'Editing /src/app.html' })).toContainText('transition-plan="rerun"');
     const frame = playground.frameLocator('[data-e2e="playground-preview"]');
-    await frame.getByRole('link', { name: 'Project board' }).click();
-    await expect(frame.getByRole('heading', { name: 'Project board' })).toBeVisible();
-    await expect(frame.locator('ol')).toContainText('Projects loading');
-    await expect(frame.locator('ol')).toContainText('Board loading');
-    await expect(frame.locator('ol')).toContainText('Board loaded');
-    await expect(frame.locator('ol')).toContainText('Projects loaded');
+    await frame.getByRole('link', { name: 'Alpha board' }).click();
+    await expect(frame.getByRole('heading', { name: 'Project board alpha' })).toBeVisible();
+    await expect(frame.locator('ol')).toContainText('Board alpha enter loaded');
+
+    const draft = frame.getByRole('textbox', { name: 'Local draft' });
+    await draft.fill('Preserve this draft');
+    await frame.getByRole('link', { name: 'Beta board' }).click();
+    await expect(frame.getByRole('heading', { name: 'Project board beta' })).toBeVisible();
+    await expect(draft).toHaveValue('Preserve this draft');
+    await expect(frame.locator('ol')).toContainText('Board beta rerun loaded');
+
+    await frame.getByRole('link', { name: 'Alpha card' }).click();
+    await expect(frame.getByRole('heading', { name: 'Project card alpha' })).toBeVisible();
+    const note = frame.getByRole('textbox', { name: 'Local note' });
+    await note.fill('Discard this note');
+    await frame.getByRole('link', { name: 'Beta card' }).click();
+    await expect(frame.getByRole('heading', { name: 'Project card beta' })).toBeVisible();
+    await expect(note).toHaveValue('This resets when the view is replaced');
+    await expect(frame.locator('ol')).toContainText('Card beta replace loaded');
   });
 
   test('navigation guard guide cancels, approves, and redirects in its embedded playground', async ({ page }) => {

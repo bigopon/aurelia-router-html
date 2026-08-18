@@ -674,27 +674,44 @@ export class App {
   }),
   routerExample({
     id: 'route-lifecycle',
-    title: 'Loading and loaded lifecycle',
-    description: 'Prepare each nested route from parent to child, then observe readiness from child to parent.',
+    title: 'Route lifecycle',
+    description: 'Compare an in-place lifecycle rerun with a fresh-view replacement.',
     initialPath: '/home',
-    appTs: `export class App {
+    appTs: `import type { RouteLifecycleContext } from 'aurelia-router-html';
+
+export class App {
   public phase = 'Choose a route';
   public events: string[] = [];
 
-  public async prepare(name: string): Promise<void> {
-    this.phase = \`Loading \${name}…\`;
-    this.events.push(\`\${name} loading\`);
-    await new Promise(resolve => setTimeout(resolve, 180));
+  public canPrepare(name: string, context: RouteLifecycleContext): boolean {
+    const id = context.to.params.id ?? '';
+    const label = \`\${name} \${id}\`.trim();
+    this.events.push(\`\${label} \${context.kind} can-load\`);
+    return true;
   }
 
-  public ready(name: string): void {
-    this.events.push(\`\${name} loaded\`);
-    this.phase = \`\${name} ready\`;
+  public async prepare(name: string, context: RouteLifecycleContext): Promise<string> {
+    const id = context.to.params.id ?? '';
+    const label = \`\${name} \${id}\`.trim();
+    this.phase = \`\${label}: \${context.kind} loading...\`;
+    this.events.push(\`\${label} \${context.kind} loading\`);
+    await new Promise(resolve => setTimeout(resolve, 180));
+    return label;
+  }
+
+  public ready(name: string, context: RouteLifecycleContext): void {
+    const id = context.to.params.id ?? '';
+    const label = \`\${name} \${id}\`.trim();
+    this.events.push(\`\${label} \${context.kind} loaded\`);
+    this.phase = \`\${label} ready after \${context.kind}\`;
   }
 }`,
     appHtml: `<nav>
   <a au-link="home">Home</a>
-  <a au-link="projects/board">Project board</a>
+  <a au-link="projects/board/alpha">Alpha board</a>
+  <a au-link="projects/board/beta">Beta board</a>
+  <a au-link="projects/card/alpha">Alpha card</a>
+  <a au-link="projects/card/beta">Beta card</a>
 </nav>
 
 <p role="status">\${phase}</p>
@@ -705,22 +722,42 @@ export class App {
 <main>
   <au-route path="home" exact>
     <h1>Home</h1>
-    <p>Open the project board to run both nested lifecycle pairs.</p>
+    <p>Open a board to preserve its local draft, or a card to replace its local note.</p>
   </au-route>
 
   <au-route
     path="projects"
-  loading.bind="prepare('Projects')"
-  loaded.bind="ready('Projects')">
+    can-load.bind="transition => canPrepare('Projects', transition)"
+    loading.bind="prepare('Projects', $lifecycle)"
+    loaded.bind="ready('Projects', $lifecycle)">
     <h1>Projects</h1>
 
     <au-route
-      path="board"
+      path="board/:id"
       exact
-      loading.bind="prepare('Board')"
-      loaded.bind="ready('Board')">
-      <h2>Project board</h2>
-      <p>The complete nested branch is ready.</p>
+      transition-on="params"
+      transition-plan="rerun"
+      can-load.bind="transition => canPrepare('Board', transition)"
+      loading.bind="prepare('Board', $lifecycle)"
+      loaded.bind="ready('Board', $lifecycle)">
+      <h2>Project board \${$params.id}</h2>
+      <p>Lifecycle result: \${$route.data.loading}</p>
+      <label>Local draft <input value="Type here before switching boards"></label>
+      <p>Edit the draft, then switch boards. The rerun lifecycle changes the board data while preserving this input node and its value.</p>
+    </au-route>
+
+    <au-route
+      path="card/:id"
+      exact
+      transition-on="params"
+      transition-plan="replace"
+      can-load.bind="transition => canPrepare('Card', transition)"
+      loading.bind="prepare('Card', $lifecycle)"
+      loaded.bind="ready('Card', $lifecycle)">
+      <h2>Project card \${$params.id}</h2>
+      <p>Lifecycle result: \${$route.data.loading}</p>
+      <label>Local note <input value="This resets when the view is replaced"></label>
+      <p>Edit the note, then switch cards. The replace plan creates a new input node with its initial value.</p>
     </au-route>
   </au-route>
 </main>`,

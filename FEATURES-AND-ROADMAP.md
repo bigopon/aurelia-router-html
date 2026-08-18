@@ -145,7 +145,8 @@ Adding a matching route checks the current residue immediately. Removing an acti
   target: '/products/:id',
   params: { id: product.id },
   options: { exact: true },
-  activeClass: 'selected'
+  activeClass: 'selected',
+  pendingClass: 'is-loading'
 }">
   Product
 </a>
@@ -157,6 +158,8 @@ The route context provides the lower-level APIs:
 route.href(target, params, options);
 route.isActive(target, params, options);
 await route.load(target, params, options);
+await route.reload();
+await route.reload({ plan: 'replace' });
 route.getPaths();
 ```
 
@@ -164,11 +167,11 @@ route.getPaths();
 
 Active matching uses pathname-prefix semantics by default, allowing a parent link to stay selected for descendants. `exact`, `matchQuery`, and `matchHash` opt into stricter comparison. The root target `/` is always exact.
 
-Plain same-origin anchors may be intercepted with `interceptLinks: true`. `au-link` does not require interception and preserves normal anchor behavior for modified clicks, downloads, external URLs, and non-self targets.
+Plain same-origin anchors may be intercepted with `interceptLinks: true`. `au-link` does not require interception and preserves normal anchor behavior for modified clicks, downloads, external URLs, and non-self targets. A link whose href is the pending destination receives its `pendingClass` (default `is-pending`) and `aria-busy="true"`.
 
 ## Route context
 
-Every routed template receives the nearest context as `$route`, with convenience scope values including `$params`, `$query`, and `$hash`.
+Every routed template receives the nearest context as `$route`, with convenience scope values including `$params`, `$query`, `$hash`, and the immutable `$navigation` snapshot.
 
 Important context state includes:
 
@@ -176,7 +179,7 @@ Important context state includes:
 - `$params`, `$query`, and `$hash`;
 - `parent`, `children`, and `root`;
 - `title` and `failure`;
-- `href()`, `isActive()`, `load()`, and `getPaths()`.
+- `href()`, `isActive()`, `load()`, `reload()`, and `getPaths()`.
 
 Parameters remain local to their declaring route. Query and hash state represent the complete current route location and are shared by active contexts.
 
@@ -193,11 +196,39 @@ Parameters remain local to their declaring route. Query and hash state represent
 </au-route>
 ```
 
-Lifecycle bindings are Aurelia expressions, evaluated once in the route's live binding scope at the relevant phase. `loading` runs parent-first before activation. `loaded` runs children-first after the complete nested branch and its asynchronous Aurelia activation lifecycle have settled. An expression may return any value; promises are awaited only when returned. Fulfilled values are exposed in the route template as `$route.data.loading` and `$route.data.loaded`.
+Lifecycle bindings are Aurelia expressions, evaluated once per applicable lifecycle pass in the route's live binding scope. `loading` runs parent-first before activation, replacement, or rerun work. `loaded` runs children-first after the complete nested branch and its applicable Aurelia activation or rerun work have settled. An expression may return any value; promises are awaited only when returned. Fulfilled values are exposed in the route template as `$route.data.loading` and `$route.data.loaded`.
 
-Pass the phase-local `$lifecycle` value when an expression needs that context, for example `loading.bind="loadProduct($lifecycle)"`. It contains the route, params, query, hash, abort signal, and `previousData`. The router deliberately does not cache lifecycle results: applications can use `previousData` or their own cache to decide whether a request is needed.
+Pass the phase-local `$lifecycle` value when an expression needs that context, for example `loading.bind="loadProduct($lifecycle)"`. It contains `kind`, immutable `from`, `to`, and `changes` snapshots, the route, destination params, query and hash, the abort signal, and `previousData`. `kind` is `enter`, `replace`, or `rerun`. The router deliberately does not cache lifecycle results: applications can use `previousData` or their own cache to decide whether a request is needed.
 
 Cancelled and unhandled failed navigations restore lifecycle data to its pre-navigation values. A locally recovered failure may leave the failed route context's last fulfilled lifecycle result available through `previousData`; local recovery does not currently clear that route state.
+
+### Transitioning a matched route
+
+```html
+<au-route
+  path="products/:id"
+  transition-on="params query"
+  transition-plan="rerun"
+  can-load.bind="transition => canOpenProduct(transition)"
+  loading.bind="loadProduct($lifecycle)"
+  loaded.bind="productReady($lifecycle)">
+  ...
+</au-route>
+```
+
+When the same route declaration remains active, `transition-on` selects the URL inputs that start a transition. It accepts `params`, `query`, `hash`, `all`, or `none`. The `params`, `query`, and `hash` inputs may be combined with spaces or commas; `all` and `none` are standalone values. Parameters are selected by default; query and hash changes are opt-in.
+
+`transition-plan` chooses the behavior and defaults to `rerun`:
+
+- `rerun` preserves the route context, component, controller, view, and DOM nodes while running `canLoad`, `loading`, and `loaded` again;
+- `replace` runs `canUnload` on the current view, prepares the candidate through `canLoad` and `loading`, swaps in a fresh routed view and child branch, and then runs `loaded`;
+- `none` updates reactive route values without rerunning lifecycle callbacks or replacing the view.
+
+Every selected transition reuses the normal lifecycle callbacks. They receive one `RouteLifecycleContext`: `kind` distinguishes `enter`, `replace`, and `rerun`; `from` and `to` describe the snapshots; and `changes` lists every actual params, query, and hash difference, not only the inputs that intersected `transition-on`. Fulfilled values continue to use `$route.data.loading` and `$route.data.loaded`, so an application can share one loading function across entry and later parameter changes.
+
+Replacement `canUnload` guards run deepest-first. Every affected guard on an already-declared route then approves before any selected route begins loading or changes its rendered tree. Descendants created inside a fresh replacement run their normal entry guards as that candidate activates; denial or failure still restores the prior URL, route values, view identity, and lifecycle data.
+
+`route.reload()` forces the configured plan at the current location, preserves query and hash state, replaces the current history entry, and reports `reload` in `changes`. `route.reload({ plan: 'rerun' })` or `route.reload({ plan: 'replace' })` overrides the configured plan for that attempt. `load(path, { reload: true })` provides the coordinator-level equivalent.
 
 ### Guards and transactions
 
@@ -210,15 +241,21 @@ Cancelled and unhandled failed navigations restore lifecycle data to its pre-nav
 </au-route>
 ```
 
-- `canUnload` runs deepest-first for outgoing routes.
-- `canLoad` runs parent-first for incoming routes.
+- `canUnload` runs deepest-first for outgoing routes and views selected for replacement.
+- `canLoad` runs parent-first for incoming routes and selected matched-route transitions.
 - `false` cancels navigation without changing the URL, history, selected links, or rendered tree.
 - `canLoad` may return a contextual or root-absolute redirect.
 - A newer navigation aborts stale guard and lifecycle work.
 
-The coordinator stages incoming work before mutating the adapter. Successful navigation commits history and route state once; failure preserves the outgoing tree.
+The coordinator stages incoming work before mutating the adapter. Successful navigation commits history and route state once; failure preserves the outgoing tree. A denied Back or Forward traversal across router-managed entries restores the prior history cursor instead of replacing the traversed entry, so the forward/back stack remains intact. Navigation API indexes extend exact compensation to older same-document entries; plain History supports the adjacent pre-router predecessor without overwriting it.
 
 `guard-failure="local"` changes only a `canLoad` denial. It excludes the denied subtree for that transaction and rematches siblings at the immediate parent, allowing a fallback to render at the requested URL. `canUnload` denial remains navigation-wide.
+
+### Observable navigation state
+
+`IRouteCoordinator.navigation`, `subscribeNavigation()`, and route-scoped `$navigation` expose one immutable snapshot. It identifies the attempt, pending destination and href, source, abort signal, current phase, and terminal result. Phases are `guarding`, `loading`, `activating`, `settling`, and `committing`; terminal outcomes are `completed`, `cancelled`, `failed`, and `superseded`.
+
+Navigation state is observation rather than policy. Applications may use it for progress, duplicate-action prevention, accessibility announcements, or telemetry. Existing coordinator path subscriptions remain commit-only.
 
 ### Error recovery
 
@@ -281,9 +318,13 @@ interface IPathAdapter {
   formatHref(path: string): string;
   push(path: string): void;
   replace(path: string): void;
-  subscribe(callback: (path: string) => void): () => void;
+  subscribe(
+    callback: (path: string, navigation?: PathNavigation) => void
+  ): () => void;
 }
 ```
+
+The optional `PathNavigation` transaction distinguishes an uncommitted intercepted-link `intent` from a host-first Back/Forward `traverse`. Its `commit()` accepts the destination and its `rollback()` restores the last accepted host location. Adapters without this metadata retain the callback-only contract, while adapters that report host-first movement own precise rollback.
 
 The built-in browser adapter supports three URL forms:
 
@@ -319,6 +360,8 @@ Routing.customize({ basePath: '/my-app' });
 ```
 
 An explicit `basePath` takes precedence; otherwise a same-origin `<base href>` supplies it. The adapter removes the prefix before matching and restores it for generated hrefs. Hash and query modes target the mounted document, and intercepted links outside the mount are left to the browser.
+
+The browser adapter marks router-managed history entries while preserving other `history.state` fields. It delays intercepted-link pushes until navigation succeeds and uses compensating history traversal when Back or Forward is rejected. The memory adapter uses the same commit/rollback semantics with an in-process stack.
 
 ## Redirects
 

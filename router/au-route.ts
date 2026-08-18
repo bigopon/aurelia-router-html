@@ -18,8 +18,9 @@ import {
 import { IRouteAnimationOptions } from './animation';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
+import type { RouteLifecycleContext, RouteTransitionCause, RouteTransitionPlan, RouteTransitionTrigger, RouteValueSnapshot } from './lifecycle';
 import type { RouteErrorHandler } from './error';
-import { IRouteContext, RouteContext, type SwapOrder } from './route-context';
+import { IRouteContext, RouteContext, type RouteState, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
 import { IRouteViewSettlement } from './settlement';
 
@@ -61,6 +62,8 @@ export class AuRoute implements ICustomElementViewModel {
       node.removeAttribute('loaded.bind');
       data.loadingExpression = loadingExpression;
       data.loadedExpression = loadedExpression;
+      data.transitionOn = parseTransitionOn(node.getAttribute('transition-on'));
+      data.transitionPlan = parseTransitionPlan(node.getAttribute('transition-plan'));
       const title = node.getAttribute('title');
       const shorthandTitleExpression = node.getAttribute(':title');
       if (shorthandTitleExpression != null) {
@@ -130,23 +133,27 @@ export class AuRoute implements ICustomElementViewModel {
   private readonly pathExpression: string | null;
   private readonly loadingExpression: string | null;
   private readonly loadedExpression: string | null;
+  private readonly transitionOn: ReadonlySet<RouteTransitionTrigger>;
+  private readonly transitionPlan: RouteTransitionPlan;
   private loadingAst: IsBindingBehavior | null = null;
   private loadedAst: IsBindingBehavior | null = null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
   private readonly unsubscribe: () => void;
+  private readonly unsubscribeNavigation: () => void;
   private viewActive: boolean = false;
   private requestedViewActive: boolean = false;
   private viewTransition: Promise<void> | null = null;
   private animationRunId: number = 0;
   private lastRedirectKey: string | null = null;
+  private previousState: RouteState | null = null;
 
   public constructor() {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null }>;
-    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null; transitionOn: ReadonlySet<RouteTransitionTrigger>; transitionPlan: RouteTransitionPlan }>;
+    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title, transitionOn, transitionPlan } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -163,6 +170,8 @@ export class AuRoute implements ICustomElementViewModel {
     this.pathExpression = pathExpression;
     this.loadingExpression = loadingExpression;
     this.loadedExpression = loadedExpression;
+    this.transitionOn = transitionOn;
+    this.transitionPlan = transitionPlan;
     this.redirectTo = redirectTo;
     this.redirectMode = redirectMode;
     this.isRedirect = isRedirect;
@@ -172,8 +181,11 @@ export class AuRoute implements ICustomElementViewModel {
     this.overrideContext.$query = this.context.$query;
     this.overrideContext.$hash = this.context.$hash;
     this.overrideContext.$route = this.context;
+    this.overrideContext.$navigation = this.coordinator.navigation;
     this.isActive = this.context.active;
     this.unsubscribe = this.context.subscribe(state => {
+      const previous = this.previousState;
+      this.previousState = state;
       const wasActive = this.isActive;
       this.isActive = state.active;
       if (state.active && !wasActive) {
@@ -182,7 +194,13 @@ export class AuRoute implements ICustomElementViewModel {
       this.overrideContext.$params = state.params;
       this.overrideContext.$query = state.query;
       this.overrideContext.$hash = state.hash;
+      if (previous != null && wasActive && state.active) {
+        this.tryRetainedTransition(previous, state);
+      }
       this.tryRedirect();
+    });
+    this.unsubscribeNavigation = this.coordinator.subscribeNavigation(state => {
+      this.overrideContext.$navigation = state;
     });
     childContainer.register(Registration.instance(IRouteContext, this.context));
   }
@@ -250,7 +268,13 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   private updateGuards(): void {
-    (this.context as RouteContext)._setGuards(this.canLoad, this.canUnload);
+    const context = this.context as RouteContext;
+    context._setGuards(this.canLoad, this.canUnload);
+    context._setTransitionPolicy(
+      this.transitionOn,
+      this.transitionPlan,
+      this.loadingExpression != null || this.loadedExpression != null,
+    );
   }
 
   private updateErrorHandler(): void {
@@ -298,6 +322,7 @@ export class AuRoute implements ICustomElementViewModel {
 
   public dispose(): void {
     this.unsubscribe();
+    this.unsubscribeNavigation();
     this.context.dispose();
     this.titleService.requestUpdate();
   }
@@ -359,14 +384,17 @@ export class AuRoute implements ICustomElementViewModel {
     if (this.viewActive || this.scope == null) {
       return;
     }
+    if (this.coordinator._isRollingBack) {
+      return this.activateRestoredView();
+    }
 
-    const loading = this.loadingAst;
-    return this.coordinator._runRouteActivation(this.context as RouteContext, this.canLoad, () => onResolve(
-      this.invokeLifecycle('loading', loading),
-      value => {
-        if (loading != null) {
-          (this.context as RouteContext)._setData('loading', value);
-        }
+    const context = this.context as RouteContext;
+    const lifecycle = this.coordinator._createLifecycleContext(context, 'enter');
+    const finishSettlementOnAbort = this.coordinator._isReplacementDescendantActivation(context);
+    let viewSettlement: Promise<void> | null = null;
+    const routed = this.coordinator._runRouteActivation(context, this.canLoad, lifecycle, () => onResolve(
+      this.runLoading(lifecycle),
+      () => {
         if (!this.requestedViewActive || this.scope == null) {
           return;
         }
@@ -376,51 +404,285 @@ export class AuRoute implements ICustomElementViewModel {
         const view = this.view;
         this.viewActive = true;
         this.settlement.begin();
+        let settling = true;
+        const finishSettlement = (): void => {
+          if (!settling) {
+            return;
+          }
+          settling = false;
+          lifecycle.signal.removeEventListener('abort', finishSettlement);
+          this.endViewActivation();
+        };
+        if (finishSettlementOnAbort) {
+          if (lifecycle.signal.aborted) {
+            finishSettlement();
+          } else {
+            lifecycle.signal.addEventListener('abort', finishSettlement, { once: true });
+          }
+        }
         let activation: void | Promise<void>;
         try {
           activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, scope));
         } catch (error) {
-          this.endViewActivation();
-          throw error;
+          return this.failViewActivation(error, finishSettlement);
         }
 
-        const loaded = this.loadedAst;
-        const ready = onResolve(activation, () => onResolve(
-          this.invokeLifecycle('loaded', loaded),
-          value => {
-            if (loaded != null) {
-              (this.context as RouteContext)._setData('loaded', value);
-            }
-          },
-        ));
+        let ready: unknown | Promise<unknown>;
+        try {
+          ready = onResolve(activation, () => {
+            this.coordinator._assertNavigationSignal(lifecycle.signal);
+            return this.runLoaded(lifecycle);
+          });
+        } catch (error) {
+          return this.failViewActivation(error, finishSettlement);
+        }
         if (isPromise(ready)) {
-          return ready.then(
+          const settled = ready.then(
             () => {
-              this.endViewActivation();
+              this.coordinator._assertNavigationSignal(lifecycle.signal);
+              finishSettlement();
               return this.coordinator._runEnterAnimation(() => this.animate('enter'));
             },
-            error => {
-              this.endViewActivation();
-              throw error;
-            },
+            error => this.failViewActivation(error, finishSettlement),
           );
+          viewSettlement = settled.then(() => {}, () => {});
+          return settled;
         }
-        this.endViewActivation();
+        finishSettlement();
         return this.coordinator._runEnterAnimation(() => this.animate('enter'));
       },
     ));
+    if (!isPromise(routed)) {
+      return;
+    }
+    return routed.catch(error => {
+      const pendingView = viewSettlement;
+      if (pendingView == null) {
+        throw error;
+      }
+      return pendingView.then(() => {
+        throw error;
+      });
+    });
   }
 
-  private invokeLifecycle(phase: 'loading' | 'loaded', expression: IsBindingBehavior | null): unknown | Promise<unknown> {
+  private activateRestoredView(): void | Promise<void> {
+    const scope = this.scope!;
+    this.view ??= this.getView();
+    const view = this.view;
+    this.viewActive = true;
+    this.settlement.begin();
+    let activation: void | Promise<void>;
+    try {
+      activation = view.activate(view, this.$controller, scope);
+    } catch (error) {
+      return this.failViewActivation(error);
+    }
+    if (isPromise(activation)) {
+      return activation.then(
+        () => this.endViewActivation(),
+        error => this.failViewActivation(error),
+      );
+    }
+    this.endViewActivation();
+  }
+
+  private invokeLifecycle(
+    phase: 'loading' | 'loaded',
+    expression: IsBindingBehavior | null,
+    lifecycle: RouteLifecycleContext,
+  ): unknown | Promise<unknown> {
     if (expression == null || this.lifecycleScope == null) {
       return;
     }
-    const context = this.coordinator._createLifecycleContext(this.context as RouteContext);
-    this.lifecycleOverrideContext.$lifecycle = context;
+    this.lifecycleOverrideContext.$lifecycle = lifecycle;
     try {
       return this.coordinator._runRoutePhase(phase, () => astEvaluate(expression, this.lifecycleScope!, null, null));
     } finally {
       this.lifecycleOverrideContext.$lifecycle = undefined;
+    }
+  }
+
+  private runLoading(lifecycle: RouteLifecycleContext): void | Promise<void> {
+    const expression = this.loadingAst;
+    return onResolve(this.invokeLifecycle('loading', expression, lifecycle), value => {
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      if (expression != null) {
+        (this.context as RouteContext)._setData('loading', value);
+      }
+    });
+  }
+
+  private runLoaded(lifecycle: RouteLifecycleContext): void | Promise<void> {
+    const expression = this.loadedAst;
+    return onResolve(this.invokeLifecycle('loaded', expression, lifecycle), value => {
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      if (expression != null) {
+        (this.context as RouteContext)._setData('loaded', value);
+      }
+    });
+  }
+
+  private async runReplace(lifecycle: RouteLifecycleContext): Promise<void> {
+    await this.runLoading(lifecycle);
+    this.coordinator._assertNavigationSignal(lifecycle.signal);
+    if (!this.viewActive || this.view == null || this.scope == null) {
+      return;
+    }
+
+    const previousView = this.view;
+    const scope = this.scope;
+    let candidateView: ISyntheticView | null = null;
+    let candidateSettling = false;
+    let previousDeactivation: Promise<void> | null = null;
+    let rolledBack = false;
+    let committed = false;
+    let rollbackPromise: Promise<void> | null = null;
+    const finishCandidateSettlement = (): void => {
+      if (!candidateSettling) {
+        return;
+      }
+      candidateSettling = false;
+      this.endViewActivation();
+    };
+    const commit = (): void => {
+      if (committed || rolledBack) {
+        return;
+      }
+      committed = true;
+      previousView.dispose();
+    };
+    const rollback = (): void | Promise<void> => {
+      if (committed || rolledBack) {
+        return rollbackPromise ?? undefined;
+      }
+      rolledBack = true;
+      rollbackPromise = (async () => {
+        if (!lifecycle.signal.aborted) {
+          await previousDeactivation?.catch(() => {});
+        }
+        finishCandidateSettlement();
+        await this.restoreReplacedView(previousView, candidateView, scope, lifecycle.signal.aborted);
+      })();
+      return rollbackPromise;
+    };
+    const registered = this.coordinator._registerViewTransaction(commit, rollback);
+    try {
+      await this.animate('leave');
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      this.viewActive = false;
+      let finishPreviousDeactivation!: () => void;
+      previousDeactivation = new Promise<void>(resolve => { finishPreviousDeactivation = resolve; });
+      try {
+        await previousView.deactivate(previousView, this.$controller);
+      } finally {
+        finishPreviousDeactivation();
+      }
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+
+      candidateView = this.getView();
+      this.view = candidateView;
+      this.viewActive = true;
+      this.settlement.begin();
+      candidateSettling = true;
+      await this.coordinator._runRoutePhase('activation', () => candidateView!.activate(candidateView!, this.$controller, scope));
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      await this.runLoaded(lifecycle);
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      finishCandidateSettlement();
+
+      if (!registered) {
+        commit();
+      }
+      this.coordinator._runEnterAnimation(() => this.animate('enter'));
+    } catch (error) {
+      finishCandidateSettlement();
+      try {
+        await this.coordinator._runViewRollback(rollback);
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], 'Route replacement and view rollback both failed.');
+      }
+      throw error;
+    }
+  }
+
+  private async restoreReplacedView(
+    previousView: ISyntheticView,
+    candidateView: ISyntheticView | null,
+    scope: Scope,
+    cancelling: boolean,
+  ): Promise<void> {
+    if (candidateView == null && this.view === previousView && this.viewActive) {
+      this.titleService.requestUpdate();
+      return;
+    }
+    if (candidateView != null) {
+      let deactivation: void | Promise<void>;
+      if (this.view === candidateView && this.viewActive) {
+        this.viewActive = false;
+        deactivation = candidateView.deactivate(candidateView, this.$controller);
+      }
+      const disposeCandidate = (): void => candidateView.dispose();
+      if (isPromise(deactivation!)) {
+        if (cancelling) {
+          void deactivation.then(disposeCandidate, disposeCandidate);
+        } else {
+          await deactivation;
+          disposeCandidate();
+        }
+      } else {
+        disposeCandidate();
+      }
+    }
+    this.clearViewLocation();
+    this.view = previousView;
+    if (this.requestedViewActive && this.scope != null) {
+      await previousView.activate(previousView, this.$controller, scope);
+      this.viewActive = true;
+    }
+    this.titleService.requestUpdate();
+  }
+
+  private tryRetainedTransition(previous: RouteState, next: RouteState): void {
+    if (this.coordinator._isRollingBack || this.scope == null || !this.viewActive || this.isRedirect) {
+      return;
+    }
+
+    const changes: RouteTransitionCause[] = [];
+    if (!paramsEqual(previous.params, next.params)) {
+      changes.push('params');
+    }
+    if (previous.query.toString() !== next.query.toString()) {
+      changes.push('query');
+    }
+    if (previous.hash !== next.hash) {
+      changes.push('hash');
+    }
+    const reload = this.coordinator._isReloadNavigation();
+    if (reload) {
+      changes.push('reload');
+    }
+    const plan = this.coordinator._getTransitionPlan(this.transitionPlan);
+    const triggered = reload || changes.some(change => change !== 'reload' && this.transitionOn.has(change));
+    if (
+      plan === 'none'
+      || !triggered
+      || plan === 'rerun' && this.canLoad == null && this.loadingAst == null && this.loadedAst == null
+    ) {
+      return;
+    }
+
+    const result = this.coordinator._runRetainedTransition(
+      this.context as RouteContext,
+      this.canLoad,
+      toValueSnapshot(previous),
+      changes,
+      plan,
+      lifecycle => plan === 'replace' ? this.runReplace(lifecycle) : this.runLoading(lifecycle),
+      plan === 'rerun' ? lifecycle => this.runLoaded(lifecycle) : null,
+    );
+    if (isPromise(result)) {
+      void result.catch(() => {});
     }
   }
 
@@ -446,6 +708,30 @@ export class AuRoute implements ICustomElementViewModel {
   private endViewActivation(): void {
     this.settlement.end();
     this.titleService.requestUpdate();
+  }
+
+  private failViewActivation(error: unknown, finishSettlement: () => void = () => this.endViewActivation()): never | Promise<never> {
+    let cleanup: void | Promise<void>;
+    try {
+      cleanup = this.deactivateView();
+    } catch (cleanupError) {
+      finishSettlement();
+      throw new AggregateError([error, cleanupError], 'Route view activation and cleanup both failed.');
+    }
+    if (isPromise(cleanup)) {
+      return cleanup.then(
+        () => {
+          finishSettlement();
+          throw error;
+        },
+        cleanupError => {
+          finishSettlement();
+          throw new AggregateError([error, cleanupError], 'Route view activation and cleanup both failed.');
+        },
+      );
+    }
+    finishSettlement();
+    throw error;
   }
 
   private clearViewLocation(): void {
@@ -566,5 +852,58 @@ function parseTimeList(value: string): number[] {
       return (Number.parseFloat(trimmed.slice(0, -1)) || 0) * 1000;
     }
     return 0;
+  });
+}
+
+function parseTransitionOn(value: string | null): ReadonlySet<RouteTransitionTrigger> {
+  const inputs = value == null || value.trim() === ''
+    ? ['params']
+    : value.trim().toLowerCase().split(/[\s,]+/);
+  for (const input of inputs) {
+    if (input !== 'params' && input !== 'query' && input !== 'hash' && input !== 'all' && input !== 'none') {
+      throw new Error(`Invalid au-route transition-on value "${input}". Expected "params", "query", "hash", "all", or "none".`);
+    }
+  }
+  if (inputs.length > 1 && (inputs.includes('all') || inputs.includes('none'))) {
+    throw new Error(`Invalid au-route transition-on value "${value}". "all" and "none" must be used alone.`);
+  }
+  const normalized: readonly RouteTransitionTrigger[] = inputs[0] === 'all'
+    ? ['params', 'query', 'hash']
+    : inputs[0] === 'none' ? [] : inputs as RouteTransitionTrigger[];
+  const result = new Set<RouteTransitionTrigger>();
+  for (const input of normalized) {
+    result.add(input);
+  }
+  return result;
+}
+
+function parseTransitionPlan(value: string | null): RouteTransitionPlan {
+  const plan = value == null || value.trim() === ''
+    ? 'rerun'
+    : value.trim().toLowerCase();
+  if (plan !== 'replace' && plan !== 'rerun' && plan !== 'none') {
+    throw new Error(`Invalid au-route transition-plan value "${plan}". Expected "replace", "rerun", or "none".`);
+  }
+  return plan;
+}
+
+function paramsEqual(
+  left: Readonly<Record<string, string>>,
+  right: Readonly<Record<string, string>>,
+): boolean {
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) {
+    return false;
+  }
+  return keys.every(key => left[key] === right[key]);
+}
+
+function toValueSnapshot(state: RouteState): RouteValueSnapshot {
+  return Object.freeze({
+    path: state.path,
+    residue: state.residue,
+    params: state.params,
+    query: state.query,
+    hash: state.hash,
   });
 }

@@ -306,7 +306,18 @@ test.describe.serial('html-router example app', () => {
     await expect(page).toHaveURL(/\/guard\/editor$/);
     await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
 
+    await page.goBack();
+    await expect(page).toHaveURL(/\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
     await page.locator('[data-e2e="toggle-guard-leave"]').click();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/guard\/private$/);
+    await expect(page.locator('[data-e2e="guard-private"]')).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
     await page.getByRole('link', { name: 'Guard admin' }).click();
     await expect(page).toHaveURL(/\/guard\/login$/);
     await expect(page.locator('[data-e2e="guard-login"]')).toBeVisible();
@@ -318,6 +329,27 @@ test.describe.serial('html-router example app', () => {
     await expect(page.locator('[data-e2e="guard-local"]')).toHaveCount(0);
     await expect(page.locator('[data-e2e="guard-local-fallback"]')).toBeVisible();
     await expect(page.locator('[data-e2e="guard-status"]')).toHaveText('Local route denied; guard parent committed');
+  });
+
+  test('A8 denied Back preserves the unmarked entry from before router startup', async ({ page }) => {
+    await page.addInitScript(() => {
+      history.replaceState({ source: 'before-router' }, '', '/guard/home');
+      history.pushState({ source: 'router-start' }, '', '/guard/editor');
+    });
+    await page.goto('/guard/editor');
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+
+    await page.locator('[data-e2e="toggle-guard-leave"]').click();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/guard\/editor$/);
+    await expect(page.locator('[data-e2e="guard-editor"]')).toBeVisible();
+    expect(await page.evaluate(() => history.state.source)).toBe('router-start');
+
+    await page.locator('[data-e2e="toggle-guard-leave"]').click();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/guard\/home$/);
+    await expect(page.locator('[data-e2e="guard-home"]')).toBeVisible();
+    expect(await page.evaluate(() => history.state.source)).toBe('before-router');
   });
 
   test('E1 browser navigation commits local error recovery and supports retry and history traversal', async ({ page }) => {

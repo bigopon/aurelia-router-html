@@ -1,8 +1,8 @@
 <section class="route-stack">
   <header class="page-header">
     <div>
-      <h2>Loading &amp; Loaded</h2>
-      <p class="page-copy">Prepare a route before its template appears, then respond when its complete nested branch is ready.</p>
+      <h2>Route Lifecycle</h2>
+      <p class="page-copy">Use one lifecycle for route entry, fresh-view replacement, and in-place reruns.</p>
     </div>
   </header>
 
@@ -11,18 +11,37 @@
       <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route
   path="products/:id"
+  transition-on="params query"
+  transition-plan="rerun"
+  can-load.bind="transition =&gt; canOpenProduct(transition)"
   loading.bind="loadProduct($lifecycle)"
-  loaded.bind="productIsReady()"&gt;
+  loaded.bind="productIsReady($lifecycle)"&gt;
   &lt;h1&gt;${$route.data.loading.name}&lt;/h1&gt;
 &lt;/au-route&gt;</pre>
-      <p>The router evaluates each Aurelia expression once at its lifecycle phase, in the route's live binding scope. Use <code>$lifecycle</code> when the expression needs route state, prior data, or the abort signal.</p>
+      <p>The router evaluates each Aurelia expression at its lifecycle phase in the route's live binding scope. The same bindings serve initial entry and any matched-route transition selected by the declaration.</p>
     </section>
 
     <section>
       <h3>Meaning</h3>
-      <p><code>loading</code> runs before the route template activates and waits for a returned promise. <code>loaded</code> runs after the template and its asynchronous Aurelia activation lifecycle are ready.</p>
+      <p><code>can-load</code> approves, cancels, or redirects. <code>loading</code> prepares the route and waits for a returned promise. <code>loaded</code> runs after entry or replacement activation, or after the retained nested branch finishes its rerun.</p>
       <p>Nested branches load from parent to child and report loaded from child to parent. This lets a parent prepare shared data first while its loaded callback observes a complete child branch.</p>
       <p>The fulfilled return values are available as <code>$route.data.loading</code> and <code>$route.data.loaded</code>. The router does not cache them: applications decide whether to reuse <code>context.previousData</code>, a service cache, or a fresh request.</p>
+    </section>
+
+    <section>
+      <h3>Choose what happens when the route stays matched</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="products/:id"
+  transition-on="params query"
+  transition-plan="rerun"
+  can-load.bind="transition =&gt; canOpenProduct(transition)"
+  loading.bind="loadProduct($lifecycle)"
+  loaded.bind="productIsReady($lifecycle)"&gt;
+  &lt;product-detail product.bind="$route.data.loading"&gt;&lt;/product-detail&gt;
+&lt;/au-route&gt;</pre>
+      <p><code>transition-on</code> accepts <code>params</code>, <code>query</code>, <code>hash</code>, <code>all</code>, or <code>none</code>. Combine params, query, and hash with spaces or commas; use <code>all</code> and <code>none</code> only as standalone values. It defaults to <code>params</code>.</p>
+      <p><code>transition-plan="rerun"</code> is the default. It preserves the component, controller, view, and DOM nodes while running <code>can-load</code>, <code>loading</code>, and <code>loaded</code> again. <code>replace</code> runs <code>can-unload</code>, prepares the candidate through the normal load lifecycle, and swaps in a fresh view. <code>none</code> only updates the reactive route values.</p>
+      <p>Every affected guard on an already-declared route approves before selected transitions begin loading or change the rendered tree. Descendants created inside a fresh replacement run their normal entry guards as the candidate activates; denial or failure still rolls back the complete replacement. Call <code>$route.reload()</code> to force the configured plan at the current location, or <code>$route.reload({ plan: 'replace' })</code> to override it once.</p>
     </section>
 
     <section>
@@ -32,17 +51,17 @@
     return this.products.get(context.params.id, context.signal);
   }
 
-  public productIsReady() {
-    return this.analytics.pageReady('product');
+  public productIsReady(context: RouteLifecycleContext) {
+    return this.analytics.pageReady(context.kind, context.to);
   }
 }</pre>
-      <p>The lifecycle context includes the route, params, query, hash, abort signal, and prior lifecycle results. Return any value or promise; activation still waits only for promises.</p>
+      <p>The lifecycle context has <code>kind: 'enter' | 'replace' | 'rerun'</code>, immutable <code>from</code>, <code>to</code>, and <code>changes</code> values, destination params, query and hash, the route, abort signal, and prior lifecycle results. <code>from</code> is <code>null</code> on entry. <code>changes</code> lists every actual URL-state difference, not only the input that triggered the plan. Return any value or promise; activation waits only for promises.</p>
     </section>
 
     <section>
-      <h3>Loading errors today</h3>
-      <p>A thrown error or rejected loading promise prevents that route view from activating, and its <code>loaded</code> callback does not run. Handle expected data failures inside the callback when the page should present a recoverable error state.</p>
-      <p>The navigation transaction keeps the outgoing URL and view available while loading is pending. A rejected loading callback discards the incoming branch, restores route state, and rejects programmatic navigation with the original error.</p>
+      <h3>Lifecycle errors</h3>
+      <p>A thrown or rejected <code>can-load</code> or <code>loading</code> callback stops the pass before <code>loaded</code>. It prevents entry or replacement activation, and aborts an in-place rerun before its completion callback. A <code>loaded</code> failure happens later, after the view has activated or rerun loading has completed, but still fails the navigation. Handle expected data failures inside the callback when the page should present a recoverable error state.</p>
+      <p>The navigation transaction keeps the outgoing URL and view available while loading is pending. A failed rerun keeps the existing view and DOM mounted while restoring the prior route values and lifecycle data. A failed replacement removes its candidate view and reactivates the prior view. Unless an error boundary recovers or redirects, programmatic navigation rejects with the original error.</p>
       <p>Cancelled and unhandled failed navigations restore <code>$route.data</code> to its pre-navigation values. When an error boundary locally recovers by replacing a failed subtree with a sibling fallback, that failed route context may retain its last fulfilled lifecycle result. This is route state for <code>previousData</code>, not router-managed caching; applications must not rely on local recovery to clear it.</p>
     </section>
   </div>

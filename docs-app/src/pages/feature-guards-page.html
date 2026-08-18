@@ -10,8 +10,10 @@
     <section>
       <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route
-  path="account"
-  can-load.bind="() =&gt; canOpenAccount()"
+  path="account/:id"
+  transition-on="params"
+  transition-plan="rerun"
+  can-load.bind="transition =&gt; canOpenAccount(transition)"
   can-unload.bind="() =&gt; canLeaveAccount()"&gt;
   &lt;h1&gt;Account&lt;/h1&gt;
 &lt;/au-route&gt;</pre>
@@ -20,13 +22,14 @@
 
     <section>
       <h3>Meaning</h3>
-      <p><code>can-load</code> approves, cancels, or redirects entry into its route. <code>can-unload</code> approves or cancels leaving an active route.</p>
+      <p><code>can-load</code> approves, cancels, or redirects entry and selected matched-route transitions. <code>can-unload</code> approves or cancels leaving an active route, including a <code>replace</code> transition that recreates its view.</p>
       <p>Outgoing guards run from the deepest active child upward. Incoming routes are discovered progressively: each route runs <code>can-load</code>, then <code>loading</code>, before its template reveals the next child. Loaded notification returns from child to parent.</p>
+      <p>For matched routes, replacement <code>can-unload</code> guards run deepest-first, then every affected guard on an already-declared route approves before selected routes begin loading or change their views. Descendants created inside a fresh replacement run their entry guards during candidate activation, and any denial still rolls back the replacement. <code>can-load</code> receives the same lifecycle context as loading, including <code>kind</code>, immutable <code>from</code>, <code>to</code>, and <code>changes</code> values, and the abort signal.</p>
     </section>
 
     <section>
       <h3>Apply it</h3>
-      <pre class="code-block" syntax-typescript>public canOpenAccount(): boolean | string {
+      <pre class="code-block" syntax-typescript>public canOpenAccount(_transition: RouteLifecycleContext): boolean | string {
   return this.session.isSignedIn
     ? true
     : '/sign-in';
@@ -42,6 +45,7 @@ public canLeaveAccount(): boolean {
     <section>
       <h3>Atomic navigation</h3>
       <p>The outgoing branch remains mounted and browser history remains unchanged while asynchronous guards and loading work are pending. Cancellation restores the outgoing route state; loading errors reject programmatic navigation with their original error.</p>
+      <p>Back and Forward move the browser first. If a guard denies that traversal, the adapter restores the prior history cursor without replacing either entry, preserving the complete forward/back stack.</p>
       <p>The transition argument exposes an <code>AbortSignal</code> for application work that should stop when a newer navigation supersedes the current attempt.</p>
     </section>
 

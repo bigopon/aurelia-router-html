@@ -39,7 +39,15 @@
   formatHref(path: string): string;
   push(path: string): void;
   replace(path: string): void;
-  subscribe(callback: (path: string) =&gt; void): () =&gt; void;
+  subscribe(
+    callback: (path: string, navigation?: PathNavigation) =&gt; void
+  ): () =&gt; void;
+}
+
+interface PathNavigation {
+  readonly kind: 'intent' | 'traverse';
+  commit(path?: string, options?: { replace?: boolean }): void | Promise&lt;void&gt;;
+  rollback(): void | Promise&lt;void&gt;;
 }</pre>
       <div class="option-table-wrap">
         <table class="option-table">
@@ -51,11 +59,12 @@
             <tr><td><code>formatHref()</code></td><td>Convert an internal route into the href format exposed by <code>au-link</code>.</td></tr>
             <tr><td><code>push()</code></td><td>Store a new location requested through <code>au-link</code> or <code>$route.load()</code>. Do not notify the subscription again; the route tree already applies that navigation.</td></tr>
             <tr><td><code>replace()</code></td><td>Replace the current stored location without creating another history entry.</td></tr>
-            <tr><td><code>subscribe()</code></td><td>Report navigation initiated outside the route context, such as browser Back, Forward, plain intercepted anchors, or native-host messages.</td></tr>
+            <tr><td><code>subscribe()</code></td><td>Report navigation initiated outside the route context, optionally with a transaction that the coordinator can commit or roll back.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>The coordinator subscribes during <code>start()</code>, unsubscribes during <code>stop()</code>, and creates a fresh subscription after restart. Adapter teardown must therefore be safe to call once per subscription.</p>
+      <p>An <code>intent</code> is an intercepted link whose host location has not changed. A <code>traverse</code> is Back/Forward movement whose host cursor changed first. <code>commit()</code> accepts the final destination; <code>rollback()</code> abandons the intent or restores the last accepted traversal entry.</p>
+      <p>The coordinator subscribes during <code>start()</code>, unsubscribes during <code>stop()</code>, and creates a fresh subscription after restart. Adapter teardown must therefore be safe to call once per subscription. The optional transaction keeps existing callback-only custom adapters source-compatible; adapters that report host-first movement should provide it for precise rollback.</p>
     </section>
 
     <section>
@@ -117,12 +126,12 @@ Aurelia.register(
 adapter.back();    // restores the previous route
 adapter.forward(); // restores the next route
 adapter.go(-2);    // moves through memory history</pre>
-      <p><code>au-link</code> asks its local route context to resolve and load the target, so application code does not need the coordinator. The coordinator stores the resolved location through <code>push()</code> or <code>replace()</code>. Adapter <code>back()</code>, <code>forward()</code>, and <code>go()</code> represent history movement originating from the host and notify the route tree.</p>
+      <p><code>au-link</code> asks its local route context to resolve and load the target, so application code does not need the coordinator. The coordinator stores the resolved location through <code>push()</code> or <code>replace()</code>. Adapter <code>back()</code>, <code>forward()</code>, and <code>go()</code> represent history movement originating from the host; denial restores the last accepted cursor and leaves the forward/back stack intact.</p>
     </section>
 
     <section>
       <h3>Decide whether to intercept plain links</h3>
-      <p><code>interceptLinks</code> belongs to the default browser adapter. It upgrades eligible plain anchors into client-side navigation; it is not a switch for Router HTML navigation as a whole.</p>
+      <p><code>interceptLinks</code> belongs to the default browser adapter. It upgrades eligible plain anchors into client-side navigation; it is not a switch for Router HTML navigation as a whole. The click is prevented immediately, but the browser URL and history remain unchanged until the route transaction succeeds.</p>
       <div class="option-table-wrap" data-e2e="intercept-links-guide">
         <table class="option-table">
           <thead>

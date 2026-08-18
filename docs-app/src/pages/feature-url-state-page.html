@@ -21,6 +21,7 @@
     <section>
       <h3>Meaning</h3>
       <p>The pathname selects the route tree. Query values and the hash are exposed as <code>$query</code> and <code>$hash</code> without changing which route matches. The same values are available from <code>$route.$query</code> and <code>$route.$hash</code>.</p>
+      <p>These values always stay reactive. A matched route starts its configured <code>transition-plan</code> for them only when <code>transition-on</code> includes <code>query</code> or <code>hash</code>; parameter changes are selected by default. Use <code>transition-plan="none"</code> when reactive values alone are sufficient.</p>
     </section>
     <section>
       <h3>Apply it</h3>

@@ -69,10 +69,13 @@
 - [x] `A4` Link targets distinguish context-relative `product` and `./product` from root-absolute `/product`.
 - [x] `A4` Concrete `au-link` targets resolve parameter, prefix-residue, terminal, and fallback route patterns.
 - [x] `A4` `au-link` generates native hrefs and reactively owns its active class and exact `aria-current` state.
+- [x] `A4` A link matching the pending destination owns its configurable pending class and `aria-busy` state until navigation settles.
 - [x] `A4` Explicit `au-link` clicks load through their local route context with browser, memory, or custom adapters.
 - [x] `A4` Programmatic navigation resolves relative, absolute, parameterized, query, hash, and replacement targets through `IRouteContext.load()`.
 - [x] `A5` `IPathAdapter` can be supplied as an instance, a registered DI key, a pre-registered interface implementation, or an adapter factory.
 - [x] `A5` `MemoryPathAdapter` normalizes complete route locations and supports push, replace, Back, Forward, and external navigation notifications without browser globals.
+- [x] `A5` Adapter navigation transactions delay intercepted-link commits, restore denied traversal cursors, preserve forward history, and settle redirects at their final destination.
+- [x] `A5` Rapid traversal supersession gives the newest Back/Forward event exclusive settlement ownership relative to the last accepted cursor.
 - [x] `A5` Custom adapter configuration does not resolve `IWindow`.
 - [x] `A5` Coordinator stop is idempotent and restart resubscribes before applying the adapter's current location.
 - [x] `A6` Redirects support static, relative, root-absolute, parameterized, nested-index, and fallback targets without rendering redirect content.
@@ -96,12 +99,20 @@
 - [x] `A8` `loading.bind` waits before route activation and `loaded.bind` waits after nested asynchronous activation while retaining the application binding context.
 - [x] `A8` Nested route loading runs parent-first and loaded notification runs children-first.
 - [x] `A8` Three-level nested routes preserve parent-first loading and child-first loaded ordering, including an asynchronous grandchild that delays ancestor loaded callbacks.
+- [x] `A8` A matched route defaults to `transition-on="params"` and `transition-plan="rerun"`, rerunning `can-load`, `loading`, and `loaded` without replacing its component, controller, view, or DOM nodes.
+- [x] `A8` `transition-on` selects params, query, hash, standalone all or none, or combined params/query/hash inputs, while `transition-plan` chooses rerun, replace, or reactive-state-only behavior.
+- [x] `A8` Enter, replace, and rerun callbacks receive immutable lifecycle `kind`, `from`, `to`, and `changes` values; `changes` reports every actual URL-state difference while results continue through `$route.data.loading` and `$route.data.loaded`.
+- [x] `A8` Replacement runs current-view `can-unload`, then candidate `can-load` and `loading`, swaps the view, and runs `loaded`; denial or failure restores prior URL, route values, view identity, and lifecycle data.
+- [x] `A8` `route.reload()` follows the configured plan, reports a reload change, and accepts a one-attempt rerun or replace override.
+- [x] `A8` Immutable navigation snapshots publish pending phases and terminal completed, cancelled, failed, or superseded outcomes through the coordinator and `$navigation`.
 - [x] `A9` Per-route `can-load.bind` cancels or redirects entry, while `can-unload.bind` cancels exit in deepest-first order.
 - [x] `A9` A denied `can-load` remains declaration-order independent when its route is the first, middle, or last of three siblings.
 - [x] `A9` `guard-failure="local"` commits accepted ancestors and history, excludes the denied subtree for one transaction, and rematches a sibling fallback.
 - [x] `A9` Local guard failure does not weaken transaction-wide `can-unload` denial, and a later retry reevaluates the locally denied route.
 - [x] `A9` Navigation transactions delay adapter commits, retain the outgoing branch during asynchronous guards, and restore it after cancellation or loading failure.
 - [x] `A9` Guard callbacks receive an abort signal, contextual and root-absolute redirects share route href rules, and link-triggered errors emit `au-route-navigation-error`.
+- [x] `A9` Newer attempts preempt never-settling initial and unload guards, and a stale asynchronous unload cannot continue into later guards.
+- [x] `A9` Redirect adapter-commit rejection rolls back the host location and publishes one failed terminal navigation result.
 - [x] `E1` Route failures identify their source, nearest accepting boundary, recovery parent, transaction signal, and `can-load`, `loading`, activation, or `loaded` phase.
 - [x] `E1` Synchronous and asynchronous `on-error.bind` handlers bubble nearest-first, redirect contextually, or return `{ recover: 'local' }`.
 - [x] `E1` Local error recovery commits accepted parents, URL, history, title, selected fallback, and observable `$route.failure` state.
@@ -115,6 +126,7 @@
 - [x] Query and hash state update independently of pathname matching and remain available through `$query`, `$hash`, and `$route`.
 - [x] Browser URL adapters format pathname, hash-only, and configurable query-key routes.
 - [x] Production pathname, hash-only, and configurable query-key adapters load direct URLs, intercept generated links, and restore routed views through browser Back and Forward.
+- [x] A guarded browser Back denial returns to the committed URL and view, after which allowed Back and Forward still visit the original entries.
 - [x] Browser adapters prepend and strip an explicit base path in pathname, hash, and query modes without exposing the deployment prefix to route matching.
 - [x] A same-origin `<base href>` supplies the default base path; native relative links, `au-link`, deep reloads, and Back/Forward work from a real mounted browser fixture.
 - [x] Absolute same-origin document bases are discovered, cross-origin document bases are ignored, and explicit `basePath` overrides an unrelated document base.

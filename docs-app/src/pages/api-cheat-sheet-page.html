@@ -24,9 +24,11 @@
   path="products/:id"
   exact
   title.bind="product.name"
-  loading.bind="loadProduct()"
-  loaded.bind="productReady()"
-  can-load.bind="() =&gt; canOpenProduct()"
+  transition-on="params query"
+  transition-plan="rerun"
+  loading.bind="loadProduct($lifecycle)"
+  loaded.bind="productReady($lifecycle)"
+  can-load.bind="transition =&gt; canOpenProduct(transition)"
   can-unload.bind="() =&gt; canLeaveProduct()"
   on-error.bind="failure =&gt; recover(failure)"
   guard-failure="local"
@@ -43,8 +45,10 @@
           <tr><td><code>fallback</code></td><td>Participate only when no regular sibling matches.</td></tr>
           <tr><td><code>redirect-to</code></td><td>Redirect without rendering this route. Use <code>redirect-mode="push"</code> to retain the source history entry.</td></tr>
           <tr><td><code>title</code></td><td>Contribute static or bound metadata to the composed document title.</td></tr>
-          <tr><td><code>loading</code> / <code>loaded</code></td><td>Prepare before activation or observe the completed nested branch.</td></tr>
-          <tr><td><code>can-load</code> / <code>can-unload</code></td><td>Approve or cancel navigation. <code>can-load</code> may also redirect.</td></tr>
+          <tr><td><code>loading</code> / <code>loaded</code></td><td>Prepare and observe entry, replacement, or an in-place lifecycle rerun.</td></tr>
+          <tr><td><code>transition-on</code></td><td>Select matched-route transition inputs: <code>params</code> (default), <code>query</code>, <code>hash</code>, standalone <code>all</code> or <code>none</code>, or a combination of params, query, and hash.</td></tr>
+          <tr><td><code>transition-plan</code></td><td>Use <code>rerun</code> (default) to preserve view identity, <code>replace</code> to create a fresh view, or <code>none</code> for reactive state only.</td></tr>
+          <tr><td><code>can-load</code> / <code>can-unload</code></td><td>Approve or cancel entry and selected transitions. <code>can-load</code> may also redirect.</td></tr>
           <tr><td><code>guard-failure</code></td><td>Use <code>navigation</code> for atomic cancellation or <code>local</code> to rematch a sibling fallback.</td></tr>
           <tr><td><code>on-error</code></td><td>Handle loading or activation failures at the nearest route boundary.</td></tr>
           <tr><td><code>swap-order</code></td><td>Attach first, detach first, or swap sibling views in <code>parallel</code>.</td></tr>
@@ -92,7 +96,8 @@
   target: '/products/:id',
   params: { id: product.id },
   options: { exact: true },
-  activeClass: 'selected'
+  activeClass: 'selected',
+  pendingClass: 'is-loading'
 }"&gt;
   Product
 &lt;/a&gt;
@@ -114,7 +119,11 @@ await route.load(target, params, {
   hash: 'comments',
   replace: true
 });
+await route.reload();
+await route.reload({ plan: 'replace' });
 const paths = route.getPaths();</pre>
+    <p><code>reload()</code> forces the route's configured transition plan and reports <code>reload</code> in the lifecycle changes. Pass <code>{ plan: 'rerun' }</code> or <code>{ plan: 'replace' }</code> for a one-attempt override.</p>
+    <p>The pending destination receives its configured <code>pendingClass</code> (default <code>is-pending</code>) and <code>aria-busy="true"</code>.</p>
   </section>
 
   <section class="route-stack" id="route-context">
@@ -127,6 +136,7 @@ const paths = route.getPaths();</pre>
           <tr><td><code>$params</code></td><td>Parameters captured by this route only.</td></tr>
           <tr><td><code>$query</code></td><td>Read-only query values with <code>get</code>, <code>getAll</code>, <code>has</code>, and <code>toString</code>.</td></tr>
           <tr><td><code>$hash</code></td><td>The route fragment without <code>#</code>.</td></tr>
+          <tr><td><code>$navigation</code></td><td>The immutable current navigation snapshot, including phase, destination, href, signal, and terminal result.</td></tr>
           <tr><td><code>$route.parent</code> / <code>root</code> / <code>children</code></td><td>Traverse the declarative route tree.</td></tr>
           <tr><td><code>$route.pattern</code> / <code>fullPath</code></td><td>The local pattern and its composed ancestor pattern.</td></tr>
           <tr><td><code>$route.$path</code> / <code>residue</code></td><td>The path presented to this context and the portion left for children.</td></tr>
@@ -153,14 +163,24 @@ export class ProductPage {
       <table class="option-table">
         <thead><tr><th>Callback</th><th>Supported result</th></tr></thead>
         <tbody>
-          <tr><td><code>loading</code> / <code>loaded</code></td><td>Any value or promise.</td></tr>
-          <tr><td><code>can-load</code></td><td>Approve, return <code>false</code>, or return a contextual/root redirect result.</td></tr>
-          <tr><td><code>can-unload</code></td><td>Approve or return <code>false</code> to keep the current route active.</td></tr>
+          <tr><td><code>loading</code> / <code>loaded</code></td><td>Any value or promise; fulfilled values are stored in <code>$route.data</code> for entry, replacement, and rerun.</td></tr>
+          <tr><td><code>can-load</code></td><td>Approve, return <code>false</code>, or return a contextual/root redirect result for entry, replacement, or rerun.</td></tr>
+          <tr><td><code>can-unload</code></td><td>Approve or return <code>false</code> before leaving a route or replacing its current view.</td></tr>
           <tr><td><code>on-error</code></td><td>Return nothing to bubble, return a redirect, or return <code>{ recover: 'local' }</code>.</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Lifecycle bindings are Aurelia expressions evaluated at their lifecycle phase, for example <code>loading.bind="load()"</code>. Pass <code>$lifecycle</code> when the expression needs lifecycle state.</p>
+    <p>Lifecycle bindings are Aurelia expressions evaluated at their lifecycle phase, for example <code>loading.bind="load($lifecycle)"</code>. The context has <code>kind: 'enter' | 'replace' | 'rerun'</code>, immutable <code>from</code>, <code>to</code>, and <code>changes</code> values, destination URL state, prior lifecycle data, and the navigation abort signal. <code>changes</code> lists all actual params, query, and hash differences, even when only one selected input caused the plan to run.</p>
+    <pre class="code-block" syntax-typescript>const unsubscribe = router.subscribeNavigation(state =&gt; {
+  if (state.pending) {
+    console.log(state.id, state.phase, state.to, state.signal);
+  } else {
+    console.log(state.result?.outcome);
+  }
+});
+
+// 'completed' | 'cancelled' | 'failed' | 'superseded'
+router.navigation.result?.outcome;</pre>
   </section>
 
   <section class="route-stack" id="configuration">
