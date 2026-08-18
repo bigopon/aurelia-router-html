@@ -19,7 +19,7 @@ permissions:
 jobs:
   publish:
     if: inputs.confirm == 'PUBLISH'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: npm-publish
     steps:
       - uses: actions/checkout@v6
@@ -53,7 +53,7 @@ jobs:
 
       - run: npm ci
       - run: npm --prefix docs-app ci
-      - run: npx playwright install --with-deps chromium
+      - run: node ./node_modules/@playwright/test/cli.js install --with-deps chromium
       - run: npm run build
       - run: npm run typecheck
       - run: npm run test:node
