@@ -71,11 +71,17 @@ export class DocsApp {
 
   public readonly nav = docNav;
   public mobileMenuOpen: boolean = false;
+  public scrolled: boolean = false;
   public analyticsConsent: AnalyticsConsent = getAnalyticsConsent();
   private readonly onPrivacyChoices = () => this.showPrivacyChoices();
+  private readonly onScroll = () => {
+    this.scrolled = window.scrollY > 8;
+  };
 
   public constructor() {
     window.addEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    this.onScroll();
     if (this.analyticsConsent === 'accepted') {
       enableAnalytics();
     }
@@ -83,6 +89,7 @@ export class DocsApp {
 
   public unbinding(): void {
     window.removeEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
+    window.removeEventListener('scroll', this.onScroll);
   }
 
   public toggleMobileMenu(): void {

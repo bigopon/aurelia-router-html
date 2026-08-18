@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && npm run build:search",
+    "build:search": "node scripts/render-for-search.mjs && pagefind --site .pagefind-source --output-path dist/pagefind",
     "serve": "vite serve --host 127.0.0.1 --port 9027",
     "build:serve": "npm run build && npm run preview",
     "preview": "vite preview --host 127.0.0.1 --port 9027",
@@ -26,8 +27,11 @@
     "codemirror": "6.0.2"
   },
   "devDependencies": {
+    "@aurelia/platform-browser": "2.0.0-rc.2",
     "@aurelia/vite-plugin": "2.0.0-rc.2",
     "esbuild-wasm": "0.17.8",
+    "jsdom": "30.0.1",
+    "pagefind": "1.5.2",
     "typescript": "5.7.2",
     "vite": "^7.0.2"
   }

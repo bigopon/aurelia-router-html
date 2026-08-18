@@ -264,9 +264,68 @@ button:hover {
 .main-panel {
   grid-column: 2;
   grid-row: 1;
+  position: relative;
   padding: 28px;
   display: grid;
   gap: 22px;
+}
+
+.docs-search {
+  --pagefind-ui-scale: 0.9;
+  --pagefind-ui-primary: var(--brand);
+  --pagefind-ui-text: var(--ink);
+  --pagefind-ui-background: var(--panel-strong);
+  --pagefind-ui-border: var(--line-strong);
+  --pagefind-ui-border-radius: 10px;
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  width: min(360px, 42%);
+  z-index: 5;
+}
+
+.main-panel > .route-stack > .page-header {
+  padding-right: min(390px, 45%);
+}
+
+#pagefind-search .pagefind-ui {
+  position: relative;
+}
+
+#pagefind-search .pagefind-ui__drawer {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  max-height: min(66vh, 620px);
+  overflow-y: auto;
+  padding: 0 18px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+
+#pagefind-search .pagefind-ui:not(:focus-within) .pagefind-ui__drawer {
+  display: none;
+}
+
+#pagefind-search .pagefind-ui__result {
+  padding: 12px 0 16px;
+}
+
+#pagefind-search .pagefind-ui__result-inner {
+  margin-top: 0;
+}
+
+#pagefind-search .pagefind-ui__result-excerpt {
+  margin-top: 0;
+  line-height: 1.45;
+}
+
+#pagefind-search .pagefind-ui__results-area {
+  margin-top: 8px;
 }
 
 .page-header {
@@ -1234,6 +1293,27 @@ button.primary,
     padding: 0;
   }
 
+  .docs-shell::before {
+    position: fixed;
+    z-index: 9;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 64px;
+    content: '';
+    background: linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(255, 250, 242, 0.76));
+    box-shadow: 0 12px 28px rgba(24, 32, 44, 0.08);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-18px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .docs-shell.is-scrolled::before {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .mobile-github-link {
     display: flex;
     position: fixed;
@@ -1257,8 +1337,27 @@ button.primary,
   }
 
   .main-panel {
-    padding: 64px 12px 12px;
+    padding: 8px 12px 12px;
     border-radius: 0;
+  }
+
+  .docs-search {
+    --pagefind-ui-scale: 0.68;
+    position: sticky;
+    top: 8px;
+    right: auto;
+    width: calc(100vw - 128px);
+    margin: 0 auto;
+    z-index: 15;
+  }
+
+  .main-panel > .route-stack > .page-header {
+    padding-right: 0;
+  }
+
+  #pagefind-search .pagefind-ui__drawer {
+    right: calc(50% - 50vw + 12px);
+    left: calc(50% - 50vw + 12px);
   }
 
   .getting-started-overview,

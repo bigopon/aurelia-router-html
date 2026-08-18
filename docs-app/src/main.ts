@@ -1,26 +1,6 @@
-import Aurelia from 'aurelia';
-import { Routing } from '../../router/configuration';
-import { DocsApp } from './pages/docs-app';
 import { PlaygroundPage } from './pages/playground-page';
-import { SyntaxHtml } from './resources/syntax-html';
-import { SyntaxTypeScript } from './resources/syntax-typescript';
-import './main.css';
+import { createDocsApp } from './bootstrap';
+import { enableSearch } from './search';
 
-Aurelia
-  .register(
-    Routing.customize({
-      animations: false,
-      titles: {
-        fallback: 'Aurelia Router HTML',
-        compose: titles => `${titles[0]} | Aurelia Router HTML`,
-      },
-    }),
-    SyntaxHtml,
-    SyntaxTypeScript,
-    PlaygroundPage,
-  )
-  .app({
-    host: document.querySelector('docs-app')!,
-    component: DocsApp,
-  })
-  .start();
+const app = createDocsApp(document.querySelector<HTMLElement>('docs-app')!, { resources: [PlaygroundPage] });
+void Promise.resolve(app.start()).then(enableSearch);

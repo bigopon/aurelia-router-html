@@ -1,4 +1,4 @@
-<div class="docs-shell">
+<div class.bind="scrolled ? 'docs-shell is-scrolled' : 'docs-shell'">
   <button
     class.bind="mobileMenuOpen ? 'mobile-menu-toggle is-menu-open' : 'mobile-menu-toggle'"
     type="button"
@@ -15,7 +15,9 @@
   <div if.bind="mobileMenuOpen" class="mobile-menu-scrim" click.trigger="closeMobileMenu()"></div>
 
   <div class="docs-grid">
-    <main class="main-panel">
+    <main class="main-panel" data-pagefind-body>
+      <section id="pagefind-search" class="docs-search" aria-label="Search documentation"></section>
+
       <au-route path="/" title="Overview">
         <overview-page></overview-page>
       </au-route>

@@ -1,5 +1,6 @@
 node_modules
 dist
 dist-example
+.pagefind-source
 .tmp*
 .tmp-matcher
