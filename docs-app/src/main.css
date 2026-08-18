@@ -91,6 +91,10 @@ input {
   height: 20px;
 }
 
+:root[data-theme='dark'] .mobile-github-link img {
+  filter: invert(1);
+}
+
 .docs-grid {
   max-width: 1380px;
   margin: 0 auto;
