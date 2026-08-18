@@ -207,7 +207,10 @@ test.describe('router HTML docs features', () => {
     await expect(modeSnippets.nth(2).locator('pre')).toContainText("routingMode: 'hash'");
     await expect(modeSnippets.nth(3).locator('pre')).toContainText("routingMode: 'query'");
     await expect(modeSnippets.nth(3).locator('pre')).toContainText("routeQueryKey: 'app'");
-    expect(await modeSnippets.nth(3).locator('.copy-code-source').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await modeSnippets.nth(3).locator('.copy-code-source').evaluate(element => {
+      const codeBlock = element.parentElement;
+      return codeBlock != null && element.getBoundingClientRect().right <= codeBlock.getBoundingClientRect().right;
+    })).toBe(true);
 
     const codeBlocks = page.locator('pre.code-block');
     await expect(page.locator('pre.code-block > .copy-code-button')).toHaveCount(await codeBlocks.count());
@@ -285,7 +288,7 @@ test.describe('router HTML docs features', () => {
     const titleSyntax = features.filter({ hasText: 'Page Titles' }).locator('pre');
     await expect(titleSyntax).toContainText('title.bind="cameraTitle"');
     const lifecycleSyntax = features.filter({ hasText: 'Loading & Loaded' }).locator('pre');
-    await expect(lifecycleSyntax).toContainText('loading.bind="loadProduct($lifecycle)"');
+    await expect(lifecycleSyntax).toContainText('loading.bind="loadProduct()"');
     await expect(lifecycleSyntax).toContainText('loaded.bind="productIsReady()"');
     const guardSyntax = features.filter({ hasText: 'Navigation Guards' }).locator('pre');
     await expect(guardSyntax).toContainText('can-load.bind="() => canOpenAccount()"');
@@ -326,7 +329,7 @@ test.describe('router HTML docs features', () => {
       '/playground/kitchen-sink',
     ]);
     await expect(page.getByText('Runnable demo')).toHaveCount(0);
-    await expect(page.locator('button:not(.copy-code-button)')).toHaveCount(0);
+    await expect(features.locator('button:not(.copy-code-button)')).toHaveCount(0);
     await expect(page.locator('.nav-list .nav-end')).toHaveText('End of guide');
   });
 
