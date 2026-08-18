@@ -151,8 +151,10 @@ export class DocsApp {
   }
 
   private revealActiveNavItem(): void {
-    document.querySelector<HTMLElement>('#docs-navigation .nav-item[aria-current="page"]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const activeItem = document.querySelector<HTMLElement>('#docs-navigation .nav-item[aria-current="page"]');
+    if (typeof activeItem?.scrollIntoView === 'function') {
+      activeItem.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   }
 }
 
