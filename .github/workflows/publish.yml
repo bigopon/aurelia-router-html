@@ -37,7 +37,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          test "$RELEASE_TAG" = "v$(node -p \"require('./package.json').version\")"
+          test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
           git tag --points-at HEAD | grep --fixed-strings --line-regexp "$RELEASE_TAG"
 
       - run: npm ci
