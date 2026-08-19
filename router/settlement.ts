@@ -14,9 +14,13 @@ export interface IRouteViewSettlement {
 export const IRouteViewSettlement = DI.createInterface<IRouteViewSettlement>('IRouteViewSettlement');
 
 export class RouteViewSettlement implements IRouteViewSettlement {
+  /** @internal */
   private readonly callbacks = new Set<RouteSettledCallback>();
+  /** @internal */
   private readonly waiters = new Set<() => void>();
+  /** @internal */
   private pendingViews: number = 0;
+  /** @internal */
   private flushQueued: boolean = false;
 
   public begin(): void {
@@ -47,6 +51,7 @@ export class RouteViewSettlement implements IRouteViewSettlement {
     this.callbacks.delete(callback);
   }
 
+  /** @internal */
   private queueFlush(): void {
     if (this.pendingViews > 0 || this.flushQueued || this.callbacks.size === 0 && this.waiters.size === 0) {
       return;

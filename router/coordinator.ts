@@ -132,16 +132,36 @@ export class RouteCoordinator implements IRouteCoordinator {
   public currentPath: string = '/';
   public currentLocation: RouteLocation = parseRouteLocation('/');
   public navigation: RouteNavigationState = createIdleNavigationState(this.currentLocation);
+  /** @internal */
   private readonly subscribers = new Set<(path: string) => void>();
+  /** @internal */
   private readonly navigationSubscribers = new Set<RouteNavigationCallback>();
+  /** @internal */
   private stopListening: (() => void) | null = null;
+  /** @internal */
   private readonly stopRegistryListening: (() => void) | null;
+  /** @internal */
   private stopping: Promise<void> | null = null;
+  /** @internal */
   private started: boolean = false;
+  /** @internal */
   private transaction: NavigationTransaction | null = null;
+  /** @internal */
   private redirectChain: string[] = [];
+  /** @internal */
   private navigationSequence: number = 0;
+  /** @internal */
   private rollbackDepth: number = 0;
+  /** @internal */
+  private readonly adapter: IPathAdapter;
+  /** @internal */
+  private readonly createAbortController: () => AbortController;
+  /** @internal */
+  private readonly scrollService: IRouteScrollService;
+  /** @internal */
+  private readonly focusService: IRouteFocusService;
+  /** @internal */
+  private readonly viewSettlement: IRouteViewSettlement | null;
 
   /** @internal */
   public get _isRollingBack(): boolean {
@@ -150,12 +170,17 @@ export class RouteCoordinator implements IRouteCoordinator {
 
   public constructor(
     public readonly root: IRouteContext,
-    private readonly adapter: IPathAdapter,
-    private readonly createAbortController: () => AbortController = () => new AbortController(),
-    private readonly scrollService: IRouteScrollService = noRouteScrollService,
-    private readonly focusService: IRouteFocusService = noRouteFocusService,
-    private readonly viewSettlement: IRouteViewSettlement | null = null,
+    adapter: IPathAdapter,
+    createAbortController: () => AbortController = () => new AbortController(),
+    scrollService: IRouteScrollService = noRouteScrollService,
+    focusService: IRouteFocusService = noRouteFocusService,
+    viewSettlement: IRouteViewSettlement | null = null,
   ) {
+    this.adapter = adapter;
+    this.createAbortController = createAbortController;
+    this.scrollService = scrollService;
+    this.focusService = focusService;
+    this.viewSettlement = viewSettlement;
     if (root instanceof RouteContext) {
       root._setNavigator((path, options) => this.load(path, options));
       this.stopRegistryListening = root._subscribeRegistry(() => {
@@ -480,6 +505,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     };
   }
 
+  /** @internal */
   private navigate(path: string, options: InternalLoadOptions): boolean | Promise<boolean> {
     const location = parseRouteLocation(path);
     const normalizedPath = stringifyRouteLocation(location);
@@ -570,6 +596,7 @@ export class RouteCoordinator implements IRouteCoordinator {
       : this.cancelTransaction(transaction, 'cancelled');
   }
 
+  /** @internal */
   private beginNavigation(
     transaction: NavigationTransaction,
     routeChanged: boolean,
@@ -636,6 +663,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return result ?? transaction.completion;
   }
 
+  /** @internal */
   private runDeferredActivations(transaction: NavigationTransaction): void | Promise<void> {
     const activations = transaction.activations.splice(0);
     const pending: Promise<void>[] = [];
@@ -691,6 +719,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private rejectDeferredActivations(transaction: NavigationTransaction): void {
     const activations = transaction.activations.splice(0);
     for (const work of activations) {
@@ -699,6 +728,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private tryFinish(transaction: NavigationTransaction): boolean | Promise<boolean> | undefined {
     if (transaction.finalized || transaction.finalizing || !transaction.sealed || transaction.pending > 0 || this.transaction !== transaction) {
       return;
@@ -773,6 +803,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return this.commitTransaction(transaction);
   }
 
+  /** @internal */
   private commitTransaction(transaction: NavigationTransaction): boolean {
     if (transaction.finalized) {
       return false;
@@ -815,6 +846,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return true;
   }
 
+  /** @internal */
   private createTransaction(
     location: RouteLocation,
     normalizedPath: string,
@@ -863,6 +895,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     };
   }
 
+  /** @internal */
   private cancelTransaction(
     transaction: NavigationTransaction,
     outcome: Exclude<RouteNavigationOutcome, 'completed'>,
@@ -951,6 +984,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return settled;
   }
 
+  /** @internal */
   private redirectTransaction(transaction: NavigationTransaction): boolean | Promise<boolean> {
     const { path, replace } = transaction.redirect!;
     transaction.finalized = true;
@@ -1033,6 +1067,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return settleAdapter(true);
   }
 
+  /** @internal */
   private continueRedirect(
     transaction: NavigationTransaction,
     path: string,
@@ -1059,6 +1094,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return redirected;
   }
 
+  /** @internal */
   private failRedirectTransaction(
     transaction: NavigationTransaction,
     error: unknown,
@@ -1097,6 +1133,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return transaction.completion;
   }
 
+  /** @internal */
   private publishNavigation(transaction: NavigationTransaction, phase: RouteNavigationPhase): void {
     this.navigation = Object.freeze({
       id: transaction.id,
@@ -1114,6 +1151,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.notifyNavigation();
   }
 
+  /** @internal */
   private publishPhase(transaction: NavigationTransaction, phase: RouteNavigationPhase): void {
     if (transaction.finalized || this.navigation.id !== transaction.id || !this.navigation.pending || this.navigation.phase === phase) {
       return;
@@ -1125,6 +1163,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.notifyNavigation();
   }
 
+  /** @internal */
   private publishTerminal(
     transaction: NavigationTransaction,
     outcome: RouteNavigationOutcome,
@@ -1154,12 +1193,14 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.notifyNavigation();
   }
 
+  /** @internal */
   private notifyNavigation(): void {
     for (const subscriber of this.navigationSubscribers) {
       subscriber(this.navigation);
     }
   }
 
+  /** @internal */
   private raceTransaction<T>(transaction: NavigationTransaction, operation: Promise<T>): Promise<T> {
     const signal = transaction.controller.signal;
     if (signal.aborted || transaction.finalized) {
@@ -1184,6 +1225,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     });
   }
 
+  /** @internal */
   private assertActiveTransaction(transaction: NavigationTransaction): void {
     if (
       transaction.cancelled
@@ -1195,6 +1237,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private runCanUnload(
     routes: RouteContext[],
     index: number,
@@ -1228,6 +1271,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return true;
   }
 
+  /** @internal */
   private runCanLoad(
     transaction: NavigationTransaction,
     context: RouteContext,
@@ -1246,6 +1290,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return isPromise(guard) ? guard.then(proceed) : proceed();
   }
 
+  /** @internal */
   private evaluateCanLoad(
     transaction: NavigationTransaction,
     context: RouteContext,
@@ -1264,6 +1309,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return this.handleCanLoadResult(transaction, context, result);
   }
 
+  /** @internal */
   private handleCanLoadResult(
     transaction: NavigationTransaction,
     context: RouteContext,
@@ -1296,6 +1342,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     throw new NavigationCancelled();
   }
 
+  /** @internal */
   private prepareRetainedTransitions(
     transaction: NavigationTransaction,
     transitions: readonly RetainedRouteTransitionWork[],
@@ -1321,6 +1368,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return transitions.filter(work => !transaction.obsoleteContexts.has(work.context));
   }
 
+  /** @internal */
   private trackRetainedTransitions(
     transaction: NavigationTransaction,
     transitions: readonly RetainedRouteTransitionWork[],
@@ -1372,6 +1420,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return this.raceTransaction(transaction, result).then(complete, fail);
   }
 
+  /** @internal */
   private runRetainedCanLoadGuards(
     transaction: NavigationTransaction,
     transitions: readonly RetainedRouteTransitionWork[],
@@ -1417,6 +1466,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private runRetainedTransitions(
     transaction: NavigationTransaction,
     transitions: readonly RetainedRouteTransitionWork[],
@@ -1461,6 +1511,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private runRetainedTransitionCompletions(
     transaction: NavigationTransaction,
     transitions: readonly RetainedRouteTransitionWork[],
@@ -1506,6 +1557,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private runRetainedTransitionCallback(
     transaction: NavigationTransaction,
     work: RetainedRouteTransitionWork,
@@ -1534,6 +1586,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.activeReplacement = null;
   }
 
+  /** @internal */
   private recoverRetainedTransition(
     transaction: NavigationTransaction,
     work: RetainedRouteTransitionWork,
@@ -1556,6 +1609,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return next();
   }
 
+  /** @internal */
   private resolveRouteFailure(
     transaction: NavigationTransaction,
     source: RouteContext,
@@ -1580,6 +1634,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     return this.runErrorHandlers(transaction, source, source, recovery, phaseError.phase, phaseError.original);
   }
 
+  /** @internal */
   private runErrorHandlers(
     transaction: NavigationTransaction,
     source: RouteContext,
@@ -1630,6 +1685,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     throw error;
   }
 
+  /** @internal */
   private handleErrorResult(
     transaction: NavigationTransaction,
     failure: RouteFailure,
@@ -1680,10 +1736,12 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.controller.abort();
   }
 
+  /** @internal */
   private createHandlerError(original: unknown, handlerError: unknown): AggregateError {
     return new AggregateError([original, handlerError], 'A route error handler failed.');
   }
 
+  /** @internal */
   private runActivationOutsideNavigation(
     context: RouteContext,
     callback: RouteCanLoadCallback | null,
@@ -1712,6 +1770,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private runRetainedTransitionOutsideNavigation(
     route: RouteContext,
     callback: RouteCanLoadCallback | null,
@@ -1750,6 +1809,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private rejectGuardLocally(context: RouteContext): void {
     const recovered = context._excludeLocally();
     if (__DEV__ && !recovered) {
@@ -1757,6 +1817,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private commitViewTransactions(transaction: NavigationTransaction): void {
     const viewTransactions = transaction.viewTransactions.splice(0);
     for (const viewTransaction of viewTransactions) {
@@ -1770,6 +1831,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private rollbackViewTransactions(transaction: NavigationTransaction): void | Promise<void> {
     const viewTransactions = transaction.viewTransactions.splice(0).reverse();
     if (viewTransactions.length === 0) {
@@ -1812,6 +1874,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     });
   }
 
+  /** @internal */
   private captureFailure(transaction: NavigationTransaction, error: unknown): void {
     if (transaction.finalized || error instanceof NavigationCancelled) {
       return;
@@ -1820,6 +1883,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.controller.abort();
   }
 
+  /** @internal */
   private assertNoRedirectLoop(path: string, chain: string[]): void {
     const loopStart = chain.indexOf(path);
     if (loopStart >= 0) {
@@ -1827,12 +1891,14 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
   }
 
+  /** @internal */
   private notify(): void {
     for (const subscriber of this.subscribers) {
       subscriber(this.currentPath);
     }
   }
 
+  /** @internal */
   private restorePreviousLocation(transaction: NavigationTransaction): void {
     this._runViewRollback(() => {
       if (!transaction.previousActive && this.root instanceof RouteContext) {

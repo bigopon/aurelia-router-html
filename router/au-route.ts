@@ -136,33 +136,61 @@ export class AuRoute implements ICustomElementViewModel {
   public readonly location = resolve(IRenderLocation);
   public readonly factory: IViewFactory | null;
   public readonly overrideContext: Record<string, unknown> = {};
+  /** @internal */
   private readonly lifecycleOverrideContext: Record<string, unknown> = Object.create(this.overrideContext);
+  /** @internal */
   private readonly animationOptions = resolve(IRouteAnimationOptions);
+  /** @internal */
   private readonly animationsEnabled: boolean;
+  /** @internal */
   private readonly expressionParser = resolve(IExpressionParser);
+  /** @internal */
   private readonly platform = resolve(IPlatform) as AnimationPlatform;
+  /** @internal */
   private readonly titleService = resolve(IRouteTitleService);
+  /** @internal */
   private readonly settlement = resolve(IRouteViewSettlement);
+  /** @internal */
   private readonly coordinator = resolve(IRouteCoordinator) as RouteCoordinator;
+  /** @internal */
   private readonly pathExpression: string | null;
+  /** @internal */
   private readonly loadingExpression: string | null;
+  /** @internal */
   private readonly loadedExpression: string | null;
+  /** @internal */
   private readonly transitionOn: ReadonlySet<RouteTransitionTrigger>;
+  /** @internal */
   private readonly transitionPlan: RouteTransitionPlan;
+  /** @internal */
   private loadingAst: IsBindingBehavior | null = null;
+  /** @internal */
   private loadedAst: IsBindingBehavior | null = null;
+  /** @internal */
   private readonly redirectMode: RedirectMode;
+  /** @internal */
   private readonly isRedirect: boolean;
+  /** @internal */
   private readonly isGroup: boolean;
+  /** @internal */
   private readonly unsubscribe: () => void;
+  /** @internal */
   private readonly unsubscribeNavigation: () => void;
+  /** @internal */
   private viewActive: boolean = false;
+  /** @internal */
   private discoveryActive: boolean = false;
+  /** @internal */
   private requestedViewActive: boolean = false;
+  /** @internal */
   private viewTransition: Promise<void> | null = null;
+  /** @internal */
   private animationRunId: number = 0;
+  /** @internal */
   private lastRedirectKey: string | null = null;
+  /** @internal */
   private previousState: RouteState | null = null;
+  /** @internal */
   private preflightedNavigationId: number = 0;
 
   public constructor() {
@@ -228,7 +256,9 @@ export class AuRoute implements ICustomElementViewModel {
 
   $controller!: ICustomElementController<this>;
 
+  /** @internal */
   private scope?: Scope | null = null;
+  /** @internal */
   private lifecycleScope?: Scope | null = null;
   public $params?: Record<string, unknown>;
 
@@ -284,6 +314,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.updateTitle(value);
   }
 
+  /** @internal */
   private updateTitle(value: unknown): void {
     this.title = value == null ? null : String(value);
     (this.context as RouteContext)._setTitle(this.title);
@@ -292,6 +323,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private updateGuards(): void {
     const context = this.context as RouteContext;
     context._setGuards(this.canLoad, this.canUnload);
@@ -302,10 +334,12 @@ export class AuRoute implements ICustomElementViewModel {
     );
   }
 
+  /** @internal */
   private updateErrorHandler(): void {
     (this.context as RouteContext)._setErrorHandler(this.onError);
   }
 
+  /** @internal */
   private tryRedirect(): void {
     if (this.coordinator._isRollingBack || !this.isRedirect || !this.isActive || this.scope == null || this.redirectTo == null || this.redirectTo.trim() === '') {
       return;
@@ -322,6 +356,7 @@ export class AuRoute implements ICustomElementViewModel {
     parent._redirect(this.redirectTo, this.context.$params, this.redirectMode !== 'push');
   }
 
+  /** @internal */
   private updatePath(path: string): void {
     if (path === this.context.pattern) {
       return;
@@ -354,6 +389,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.titleService.requestUpdate();
   }
 
+  /** @internal */
   private _isActive: boolean = false;
   public get isActive() {
     return this._isActive;
@@ -368,6 +404,7 @@ export class AuRoute implements ICustomElementViewModel {
     void this.queueViewUpdate();
   }
 
+  /** @internal */
   private queueViewUpdate(): void | Promise<void> {
     const update = this.viewTransition == null
       ? this.updateView()
@@ -386,6 +423,7 @@ export class AuRoute implements ICustomElementViewModel {
     return update;
   }
 
+  /** @internal */
   private updateView(): void | Promise<void> {
     while (this.viewActive !== this.requestedViewActive) {
       let transition: void | Promise<void>;
@@ -403,10 +441,12 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private getView() {
     return this.factory!.create().setLocation(this.location);
   }
 
+  /** @internal */
   private ensureDiscoveryView(): void | Promise<void> {
     if (!this.isGroup || this.factory == null || this.scope == null || this.discoveryActive) {
       return;
@@ -422,10 +462,12 @@ export class AuRoute implements ICustomElementViewModel {
     this.discoveryActive = true;
   }
 
+  /** @internal */
   private updateRequestedViewActive(): void {
     this.requestedViewActive = this._isActive && !this.isRedirect && this.hasVisibleAncestorRoute();
   }
 
+  /** @internal */
   private hasVisibleAncestorRoute(): boolean {
     let parent = this.context.parent;
     while (parent instanceof RouteContext) {
@@ -438,6 +480,7 @@ export class AuRoute implements ICustomElementViewModel {
     return true;
   }
 
+  /** @internal */
   private notifyDescendantVisibilityChange(): void | Promise<void> {
     const pending: Promise<void>[] = [];
     for (const child of this.context.children) {
@@ -450,6 +493,7 @@ export class AuRoute implements ICustomElementViewModel {
     return pending.length === 0 ? undefined : Promise.all(pending).then(() => {});
   }
 
+  /** @internal */
   private handleAncestorVisibilityChange(): void | Promise<void> {
     const previous = this.requestedViewActive;
     this.updateRequestedViewActive();
@@ -460,6 +504,7 @@ export class AuRoute implements ICustomElementViewModel {
     return onResolve(update, () => this.notifyDescendantVisibilityChange());
   }
 
+  /** @internal */
   private preflightDescendantCanLoad(): void | Promise<void> {
     const pending: Promise<void>[] = [];
     for (const child of this.context.children) {
@@ -472,6 +517,7 @@ export class AuRoute implements ICustomElementViewModel {
     return pending.length === 0 ? undefined : Promise.all(pending).then(() => {});
   }
 
+  /** @internal */
   private preflightActivationBranch(): void | Promise<void> {
     if (!this.isActive || this.isRedirect || this.viewActive) {
       return;
@@ -489,12 +535,14 @@ export class AuRoute implements ICustomElementViewModel {
     return isPromise(afterCurrent) ? afterCurrent : undefined;
   }
 
+  /** @internal */
   private refreshGroupDescendants(): void {
     if (this.isGroup && this.context.active) {
       (this.context as RouteContext).refresh();
     }
   }
 
+  /** @internal */
   private activateView(): void | Promise<void> {
     if (this.viewActive || this.scope == null) {
       return;
@@ -594,6 +642,7 @@ export class AuRoute implements ICustomElementViewModel {
     });
   }
 
+  /** @internal */
   private finishGroupActivation(
     lifecycle: RouteLifecycleContext,
     finishSettlementOnAbort: boolean,
@@ -646,6 +695,7 @@ export class AuRoute implements ICustomElementViewModel {
     return this.coordinator._runEnterAnimation(() => this.animate('enter'));
   }
 
+  /** @internal */
   private activateRestoredView(): void | Promise<void> {
     const scope = this.scope!;
     this.view ??= this.getView();
@@ -667,6 +717,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.endViewActivation();
   }
 
+  /** @internal */
   private invokeLifecycle(
     phase: 'loading' | 'loaded',
     expression: IsBindingBehavior | null,
@@ -683,6 +734,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private runLoading(lifecycle: RouteLifecycleContext): void | Promise<void> {
     const expression = this.loadingAst;
     return onResolve(this.invokeLifecycle('loading', expression, lifecycle), value => {
@@ -693,6 +745,7 @@ export class AuRoute implements ICustomElementViewModel {
     });
   }
 
+  /** @internal */
   private runLoaded(lifecycle: RouteLifecycleContext): void | Promise<void> {
     const expression = this.loadedAst;
     return onResolve(this.invokeLifecycle('loaded', expression, lifecycle), value => {
@@ -703,6 +756,7 @@ export class AuRoute implements ICustomElementViewModel {
     });
   }
 
+  /** @internal */
   private async runReplace(lifecycle: RouteLifecycleContext): Promise<void> {
     await this.runLoading(lifecycle);
     this.coordinator._assertNavigationSignal(lifecycle.signal);
@@ -786,6 +840,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private async restoreReplacedView(
     previousView: ISyntheticView,
     candidateView: ISyntheticView | null,
@@ -823,6 +878,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.titleService.requestUpdate();
   }
 
+  /** @internal */
   private tryRetainedTransition(previous: RouteState, next: RouteState): void {
     if (this.coordinator._isRollingBack || this.scope == null || !this.viewActive || this.isRedirect) {
       return;
@@ -866,6 +922,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private deactivateView(): void | Promise<void> {
     if (!this.viewActive || this.view == null) {
       return;
@@ -893,11 +950,13 @@ export class AuRoute implements ICustomElementViewModel {
     });
   }
 
+  /** @internal */
   private endViewActivation(): void {
     this.settlement.end();
     this.titleService.requestUpdate();
   }
 
+  /** @internal */
   private failViewActivation(error: unknown, finishSettlement: () => void = () => this.endViewActivation()): never | Promise<never> {
     let cleanup: void | Promise<void>;
     try {
@@ -922,6 +981,7 @@ export class AuRoute implements ICustomElementViewModel {
     throw error;
   }
 
+  /** @internal */
   private clearViewLocation(): void {
     // Nested controllers can detach their sequences before the route view, so clear any emptied hosts still owned by this location.
     const start = this.location.$start;
@@ -933,6 +993,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
   }
 
+  /** @internal */
   private animate(direction: 'enter' | 'leave'): void | Promise<void> {
     if (!this.animationsEnabled || this.view == null) {
       return;
@@ -946,6 +1007,7 @@ export class AuRoute implements ICustomElementViewModel {
     return this.runAnimation(direction, elements);
   }
 
+  /** @internal */
   private async runAnimation(direction: 'enter' | 'leave', elements: HTMLElement[]): Promise<void> {
     const runId = ++this.animationRunId;
     const prefix = this.animationOptions.classPrefix;
@@ -987,11 +1049,13 @@ export class AuRoute implements ICustomElementViewModel {
     this.clearAnimationClasses(elements);
   }
 
+  /** @internal */
   private getAnimationElements(): HTMLElement[] {
     const nodes = Array.from(this.view?.nodes.childNodes ?? []);
     return nodes.filter((node): node is HTMLElement => node instanceof this.platform.globalThis.HTMLElement);
   }
 
+  /** @internal */
   private getElementAnimationDuration(element: HTMLElement): number {
     const style = this.platform.globalThis.getComputedStyle(element);
     const transitionDurations = parseTimeList(style.transitionDuration);
@@ -1005,6 +1069,7 @@ export class AuRoute implements ICustomElementViewModel {
     return Math.max(transitionTotal, animationTotal, 0);
   }
 
+  /** @internal */
   private nextFrame(): Promise<void> {
     return new Promise(resolve => {
       this.platform.requestAnimationFrame(() => {
@@ -1013,6 +1078,7 @@ export class AuRoute implements ICustomElementViewModel {
     });
   }
 
+  /** @internal */
   private clearAnimationClasses(elements: HTMLElement[]): void {
     const prefix = this.animationOptions.classPrefix;
     const classes = [

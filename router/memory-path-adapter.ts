@@ -6,10 +6,15 @@ export interface MemoryNavigationOptions {
 }
 
 export class MemoryPathAdapter implements IPathAdapter {
+  /** @internal */
   private readonly entries: string[];
+  /** @internal */
   private readonly subscribers = new Set<(path: string, navigation?: PathNavigation) => void>();
+  /** @internal */
   private index: number = 0;
+  /** @internal */
   private acceptedEntries: string[];
+  /** @internal */
   private acceptedIndex: number = 0;
 
   public constructor(initialPath: string = '/') {
@@ -84,6 +89,7 @@ export class MemoryPathAdapter implements IPathAdapter {
     };
   }
 
+  /** @internal */
   private notify(navigation?: PathNavigation): void {
     if (this.subscribers.size === 0) {
       navigation?.commit();
@@ -95,6 +101,7 @@ export class MemoryPathAdapter implements IPathAdapter {
     }
   }
 
+  /** @internal */
   private createTraversal(
     previousEntries: string[],
     previousIndex: number,
@@ -128,11 +135,13 @@ export class MemoryPathAdapter implements IPathAdapter {
     };
   }
 
+  /** @internal */
   private acceptCurrent(): void {
     this.acceptedEntries = [...this.entries];
     this.acceptedIndex = this.index;
   }
 
+  /** @internal */
   private normalize(path: string): string {
     return stringifyRouteLocation(parseRouteLocation(path));
   }

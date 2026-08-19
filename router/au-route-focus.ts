@@ -13,8 +13,11 @@ export class AuRouteFocus implements ICustomAttributeViewModel {
     name: 'au-route-focus',
   };
 
+  /** @internal */
   private readonly element = resolve(INode) as INodeType<HTMLElement>;
+  /** @internal */
   private readonly focusService = resolve(IRouteFocusService);
+  /** @internal */
   private unregister: (() => void) | null = null;
 
   public attaching(): void {

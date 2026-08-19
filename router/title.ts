@@ -17,16 +17,31 @@ export interface IRouteTitleService {
 export const IRouteTitleService = DI.createInterface<IRouteTitleService>('IRouteTitleService');
 
 export class BrowserRouteTitleService implements IRouteTitleService {
+  /** @internal */
   private readonly fallback: string;
+  /** @internal */
   private stopped: boolean = false;
+  /** @internal */
   private readonly update: RouteSettledCallback = () => this.updateTitle();
+  /** @internal */
+  private readonly root: IRouteContext;
+  /** @internal */
+  private readonly document: Document;
+  /** @internal */
+  private readonly settlement: IRouteViewSettlement;
+  /** @internal */
+  private readonly options: RouteTitleOptions;
 
   public constructor(
-    private readonly root: IRouteContext,
-    private readonly document: Document,
-    private readonly settlement: IRouteViewSettlement,
-    private readonly options: RouteTitleOptions = {},
+    root: IRouteContext,
+    document: Document,
+    settlement: IRouteViewSettlement,
+    options: RouteTitleOptions = {},
   ) {
+    this.root = root;
+    this.document = document;
+    this.settlement = settlement;
+    this.options = options;
     this.fallback = options.fallback ?? document.title;
     if (options.fallback != null) {
       document.title = options.fallback;
@@ -49,6 +64,7 @@ export class BrowserRouteTitleService implements IRouteTitleService {
     this.settlement.cancel(this.update);
   }
 
+  /** @internal */
   private updateTitle(): void {
     const contexts: IRouteContext[] = [];
     const pending: IRouteContext[] = [...this.root.children].reverse();

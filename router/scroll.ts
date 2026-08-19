@@ -36,21 +36,39 @@ interface PendingScroll {
 const scrollEntryKey = '__auRouteScrollEntry';
 
 export class BrowserRouteScrollService implements IRouteScrollService {
+  /** @internal */
   private readonly window: Window;
+  /** @internal */
   private readonly applyPendingScroll: RouteSettledCallback = () => this.applyScroll();
+  /** @internal */
   private readonly positions = new Map<string, ScrollPosition>();
+  /** @internal */
   private pending: PendingScroll | null = null;
+  /** @internal */
   private currentEntryId: string | null = null;
+  /** @internal */
   private pendingPopEntryId: string | null = null;
+  /** @internal */
   private entrySequence: number = 0;
+  /** @internal */
   private previousNativeRestoration: ScrollRestoration | null = null;
+  /** @internal */
   private started: boolean = false;
+  /** @internal */
+  private readonly document: Document;
+  /** @internal */
+  private readonly settlement: IRouteViewSettlement;
+  /** @internal */
+  private readonly options: RouteScrollOptions;
 
   public constructor(
-    private readonly document: Document,
-    private readonly settlement: IRouteViewSettlement,
-    private readonly options: RouteScrollOptions = {},
+    document: Document,
+    settlement: IRouteViewSettlement,
+    options: RouteScrollOptions = {},
   ) {
+    this.document = document;
+    this.settlement = settlement;
+    this.options = options;
     const window = document.defaultView;
     if (window == null) {
       throw new Error('Browser route scrolling requires a document with a window.');
@@ -123,15 +141,18 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     this.captureCurrentPosition();
   }
 
+  /** @internal */
   private readonly onScroll = (): void => {
     this.captureCurrentPosition();
   };
 
+  /** @internal */
   private readonly onPopState = (): void => {
     this.captureCurrentPosition();
     this.pendingPopEntryId = this.readEntryId() ?? this.ensureEntryId();
   };
 
+  /** @internal */
   private applyScroll(): void {
     const pending = this.pending;
     this.pending = null;
@@ -161,6 +182,7 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     this.scrollTo({ left: 0, top: 0 });
   }
 
+  /** @internal */
   private scrollToFragment(fragment: string): boolean {
     const rawTarget = this.findPotentialTarget(fragment);
     let decodedFragment = fragment;
@@ -185,6 +207,7 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     return false;
   }
 
+  /** @internal */
   private findPotentialTarget(fragment: string): HTMLElement | null {
     const byId = this.document.getElementById(fragment);
     if (byId != null) {
@@ -200,6 +223,7 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     return null;
   }
 
+  /** @internal */
   private scrollTo(position: ScrollPosition): void {
     this.window.scrollTo({
       left: position.left,
@@ -211,12 +235,14 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     }
   }
 
+  /** @internal */
   private captureCurrentPosition(): void {
     if (this.currentEntryId != null) {
       this.capturePosition(this.currentEntryId);
     }
   }
 
+  /** @internal */
   private capturePosition(entryId: string): void {
     this.positions.set(entryId, {
       left: this.window.scrollX,
@@ -224,16 +250,19 @@ export class BrowserRouteScrollService implements IRouteScrollService {
     });
   }
 
+  /** @internal */
   private ensureEntryId(): string {
     return this.readEntryId() ?? this.writeEntryId(this.createEntryId());
   }
 
+  /** @internal */
   private createEntryId(): string {
     return typeof this.window.crypto.randomUUID === 'function'
       ? `route-${this.window.crypto.randomUUID()}`
       : `route-${Date.now().toString(36)}-${++this.entrySequence}`;
   }
 
+  /** @internal */
   private readEntryId(): string | null {
     const state = this.window.history.state;
     return typeof state === 'object' && state != null && typeof state[scrollEntryKey] === 'string'
@@ -241,6 +270,7 @@ export class BrowserRouteScrollService implements IRouteScrollService {
       : null;
   }
 
+  /** @internal */
   private writeEntryId(entryId: string): string {
     const state = this.window.history.state;
     const nextState = typeof state === 'object' && state != null

@@ -24,6 +24,7 @@ export interface RouteHrefOptions {
 
 class QuerySnapshot implements RouteQuery {
   public readonly size: number;
+  /** @internal */
   private readonly params: URLSearchParams;
 
   public constructor(input: string | URLSearchParams = '') {

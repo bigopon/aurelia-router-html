@@ -30,15 +30,25 @@ export class AuLink implements ICustomAttributeViewModel {
 
   public value: string | IRouteContext | LinkInstruction | null | undefined;
 
+  /** @internal */
   private readonly element = resolve(INode) as INodeType<HTMLElement>;
+  /** @internal */
   private readonly route = resolve(IRouteContext);
+  /** @internal */
   private readonly coordinator = resolve(IRouteCoordinator);
+  /** @internal */
   private unsubscribeState: (() => void) | null = null;
+  /** @internal */
   private unsubscribeRegistry: (() => void) | null = null;
+  /** @internal */
   private unsubscribeNavigation: (() => void) | null = null;
+  /** @internal */
   private isAttached: boolean = false;
+  /** @internal */
   private appliedActiveClass: string | null = null;
+  /** @internal */
   private appliedPendingClass: string | null = null;
+  /** @internal */
   private navigation: RouteNavigationState = this.coordinator.navigation;
 
   public attaching(): void {
@@ -71,6 +81,7 @@ export class AuLink implements ICustomAttributeViewModel {
     }
   }
 
+  /** @internal */
   private readonly onClick = (event: MouseEvent): void => {
     if (event.defaultPrevented || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
@@ -97,6 +108,7 @@ export class AuLink implements ICustomAttributeViewModel {
     }
   };
 
+  /** @internal */
   private reportNavigationError(error: unknown): void {
     const Event = this.element.ownerDocument.defaultView?.CustomEvent ?? CustomEvent;
     this.element.dispatchEvent(new Event(routeNavigationErrorEvent, {
@@ -106,6 +118,7 @@ export class AuLink implements ICustomAttributeViewModel {
     }));
   }
 
+  /** @internal */
   private update(): void {
     const instruction = this.getInstruction();
     if (instruction == null) {
@@ -141,6 +154,7 @@ export class AuLink implements ICustomAttributeViewModel {
     }
   }
 
+  /** @internal */
   private clear(): void {
     this.element.removeAttribute('href');
     this.updateActiveClass(null, false);
@@ -149,6 +163,7 @@ export class AuLink implements ICustomAttributeViewModel {
     this.element.removeAttribute('aria-busy');
   }
 
+  /** @internal */
   private getInstruction(): LinkInstruction | null {
     const value = this.value;
     if (value == null || value === '') {
@@ -160,6 +175,7 @@ export class AuLink implements ICustomAttributeViewModel {
     return { target: value as string | IRouteContext };
   }
 
+  /** @internal */
   private updateActiveClass(activeClass: string | null, active: boolean): void {
     if (this.appliedActiveClass != null && this.appliedActiveClass !== activeClass) {
       this.element.classList.remove(this.appliedActiveClass);
@@ -170,6 +186,7 @@ export class AuLink implements ICustomAttributeViewModel {
     }
   }
 
+  /** @internal */
   private updatePendingClass(pendingClass: string | null, pending: boolean): void {
     if (this.appliedPendingClass != null && this.appliedPendingClass !== pendingClass) {
       this.element.classList.remove(this.appliedPendingClass);

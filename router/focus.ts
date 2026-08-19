@@ -22,17 +22,32 @@ export interface IRouteFocusService {
 export const IRouteFocusService = DI.createInterface<IRouteFocusService>('IRouteFocusService');
 
 export class BrowserRouteFocusService implements IRouteFocusService {
+  /** @internal */
   private readonly candidates = new Set<HTMLElement>();
+  /** @internal */
   private readonly applyPendingFocus: RouteSettledCallback = () => this.applyFocus();
+  /** @internal */
   private collecting: boolean = false;
+  /** @internal */
   private routeChanged: boolean = false;
+  /** @internal */
   private stopped: boolean = false;
+  /** @internal */
+  private readonly document: Document;
+  /** @internal */
+  private readonly settlement: IRouteViewSettlement;
+  /** @internal */
+  private readonly options: RouteFocusOptions;
 
   public constructor(
-    private readonly document: Document,
-    private readonly settlement: IRouteViewSettlement,
-    private readonly options: RouteFocusOptions = {},
-  ) {}
+    document: Document,
+    settlement: IRouteViewSettlement,
+    options: RouteFocusOptions = {},
+  ) {
+    this.document = document;
+    this.settlement = settlement;
+    this.options = options;
+  }
 
   public start(): void {
     this.stopped = false;
@@ -77,6 +92,7 @@ export class BrowserRouteFocusService implements IRouteFocusService {
     this.cancelNavigation();
   }
 
+  /** @internal */
   private applyFocus(): void {
     let target: HTMLElement | null = null;
     for (const candidate of this.candidates) {

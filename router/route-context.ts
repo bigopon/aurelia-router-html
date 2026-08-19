@@ -123,6 +123,7 @@ export class RouteContext implements IRouteContext {
     loading: undefined,
     loaded: undefined,
   };
+  /** @internal */
   private _failure: RouteFailure | null = null;
 
   public get failure(): RouteFailure | null {
@@ -153,31 +154,51 @@ export class RouteContext implements IRouteContext {
     return normalizePath(patterns.join('/'));
   }
 
+  /** @internal */
   private _matcher: RoutePatternMatcher = createRoutePatternMatcher(/^(?<rest__>\/.*|\/)?$/);
+  /** @internal */
   private readonly _subscriptions = new Set<RouteContextCallback>();
+  /** @internal */
   private readonly _registrySubscriptions = new Set<() => void>();
+  /** @internal */
   private _disposed: boolean = false;
+  /** @internal */
   private readonly _exact: boolean;
+  /** @internal */
   private readonly _fallback: boolean;
+  /** @internal */
   private readonly _group: boolean;
+  /** @internal */
   private readonly _swapOrder: SwapOrder;
+  /** @internal */
   private readonly _hrefFormatter: (path: string) => string;
+  /** @internal */
   private _registered: boolean = true;
+  /** @internal */
   private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
+  /** @internal */
   private _navigationVersion: number = 0;
+  /** @internal */
   private _deferredDeactivations: Set<RouteContext> | null = null;
+  /** @internal */
   private _localGuardFailures: Set<RouteContext> | null = null;
+  /** @internal */
   private _failureSnapshot: Map<RouteContext, RouteFailure | null> | null = null;
+  /** @internal */
   private _dataSnapshot: Map<RouteContext, RouteLifecycleData> | null = null;
+  /** @internal */
   private _transactionFailureOwners: Set<RouteContext> | null = null;
+  /** @internal */
   private _reloadRequested: boolean = false;
   /** @internal */ public _canLoad: RouteCanLoadCallback | null = null;
   /** @internal */ public _canUnload: RouteCanUnloadCallback | null = null;
   /** @internal */ public _transitionOn: ReadonlySet<RouteTransitionTrigger> = defaultRouteTransitionTriggers;
   /** @internal */ public _transitionPlan: RouteTransitionPlan = 'rerun';
+  /** @internal */
   private _hasLifecycleHooks: boolean = false;
   /** @internal */ public _onError: RouteErrorHandler | null = null;
   /** @internal */ public readonly _guardFailure: RouteGuardFailure;
+  /** @internal */
   private readonly _id: string = `route-${++routeContextId}`;
 
   public constructor(
@@ -230,6 +251,7 @@ export class RouteContext implements IRouteContext {
     this._navigator = navigator;
   }
 
+  /** @internal */
   private _navigate(target: string | IRouteContext, params: RouteParams, hrefOptions: RouteHrefOptions, navigationOptions: RouteNavigationOptions): boolean | Promise<boolean> {
     const root = this.root as RouteContext;
     const href = this._createHref(target, params, hrefOptions);
@@ -275,6 +297,7 @@ export class RouteContext implements IRouteContext {
     (this.data as Record<keyof RouteLifecycleData, unknown>)[phase] = value;
   }
 
+  /** @internal */
   private _restoreData(data: RouteLifecycleData | undefined): void {
     const values = this.data as Record<keyof RouteLifecycleData, unknown>;
     values.loading = data?.loading;
@@ -338,6 +361,7 @@ export class RouteContext implements IRouteContext {
     return false;
   }
 
+  /** @internal */
   private _isRetainedTransitionTriggered(
     params: Readonly<Record<string, string>>,
     location: Pick<RouteLocation, 'query' | 'hash'>,
@@ -529,6 +553,7 @@ export class RouteContext implements IRouteContext {
     return !options.matchHash || this.$hash === targetLocation.hash;
   }
 
+  /** @internal */
   private _createHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string {
     if (target instanceof RouteContext && target._group) {
       throw new Error('A pathless route group is structural and cannot be used as a navigation destination.');
@@ -540,6 +565,7 @@ export class RouteContext implements IRouteContext {
     return href;
   }
 
+  /** @internal */
   private _tryCreateHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string | null {
     const resolvedParams: Record<string, string | number> = Object.create(null);
     const ancestry: IRouteContext[] = [];
@@ -809,6 +835,7 @@ export class RouteContext implements IRouteContext {
     }
   }
 
+  /** @internal */
   private _deactivateBranch(path: string, query: RouteQuery = this.$query, hash: string = this.$hash): void {
     const stateChanged = this.active
       || this.failure != null
@@ -835,6 +862,7 @@ export class RouteContext implements IRouteContext {
     }
   }
 
+  /** @internal */
   private _match(path: string): { residue: string } | null {
     if (!this._registered) {
       return null;
@@ -855,6 +883,7 @@ export class RouteContext implements IRouteContext {
     };
   }
 
+  /** @internal */
   private _matchGroup(path: string): { groups: Record<string, string>; residue: string } | null {
     const normalizedPath = normalizePath(path);
     return this._selectOwnMatches(normalizedPath).length === 0
@@ -862,6 +891,7 @@ export class RouteContext implements IRouteContext {
       : { groups: Object.freeze({}), residue: normalizedPath };
   }
 
+  /** @internal */
   private _selectOwnMatches(path: string): RouteContext[] {
     const failures = (this.root as RouteContext)._localGuardFailures;
     const matchingChildren = this.children.filter(child =>
@@ -873,10 +903,12 @@ export class RouteContext implements IRouteContext {
       : matchingChildren.filter(child => child._fallback);
   }
 
+  /** @internal */
   private _selectMatches(path: string): RouteContext[] {
     return this._selectOwnMatches(path);
   }
 
+  /** @internal */
   private _findContext(path: string): IRouteContext | null {
     const trimmed = path.trim();
     const searchContext = trimmed.startsWith('/') && this.root instanceof RouteContext
@@ -891,6 +923,7 @@ export class RouteContext implements IRouteContext {
       ?? null;
   }
 
+  /** @internal */
   private _createConcretePath(path: string, params: RouteParams): string | null {
     if (/[:*]/.test(path)) {
       return null;
@@ -905,6 +938,7 @@ export class RouteContext implements IRouteContext {
       : normalizePath(`${generateHref(searchContext.fullPath, params)}/${stripCurrentPrefix(trimmed)}`);
   }
 
+  /** @internal */
   private _getContexts(): RouteContext[] {
     const contexts: RouteContext[] = this._registered ? [this] : [];
     for (let index = 0; index < contexts.length; index++) {
@@ -913,6 +947,7 @@ export class RouteContext implements IRouteContext {
     return contexts;
   }
 
+  /** @internal */
   private _collectActiveBranches(
     matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>,
     ancestors: readonly ActiveRouteMatchSnapshot[],
@@ -940,6 +975,7 @@ export class RouteContext implements IRouteContext {
     ]);
   }
 
+  /** @internal */
   private _getOrCreateActiveMatchSnapshot(matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>): ActiveRouteMatchSnapshot {
     let snapshot = matchMap.get(this);
     if (snapshot != null) {
@@ -959,6 +995,7 @@ export class RouteContext implements IRouteContext {
     return snapshot;
   }
 
+  /** @internal */
   private _collectMatches(path: string, matches: Set<RouteContext>): void {
     const normalizedPath = normalizePath(path);
     const match = this._group ? this._matchGroup(normalizedPath) : this._matcher.exec(normalizedPath);
@@ -973,6 +1010,7 @@ export class RouteContext implements IRouteContext {
     }
   }
 
+  /** @internal */
   private _collectMatchParams(
     path: string,
     matches: Map<RouteContext, Readonly<Record<string, string>>>,
@@ -990,6 +1028,7 @@ export class RouteContext implements IRouteContext {
     }
   }
 
+  /** @internal */
   private _depth(): number {
     let depth = 0;
     let context = this.parent;
@@ -1000,6 +1039,7 @@ export class RouteContext implements IRouteContext {
     return depth;
   }
 
+  /** @internal */
   private _notify(): void {
     const state = this._currentState();
     for (const callback of this._subscriptions) {
@@ -1007,6 +1047,7 @@ export class RouteContext implements IRouteContext {
     }
   }
 
+  /** @internal */
   private _currentState(): RouteState {
     return {
       active: this.active,
@@ -1021,6 +1062,7 @@ export class RouteContext implements IRouteContext {
     };
   }
 
+  /** @internal */
   private _setFailure(failure: RouteFailure | null): void {
     if (this.failure === failure) {
       return;

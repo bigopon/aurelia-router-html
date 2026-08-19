@@ -30,20 +30,35 @@ type BrowserWindow = Window & {
 const browserHistoryEntryKey = '__auRouteNavigationEntry';
 
 export class BrowserPathAdapter implements IPathAdapter {
+  /** @internal */
   protected readonly routingMode: BrowserRoutingMode;
+  /** @internal */
   protected readonly routeQueryKey: string;
+  /** @internal */
   protected readonly basePath: string;
+  /** @internal */
   private historyKey: string | null = null;
+  /** @internal */
   private historyIndex: number = 0;
+  /** @internal */
   private acceptedNavigationIndex: number | null = null;
+  /** @internal */
   private acceptedHref: string | null = null;
+  /** @internal */
   private acceptedState: unknown = null;
+  /** @internal */
   private compensatingPop: { expectedIndex: number; resolve: () => void } | null = null;
+  /** @internal */
+  protected readonly window: Window;
+  /** @internal */
+  protected readonly options: BrowserAdapterOptions;
 
   public constructor(
-    protected readonly window: Window,
-    protected readonly options: BrowserAdapterOptions = {},
+    window: Window,
+    options: BrowserAdapterOptions = {},
   ) {
+    this.window = window;
+    this.options = options;
     this.routingMode = options.routingMode ?? 'path';
     this.routeQueryKey = options.routeQueryKey?.trim() || 'app';
     this.basePath = this.resolveBasePath(options.basePath);
@@ -229,6 +244,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     };
   }
 
+  /** @internal */
   private ensureHistoryEntry(): void {
     const entry = this.readHistoryEntry();
     if (entry != null) {
@@ -242,6 +258,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     this.acceptHistoryEntry(0);
   }
 
+  /** @internal */
   private acceptHistoryEntry(index: number): void {
     this.historyIndex = index;
     this.acceptedNavigationIndex = this.readNavigationIndex();
@@ -249,6 +266,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     this.acceptedState = this.window.history.state;
   }
 
+  /** @internal */
   private inferHistoryIndex(previousIndex: number): number | null {
     const targetNavigationIndex = this.readNavigationIndex();
     return this.acceptedNavigationIndex == null || targetNavigationIndex == null
@@ -256,11 +274,13 @@ export class BrowserPathAdapter implements IPathAdapter {
       : previousIndex + targetNavigationIndex - this.acceptedNavigationIndex;
   }
 
+  /** @internal */
   private readNavigationIndex(): number | null {
     const index = (this.window as BrowserWindow).navigation?.currentEntry?.index;
     return typeof index === 'number' ? index : null;
   }
 
+  /** @internal */
   private readHistoryEntry(): BrowserHistoryEntry | null {
     const state = this.window.history.state;
     if (typeof state !== 'object' || state == null) {
@@ -276,6 +296,7 @@ export class BrowserPathAdapter implements IPathAdapter {
       : null;
   }
 
+  /** @internal */
   private withHistoryEntry(state: unknown, index: number): Record<string, unknown> {
     const source = typeof state === 'object' && state != null
       ? state as Record<string, unknown>
@@ -289,16 +310,19 @@ export class BrowserPathAdapter implements IPathAdapter {
     };
   }
 
+  /** @internal */
   private createHistoryKey(): string {
     return typeof this.window.crypto?.randomUUID === 'function'
       ? this.window.crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   }
 
+  /** @internal */
   private isCurrentHref(href: string): boolean {
     return new URL(href, this.window.location.href).href === this.window.location.href;
   }
 
+  /** @internal */
   protected routeFromUrl(url: URL): string | null {
     const pathname = this.pathWithoutBase(url.pathname);
     if (pathname == null) {
@@ -335,6 +359,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     }
   }
 
+  /** @internal */
   private resolveBasePath(configured: string | undefined): string {
     if (configured != null) {
       if (configured.includes('?') || configured.includes('#')) {
@@ -354,10 +379,12 @@ export class BrowserPathAdapter implements IPathAdapter {
       : '/';
   }
 
+  /** @internal */
   private baseDocumentPath(): string {
     return this.basePath === '/' ? '' : `${this.basePath}/`;
   }
 
+  /** @internal */
   private pathWithBase(pathname: string): string {
     if (this.basePath === '/') {
       return pathname;
@@ -365,6 +392,7 @@ export class BrowserPathAdapter implements IPathAdapter {
     return pathname === '/' ? `${this.basePath}/` : `${this.basePath}${pathname}`;
   }
 
+  /** @internal */
   private pathWithoutBase(pathname: string): string | null {
     const normalized = normalizeRoutePath(pathname);
     if (this.basePath === '/') {
