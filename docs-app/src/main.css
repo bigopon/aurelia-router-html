@@ -607,12 +607,13 @@ button:hover {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  background: var(--panel-strong);
 }
 
 .option-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--panel-strong);
   font-size: 0.84rem;
   line-height: 1.45;
 }
@@ -632,10 +633,19 @@ button:hover {
 
 .option-table td {
   color: var(--muted);
+  background: var(--panel-strong);
 }
 
 .option-table tr:last-child td {
   border-bottom: 0;
+}
+
+:root[data-theme='dark'] .option-table th {
+  background: rgba(53, 73, 98, 0.88);
+}
+
+:root[data-theme='dark'] .option-table td {
+  background: rgba(24, 35, 50, 0.98);
 }
 
 .overview-feature {
