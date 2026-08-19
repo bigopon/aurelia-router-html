@@ -1061,7 +1061,7 @@ button.primary,
 
 .view-mode-switcher button[aria-pressed='true'] {
   background: var(--brand);
-  color: var(--code);
+  color: var(--brand-contrast);
 }
 
 .auto-run-progress {
