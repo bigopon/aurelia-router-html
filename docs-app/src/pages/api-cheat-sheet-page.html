@@ -45,6 +45,11 @@
 
   &lt;au-route path="/" exact&gt;Browse&lt;/au-route&gt;
   &lt;au-route path="details/:id"&gt;Details&lt;/au-route&gt;
+&lt;/au-route&gt;
+
+&lt;au-router current-path.bind="panelPath"&gt;
+  &lt;au-route path="list" exact&gt;List&lt;/au-route&gt;
+  &lt;au-route path="detail/:id" exact&gt;Detail&lt;/au-route&gt;
 &lt;/au-route&gt;</pre>
     <div class="option-table-wrap">
       <table class="option-table">
@@ -64,9 +69,11 @@
           <tr><td><code>on-error</code></td><td>Handle loading or activation failures at the nearest route boundary.</td></tr>
           <tr><td><code>swap-order</code></td><td>Attach first, detach first, or swap sibling views in <code>parallel</code>.</td></tr>
           <tr><td><code>animate</code></td><td>Opt this route into configured transition classes.</td></tr>
+          <tr><td><code>current-path</code> on <code>au-router</code></td><td>Two-way binding for a nested memory router's internal route location.</td></tr>
         </tbody>
       </table>
     </div>
+    <p><code>au-router</code> is the current nested-router boundary. Its first step is memory-backed, so it creates a new local route tree without selecting a browser URL mode.</p>
   </section>
 
   <section class="route-stack" id="path-patterns">

@@ -72,7 +72,7 @@ Fallback selection remains local to a sibling set.
 
 ## HTML primitives
 
-### `au-router` (proposed)
+### `au-router`
 
 `au-router` would create a nested router boundary for the `au-route` and
 `au-link` elements declared inside it. Unlike `au-route`, which contributes one
@@ -105,6 +105,52 @@ or adapter selection is needed yet.
 
 Future extensions may add URL-backed and custom-adapter variants, but they are
 not part of the first `au-router` step.
+
+If later route metadata is exposed publicly, nested and match-all routing should
+not be modeled as one singular "active route chain". A parent may have multiple
+active descendants at once through sibling matches, pathless groups, and local
+fallback rematching. The more accurate shape is an active match graph that can
+be projected as:
+
+- a flat active-match list for metadata aggregation and diagnostics;
+- one or more active branches for breadcrumb-like consumers that need
+  root-to-leaf paths.
+
+That should be available both from a router and from any route-context subtree.
+The capability is better expressed as a committed snapshot than as a live
+mutable graph:
+
+```ts
+interface ActiveRouteSnapshot {
+  readonly path: string;
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+  readonly branches: readonly ActiveRouteBranchSnapshot[];
+}
+
+interface ActiveRouteBranchSnapshot {
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+}
+
+interface ActiveRouteMatchSnapshot {
+  readonly id: string;
+  readonly pattern: string;
+  readonly fullPath: string;
+  readonly path: string;
+  readonly params: Readonly<Record<string, string>>;
+  readonly query: string;
+  readonly hash: string;
+  readonly title: string | null;
+}
+```
+
+Candidate APIs:
+
+- `router.getActiveSnapshot()`
+- `route.getActiveSnapshot()`
+
+The router-level form would capture the committed active graph for the whole
+tree. The route-context form would capture the committed active graph rooted at
+that subtree while preserving stable route identity such as `fullPath`.
 
 ### `au-route`
 

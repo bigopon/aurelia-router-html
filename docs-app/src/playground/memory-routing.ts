@@ -3,6 +3,7 @@ import { AppTask } from 'aurelia';
 import { IRouteAnimationOptions, normalizeRouteAnimationOptions, type RouteAnimationInput } from '../../../router/animation';
 import { AuRoute } from '../../../router/au-route';
 import { AuRouteFocus } from '../../../router/au-route-focus';
+import { AuRouter } from '../../../router/au-router';
 import { AuLink } from '../../../router/au-link';
 import { IRouteCoordinator, RouteCoordinator } from '../../../router/coordinator';
 import { BrowserRouteFocusService, IRouteFocusService, noRouteFocusService, type RouteFocusOptions } from '../../../router/focus';
@@ -182,6 +183,7 @@ export function createPlaygroundRouting() {
       );
     container.register(
       AuRoute,
+      AuRouter,
       AuRouteFocus,
       AuLink,
       Registration.instance(IPathAdapter, adapter),

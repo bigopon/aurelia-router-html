@@ -1,4 +1,5 @@
 import { isPromise, Registration, resolve } from '@aurelia/kernel';
+import { Scope } from '@aurelia/runtime';
 import {
   BindingMode,
   CustomElementStaticAuDefinition,
@@ -38,15 +39,25 @@ export class AuRouter implements ICustomElementViewModel {
   public readonly factory: IViewFactory;
   public view: ISyntheticView | null = null;
 
+  /** @internal */
   private readonly adapter = new MemoryPathAdapter('/');
+  /** @internal */
   private readonly settlement = new RouteViewSettlement();
+  /** @internal */
   private readonly coordinator: RouteCoordinator;
+  /** @internal */
   private readonly context: RouteContext;
+  /** @internal */
   private readonly navigationSubscription: () => void;
-  private scope: IHydratedController['scope'] | null | undefined = void 0;
+  /** @internal */
+  private scope: Scope | null | undefined = void 0;
+  /** @internal */
   private started: boolean = false;
+  /** @internal */
   private syncingCurrentPath: boolean = false;
+  /** @internal */
   private externalNavigationSequence: number = 0;
+  /** @internal */
   private requestedPath: string | null = null;
 
   public constructor() {
@@ -86,6 +97,16 @@ export class AuRouter implements ICustomElementViewModel {
   }
 
   $controller!: ICustomElementController<this>;
+
+  /** @internal */
+  public get _coordinator(): IRouteCoordinator {
+    return this.coordinator;
+  }
+
+  /** @internal */
+  public get _context(): IRouteContext {
+    return this.context;
+  }
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope = parent.scope;
@@ -163,6 +184,7 @@ export class AuRouter implements ICustomElementViewModel {
     this.navigationSubscription();
   }
 
+  /** @internal */
   private startCoordinator(): void | Promise<void> {
     const started = this.coordinator.start();
     if (isPromise(started)) {
@@ -175,6 +197,7 @@ export class AuRouter implements ICustomElementViewModel {
     this.writeCurrentPath(this.getCommittedPath());
   }
 
+  /** @internal */
   private restoreCommittedPath(navigationId: number): void {
     if (!this.started || navigationId !== this.externalNavigationSequence) {
       return;
@@ -183,6 +206,7 @@ export class AuRouter implements ICustomElementViewModel {
     this.writeCurrentPath(this.getCommittedPath());
   }
 
+  /** @internal */
   private handleNavigationStateChange(state: RouteNavigationState): void {
     if (!this.started || state.pending) {
       return;
@@ -198,10 +222,12 @@ export class AuRouter implements ICustomElementViewModel {
     this.writeCurrentPath(committedPath);
   }
 
+  /** @internal */
   private getCommittedPath(): string {
     return stringifyRouteLocation(this.coordinator.currentLocation);
   }
 
+  /** @internal */
   private writeCurrentPath(path: string): void {
     const normalized = normalizeRouterPath(path);
     if (this.currentPath === normalized) {

@@ -400,6 +400,15 @@ Current coverage focuses on the memory-router boundary itself:
 Later extensions may add query-backed, hash-backed, pathname-sliced, or
 custom-adapter-backed nested routers, but those remain intentionally deferred.
 
+If nested-router introspection is exposed publicly later, it should describe the
+active match graph rather than pretend there is always one singular active route
+chain. Match-all siblings, pathless groups, and local fallback rematching can
+leave multiple branches active at once. A flat active-match view and a branch
+view are likely more stable than a single-chain API. That snapshot capability
+should be available from the router as a whole and from any route-context
+subtree, for example through `router.getActiveSnapshot()` and
+`route.getActiveSnapshot()`.
+
 ### Base path guidance for later nested-router extensions
 
 Nested `au-router` should not treat `basePath` as its main composition API.
@@ -482,9 +491,12 @@ settlement. The next feature sequence is:
    [pathless-route-groups.md](pathless-route-groups.md).
 
 7. **Route metadata and active-match introspection.** Add bound metadata and a
-   public active route chain for breadcrumbs, generated navigation,
-   permissions, and analytics. Stable route names may follow if contextual
-   paths and metadata do not provide sufficient identity.
+   public active-match model for breadcrumbs, generated navigation,
+   permissions, and analytics. That API should represent flat active matches
+   and, where useful, active branches instead of assuming one singular route
+   chain. The same committed snapshot shape should be available at the router
+   level and at any route-context subtree. Stable route names may follow if
+   contextual paths and metadata do not provide sufficient identity.
 
 8. **Opt-in exclusive matching.** Preserve match-all sibling behavior by
    default, while allowing a parent to select one best regular match through a

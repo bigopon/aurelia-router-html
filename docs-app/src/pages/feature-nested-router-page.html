@@ -1,0 +1,67 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Nested Routers</h2>
+      <p class="page-copy">
+        Create a local router boundary when one screen needs its own route state without taking over the browser URL.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="workspace" exact&gt;
+  &lt;workspace-shell&gt;
+    &lt;au-router current-path.bind="panelPath"&gt;
+      &lt;au-route path="list" exact&gt;List&lt;/au-route&gt;
+      &lt;au-route path="detail/:id" exact&gt;Detail&lt;/au-route&gt;
+    &lt;/au-router&gt;
+  &lt;/workspace-shell&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>au-router</code> starts a new route tree for the <code>au-route</code> and <code>au-link</code> declarations inside it. That inner tree has its own root context, coordinator, active matches, navigation lifecycle, and memory-backed path adapter.</p>
+      <p>The current first step is intentionally memory-only. No mode selection, hash ownership, query-key ownership, or delegated pathname slicing is required to use it.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <p>Use it for tab panels, inspectors, side-by-side workspaces, setup flows, or embedded tools that need route-driven UI state while the outer application keeps ownership of the browser URL.</p>
+      <p><code>current-path</code> is the integration point: write a nested route location to request navigation, and read the committed nested location back after redirects, guards, or local recovery settle.</p>
+    </section>
+  </div>
+
+  <div class="feature-details">
+    <section>
+      <h3>Use <code>current-path</code> as the boundary state</h3>
+      <pre class="code-block" syntax-html>&lt;au-router current-path.bind="panelPath"&gt;
+  &lt;au-route path="drafts" exact&gt;Drafts&lt;/au-route&gt;
+  &lt;au-route path="drafts/:id" exact&gt;Editor&lt;/au-route&gt;
+&lt;/au-router&gt;</pre>
+      <p>The bound value is the nested router's own location, for example <code>/drafts/42?tab=history#diff</code>. External writes request normal router navigation. Successful navigation writes the committed destination back. Rejected navigation restores the previous committed value.</p>
+    </section>
+
+    <section>
+      <h3>Keep outer and inner ownership separate</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="workspace" exact&gt;
+  &lt;au-router current-path.bind="panelPath"&gt;...&lt;/au-router&gt;
+&lt;/au-route&gt;</pre>
+      <p>The outer route still owns the browser URL, title, scrolling, and focus behavior. The nested router owns only its internal route location. A nested router should not reinterpret deployment <code>basePath</code> configuration as its composition API.</p>
+    </section>
+
+    <section>
+      <h3>Route-graph note</h3>
+      <p>Future public introspection should not assume a single active route chain inside a router. Match-all siblings, pathless groups, and local fallback rematching can create multiple active branches. A flat active-match view and a branch view fit the model better.</p>
+    </section>
+
+    <section>
+      <h3>Next steps, not current API</h3>
+      <p>Hash-backed, query-backed, pathname-sliced, or custom-adapter nested routers remain follow-up work. Those extensions need explicit slot ownership and rollback rules so nested routing never ambiguously shares browser location state.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="nested-router-memory" embedded.bind="true"></playground-page>
+</section>

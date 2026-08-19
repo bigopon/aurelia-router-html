@@ -16,6 +16,7 @@ import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureGroupsPage } from './feature-groups-page';
 import { FeatureNestedPage } from './feature-nested-page';
+import { FeatureNestedRouterPage } from './feature-nested-router-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureProgrammaticPage } from './feature-programmatic-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
@@ -49,6 +50,7 @@ export class DocsApp {
       FeatureBasePathPage,
       FeatureBasicPage,
       FeatureNestedPage,
+      FeatureNestedRouterPage,
       FeatureGroupsPage,
       FeatureParamsPage,
       FeatureSegmentConstraintsPage,

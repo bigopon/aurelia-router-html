@@ -1,6 +1,11 @@
 import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
+import type { AuRouter } from '../router/au-router';
 import { Routing } from '../router/configuration';
+import { IRouteCoordinator } from '../router/coordinator';
+import type { RouteFailure } from '../router/error';
+import { MemoryPathAdapter } from '../router/memory-path-adapter';
+import { IRouteContext } from '../router/route-context';
 
 describe('au-router memory routing', function () {
   it('uses current-path as the initial nested location and responds to external writes', async function () {
@@ -367,6 +372,50 @@ describe('au-router memory routing', function () {
     }
   });
 
+  it('resolves au-link, href, and active state against the nested router location', async function () {
+    class App {
+      public panelPath: string = '/items/42/overview';
+    }
+
+    const fixture = await createFixture(
+      `<au-router current-path.bind="panelPath">
+        <au-route path="items/:id">
+          <a data-overview au-link="overview">Overview</a>
+          <a data-reviews au-link="reviews">Reviews</a>
+          <a
+            data-manual
+            href.bind="$route.href('reviews')"
+            class.bind="$route.isActive('reviews', {}, { exact: true }) ? 'is-active' : ''">
+            Manual
+          </a>
+
+          <au-route path="overview" exact><span data-overview-view>Overview</span></au-route>
+          <au-route path="reviews" exact><span data-reviews-view>Reviews</span></au-route>
+        </au-route>
+      </au-router>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      await settleRouter();
+      const manual = fixture.appHost.querySelector('[data-manual]') as HTMLAnchorElement;
+      assert.strictEqual(manual.getAttribute('href'), '/items/42/reviews');
+      assert.strictEqual(manual.classList.contains('is-active'), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview-view]')?.textContent, 'Overview');
+
+      click(fixture.appHost.querySelector('[data-reviews]') as HTMLElement);
+      await settleRouter();
+
+      assert.strictEqual(fixture.component.panelPath, '/items/42/reviews');
+      assert.strictEqual(fixture.appHost.querySelector('[data-reviews-view]')?.textContent, 'Reviews');
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview-view]'), null);
+      assert.strictEqual(manual.classList.contains('is-active'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('keeps the requested current-path and rematches a fallback after local guard failure inside au-router', async function () {
     class App {
       public panelPath: string = '/portal/admin';
@@ -398,7 +447,272 @@ describe('au-router memory routing', function () {
       await fixture.tearDown();
     }
   });
+
+  it('reloads an active route inside au-router with replace and rerun parity', async function () {
+    class App {
+      public panelPath: string = '/posts/1';
+      public calls: Array<{ phase: string; kind: string }> = [];
+      public routerVm!: AuRouter;
+
+      public loading(context: { kind: string }): void {
+        this.calls.push({ phase: 'loading', kind: context.kind });
+      }
+
+      public loaded(context: { kind: string }): void {
+        this.calls.push({ phase: 'loaded', kind: context.kind });
+      }
+    }
+
+    const fixture = await createFixture(
+      `<au-router component.ref="routerVm" current-path.bind="panelPath">
+        <au-route
+          path="posts/:id"
+          exact
+          transition-plan="replace"
+          loading.bind="loading($lifecycle)"
+          loaded.bind="loaded($lifecycle)">
+          <span data-post>\${$params.id}</span>
+        </au-route>
+      </au-router>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      await settleRouter();
+      const route = fixture.component.routerVm._coordinator.root.children[0] as IRouteContext;
+      const coordinator = fixture.component.routerVm._coordinator;
+      fixture.component.calls.length = 0;
+      const initialPost = fixture.appHost.querySelector('[data-post]');
+
+      const replaceNavigationId = coordinator.navigation.id;
+      await route.reload();
+      await waitForNavigationIdle(coordinator, replaceNavigationId + 1);
+
+      const replacedPost = fixture.appHost.querySelector('[data-post]');
+      assert.deepStrictEqual(fixture.component.calls, [
+        { phase: 'loading', kind: 'replace' },
+        { phase: 'loaded', kind: 'replace' },
+      ]);
+      assert.notStrictEqual(replacedPost, initialPost);
+      assert.strictEqual(fixture.component.panelPath, '/posts/1');
+
+      fixture.component.calls.length = 0;
+      const rerunNavigationId = coordinator.navigation.id;
+      await route.reload({ plan: 'rerun' });
+      await waitForNavigationIdle(coordinator, rerunNavigationId + 1);
+
+      assert.deepStrictEqual(fixture.component.calls, [
+        { phase: 'loading', kind: 'rerun' },
+        { phase: 'loaded', kind: 'rerun' },
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-post]'), replacedPost);
+      assert.strictEqual(fixture.component.panelPath, '/posts/1');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('recovers locally from route errors inside au-router and keeps current-path at the requested location', async function () {
+    class App {
+      public panelPath: string = '/portal/ready';
+      public routerVm!: AuRouter;
+
+      public fail(): never {
+        throw new Error('Broken panel');
+      }
+
+      public recover(_failure: RouteFailure) {
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const fixture = await createFixture(
+      `<au-router component.ref="routerVm" current-path.bind="panelPath">
+        <au-route path="portal">
+          <span data-portal>Portal</span>
+          <au-route path="ready" exact>
+            <span data-ready>Ready</span>
+          </au-route>
+          <au-route path="broken" exact loading.bind="fail()" on-error.bind="failure => recover(failure)">
+            <span data-broken>Broken</span>
+          </au-route>
+          <au-route path="*" fallback>
+            <span data-recovered>Recovered</span>
+          </au-route>
+        </au-route>
+      </au-router>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      const coordinator = fixture.component.routerVm._coordinator;
+      await waitForNavigationIdle(coordinator);
+      const navigationId = coordinator.navigation.id;
+      fixture.component.panelPath = '/portal/broken';
+      await waitForNavigationIdle(coordinator, navigationId + 1);
+
+      assert.strictEqual(fixture.component.panelPath, '/portal/broken');
+      assert.strictEqual(fixture.appHost.querySelector('[data-portal]')?.textContent, 'Portal');
+      assert.strictEqual(fixture.appHost.querySelector('[data-ready]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovered]')?.textContent, 'Recovered');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('keeps outer route ownership separate from nested au-router state', async function () {
+    class App {
+      public panelPath: string = '/list';
+    }
+
+    const adapter = new MemoryPathAdapter('/workspace');
+    const fixture = await createFixture(
+      `<au-route path="workspace" exact>
+        <span data-workspace>Workspace</span>
+        <au-router current-path.bind="panelPath">
+          <au-route path="list" exact><span data-list>List</span></au-route>
+          <au-route path="detail/:id" exact><span data-detail>\${$params.id}</span></au-route>
+        </au-router>
+      </au-route>
+      <au-route path="reports" exact><span data-reports>Reports</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await settleRouter();
+      assert.strictEqual(fixture.appHost.querySelector('[data-workspace]')?.textContent, 'Workspace');
+      assert.strictEqual(fixture.appHost.querySelector('[data-list]')?.textContent, 'List');
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace');
+
+      fixture.component.panelPath = '/detail/5';
+      await settleRouter();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-detail]')?.textContent, '5');
+      assert.strictEqual(fixture.component.panelPath, '/detail/5');
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace');
+
+      const router = fixture.container.get(IRouteCoordinator);
+      await router.load('/reports');
+      await settleRouter();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-reports]')?.textContent, 'Reports');
+      assert.strictEqual(fixture.appHost.querySelector('[data-workspace]'), null);
+      assert.strictEqual(adapter.getCurrentPath(), '/reports');
+      assert.strictEqual(fixture.component.panelPath, '/detail/5');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('captures committed active branches from the router as a snapshot instead of a singular chain', async function () {
+    class App {
+      public panelPath: string = '/dashboard/reports';
+      public routerVm!: AuRouter;
+    }
+
+    const fixture = await createFixture(
+      `<au-router component.ref="routerVm" current-path.bind="panelPath">
+        <au-route path="dashboard">
+          <span data-dashboard>Dashboard</span>
+          <au-route group>
+            <span data-shell>Shell</span>
+            <au-route path="reports" exact><span data-reports>Reports</span></au-route>
+          </au-route>
+          <au-route path="reports" exact><span data-summary>Summary</span></au-route>
+        </au-route>
+      </au-router>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      await settleRouter();
+      const router = fixture.component.routerVm._coordinator as IRouteCoordinator & {
+        getActiveSnapshot?: () => ActiveRouteSnapshot;
+      };
+      assert.strictEqual(typeof router.getActiveSnapshot, 'function');
+
+      const snapshot = router.getActiveSnapshot!();
+      assert.strictEqual(snapshot.path, '/dashboard/reports');
+      assert.deepStrictEqual(snapshot.matches.map(match => match.fullPath), [
+        '/dashboard',
+        '/dashboard',
+        '/dashboard/reports',
+        '/dashboard/reports',
+      ]);
+      assert.deepStrictEqual(snapshot.branches.map(branch => branch.matches.map(match => match.fullPath)), [
+        ['/dashboard', '/dashboard', '/dashboard/reports'],
+        ['/dashboard', '/dashboard/reports'],
+      ]);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('captures a route-context subtree snapshot rooted at that context', async function () {
+    class App {
+      public panelPath: string = '/workspace/details/42';
+      public routerVm!: AuRouter;
+    }
+
+    const fixture = await createFixture(
+      `<au-router component.ref="routerVm" current-path.bind="panelPath">
+        <au-route path="workspace">
+          <span data-workspace>Workspace</span>
+          <au-route path="details/:id" exact><span data-details>\${$params.id}</span></au-route>
+          <au-route path="activity" exact><span data-activity>Activity</span></au-route>
+        </au-route>
+      </au-router>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      await settleRouter();
+      const workspace = fixture.component.routerVm._coordinator.root.children[0] as IRouteContext & {
+        getActiveSnapshot?: () => ActiveRouteSnapshot;
+      };
+      assert.strictEqual(typeof workspace.getActiveSnapshot, 'function');
+
+      const snapshot = workspace.getActiveSnapshot!();
+      assert.strictEqual(snapshot.path, '/details/42');
+      assert.deepStrictEqual(snapshot.matches.map(match => match.fullPath), [
+        '/workspace',
+        '/workspace/details/:id',
+      ]);
+      assert.deepStrictEqual(snapshot.branches.map(branch => branch.matches.map(match => match.fullPath)), [
+        ['/workspace', '/workspace/details/:id'],
+      ]);
+      assert.deepStrictEqual({ ...snapshot.matches[snapshot.matches.length - 1].params }, { id: '42' });
+    } finally {
+      await fixture.tearDown();
+    }
+  });
 });
+
+interface ActiveRouteSnapshot {
+  readonly path: string;
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+  readonly branches: readonly ActiveRouteBranchSnapshot[];
+}
+
+interface ActiveRouteBranchSnapshot {
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+}
+
+interface ActiveRouteMatchSnapshot {
+  readonly id: string;
+  readonly pattern: string;
+  readonly fullPath: string;
+  readonly path: string;
+  readonly params: Readonly<Record<string, string>>;
+  readonly query: string;
+  readonly hash: string;
+  readonly title: string | null;
+}
 
 function click(element: HTMLElement): void {
   const window = element.ownerDocument.defaultView!;
@@ -474,4 +788,20 @@ async function settleRouter(): Promise<void> {
   await tasksSettled();
   await Promise.resolve();
   await tasksSettled();
+}
+
+async function waitForNavigationIdle(coordinator: IRouteCoordinator, minimumNavigationId: number = coordinator.navigation.id): Promise<void> {
+  await settleRouter();
+  if (coordinator.navigation.id >= minimumNavigationId && !coordinator.navigation.pending) {
+    return;
+  }
+  await new Promise<void>(resolve => {
+    const dispose = coordinator.subscribeNavigation(state => {
+      if (state.id >= minimumNavigationId && !state.pending) {
+        dispose();
+        resolve();
+      }
+    });
+  });
+  await settleRouter();
 }

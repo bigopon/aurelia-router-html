@@ -193,7 +193,101 @@ const featureExamples: PlaygroundExample[] = [
     <h2>Security</h2>
     <p>Review your sign-in settings.</p>
   </au-route>
+  </au-route>`,
+  }),
+  routerExample({
+    id: 'nested-router-memory',
+    title: 'Nested router boundary',
+    description: 'Keep browser routing outside while an inner panel uses its own memory-backed route state.',
+    initialPath: '/workspace',
+    appTs: `export class App {
+  public panelPath = '/drafts';
+}`,
+    appHtml: `<au-route path="workspace" exact>
+  <section class="workspace-shell">
+    <header>
+      <h1>Workspace</h1>
+      <p>The browser route stays on <code>/workspace</code>.</p>
+    </header>
+
+    <nav>
+      <a au-link="/workspace">Workspace</a>
+      <a au-link="/reports">Reports</a>
+    </nav>
+
+    <section class="panel-shell">
+      <div class="panel-toolbar">
+        <strong>Inspector panel</strong>
+        <code>\${panelPath}</code>
+      </div>
+
+      <au-router current-path.bind="panelPath">
+        <nav class="panel-nav">
+          <a au-link="drafts" active-class="selected">Drafts</a>
+          <a au-link="drafts/42" active-class="selected">Draft 42</a>
+          <a au-link="settings" active-class="selected">Settings</a>
+        </nav>
+
+        <au-route path="drafts" exact>
+          <article>
+            <h2>Drafts</h2>
+            <p>The nested router starts from a memory path.</p>
+          </article>
+        </au-route>
+
+        <au-route path="drafts/:id" exact>
+          <article>
+            <h2>Draft \${$params.id}</h2>
+            <p>Only <code>panelPath</code> changes as the inner route moves.</p>
+          </article>
+        </au-route>
+
+        <au-route path="settings" exact>
+          <article>
+            <h2>Settings</h2>
+            <p>The outer browser route still owns the document location.</p>
+          </article>
+        </au-route>
+      </au-router>
+    </section>
+  </section>
+</au-route>
+
+<au-route path="reports" exact>
+  <main>
+    <h1>Reports</h1>
+    <p>Leaving the workspace changes the browser route again.</p>
+  </main>
 </au-route>`,
+    appCss: `.workspace-shell,
+.panel-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.panel-shell {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 18px;
+}
+
+.panel-toolbar,
+.panel-nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.panel-nav a.selected {
+  color: white;
+  background: #1d6b57;
+  border-color: #1d6b57;
+}
+
+.panel-shell article {
+  display: block;
+}`,
   }),
   routerExample({
     id: 'route-groups',

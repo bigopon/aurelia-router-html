@@ -17,7 +17,17 @@ export type { LoadOptions, RouteNavigationCallback, RouteNavigationOutcome, Rout
 export { Routing } from './configuration';
 export type { RoutingOptions } from './configuration';
 export { RouteContext, IRouteContext } from './route-context';
-export type { RouteActiveOptions, RouteLoadOptions, RouteParams, RouteReloadOptions, RouteState, SwapOrder } from './route-context';
+export type {
+  ActiveRouteBranchSnapshot,
+  ActiveRouteMatchSnapshot,
+  ActiveRouteSnapshot,
+  RouteActiveOptions,
+  RouteLoadOptions,
+  RouteParams,
+  RouteReloadOptions,
+  RouteState,
+  SwapOrder,
+} from './route-context';
 export { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
 export type { RouteHrefOptions, RouteLocation, RouteQuery, RouteQueryInput, RouteQueryValue } from './route-location';
 export { IRouteAnimationOptions } from './animation';

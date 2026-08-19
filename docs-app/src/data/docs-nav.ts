@@ -43,6 +43,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'nested-router',
+    title: 'Nested Routers',
+    path: '/features/nested-router',
+    summary: 'Create a local memory-backed router boundary with its own current-path state.',
+    badge: 'R0',
+  },
+  {
     id: 'groups',
     title: 'Route Groups',
     path: '/features/groups',

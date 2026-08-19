@@ -128,9 +128,13 @@
 - [x] `R1` Redirect routes inside `au-router` write the redirected destination back to `current-path`.
 - [x] `R1` Pathless route groups inside `au-router` preserve structural shell DOM while nested child routes switch.
 - [x] `R1` Local `guard-failure="local"` fallback recovery inside `au-router` keeps the requested `current-path` while rematching nested siblings.
-- [ ] `R2` Matched-route transitions and `route.reload()` inside `au-router` preserve the same rerun/replace contracts as root routing.
-- [ ] `R2` Local error recovery through `on-error` and fallback routes inside `au-router` preserves nested shell UI and `current-path`.
-- [ ] `R2` Nested `au-router` composition under a parent `au-route` verifies clear ownership between outer route residue and inner memory-router state.
+- [x] `R2` `au-link`, `$route.href()`, and `$route.isActive()` inside `au-router` resolve against the nested memory-router location instead of the outer application URL.
+- [x] `R2` Matched-route transitions and `route.reload()` inside `au-router` preserve the same rerun/replace contracts as root routing.
+- [x] `R2` Local error recovery through `on-error` and fallback routes inside `au-router` preserves nested shell UI and `current-path`.
+- [x] `R2` Nested `au-router` composition under a parent `au-route` verifies clear ownership between outer route residue and inner memory-router state.
+- [ ] `R2` Outer-route teardown during an in-flight nested navigation keeps the outer URL committed while aborting the inner request without leaking state.
+- [x] `R2` Router-level active-route snapshots expose committed flat matches and active branches rather than a singular route chain.
+- [x] `R2` Route-context subtree snapshots expose the committed active graph rooted at that context with stable route identity.
 - [ ] `R3` Browser-facing services such as titles, scrolling, focus, and animation remain intentionally absent or explicitly scoped for the memory-only `au-router` step.
 # Browser playground
 

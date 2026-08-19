@@ -54,6 +54,27 @@ export interface RouteContextOptions {
   hrefFormatter?: (path: string) => string;
 }
 
+export interface ActiveRouteSnapshot {
+  readonly path: string;
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+  readonly branches: readonly ActiveRouteBranchSnapshot[];
+}
+
+export interface ActiveRouteBranchSnapshot {
+  readonly matches: readonly ActiveRouteMatchSnapshot[];
+}
+
+export interface ActiveRouteMatchSnapshot {
+  readonly id: string;
+  readonly pattern: string;
+  readonly fullPath: string;
+  readonly path: string;
+  readonly params: Readonly<Record<string, string>>;
+  readonly query: string;
+  readonly hash: string;
+  readonly title: string | null;
+}
+
 export interface IRouteContext {
   readonly parent: IRouteContext | null;
   readonly root: IRouteContext;
@@ -75,6 +96,7 @@ export interface IRouteContext {
   reload(options?: RouteReloadOptions): boolean | Promise<boolean>;
   isActive(target?: string | IRouteContext, params?: RouteParams, options?: RouteActiveOptions): boolean;
   getPaths(includeSelf?: boolean): readonly string[];
+  getActiveSnapshot(): ActiveRouteSnapshot;
   usePattern(pattern: string): void;
   apply(path: string, location?: Pick<RouteLocation, 'query' | 'hash'>): void;
   refresh(): void;
@@ -84,6 +106,8 @@ export interface IRouteContext {
 }
 
 export const IRouteContext = DI.createInterface<IRouteContext>('IRouteContext');
+
+let routeContextId = 0;
 
 export class RouteContext implements IRouteContext {
   public readonly children: RouteContext[] = [];
@@ -154,6 +178,7 @@ export class RouteContext implements IRouteContext {
   private _hasLifecycleHooks: boolean = false;
   /** @internal */ public _onError: RouteErrorHandler | null = null;
   /** @internal */ public readonly _guardFailure: RouteGuardFailure;
+  private readonly _id: string = `route-${++routeContextId}`;
 
   public constructor(
     public readonly parent: IRouteContext | null,
@@ -555,6 +580,19 @@ export class RouteContext implements IRouteContext {
     return paths;
   }
 
+  public getActiveSnapshot(): ActiveRouteSnapshot {
+    const matchMap = new Map<RouteContext, ActiveRouteMatchSnapshot>();
+    const branches = this._collectActiveBranches(matchMap, [], this.parent != null);
+    const path = this.parent === null
+      ? this.$path
+      : normalizePath(this.active ? this.residue : '/');
+    return Object.freeze({
+      path,
+      matches: Object.freeze([...matchMap.values()]),
+      branches: Object.freeze(branches),
+    });
+  }
+
   public usePattern(pattern: string): void {
     const normalizedPattern = normalizePattern(pattern);
     const matcher = compilePattern(normalizedPattern, this._exact, this.parent === null);
@@ -873,6 +911,52 @@ export class RouteContext implements IRouteContext {
       contexts.push(...contexts[index].children);
     }
     return contexts;
+  }
+
+  private _collectActiveBranches(
+    matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>,
+    ancestors: readonly ActiveRouteMatchSnapshot[],
+    includeSelf: boolean,
+  ): readonly ActiveRouteBranchSnapshot[] {
+    if (!this.active || !this._registered) {
+      return Object.freeze([]);
+    }
+
+    const current = includeSelf ? this._getOrCreateActiveMatchSnapshot(matchMap) : null;
+    const nextAncestors = current == null
+      ? ancestors
+      : [...ancestors, current];
+    const childBranches: ActiveRouteBranchSnapshot[] = [];
+    for (const child of this.children) {
+      childBranches.push(...child._collectActiveBranches(matchMap, nextAncestors, true));
+    }
+    if (childBranches.length > 0) {
+      return Object.freeze(childBranches);
+    }
+    return Object.freeze([
+      Object.freeze({
+        matches: Object.freeze(nextAncestors),
+      }),
+    ]);
+  }
+
+  private _getOrCreateActiveMatchSnapshot(matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>): ActiveRouteMatchSnapshot {
+    let snapshot = matchMap.get(this);
+    if (snapshot != null) {
+      return snapshot;
+    }
+    snapshot = Object.freeze({
+      id: this._id,
+      pattern: this.pattern,
+      fullPath: this.fullPath,
+      path: this.$path,
+      params: Object.freeze({ ...this.$params }),
+      query: this.$query.toString(),
+      hash: this.$hash,
+      title: this.title,
+    });
+    matchMap.set(this, snapshot);
+    return snapshot;
   }
 
   private _collectMatches(path: string, matches: Set<RouteContext>): void {

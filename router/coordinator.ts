@@ -2,7 +2,7 @@ import { DI, isPromise } from '@aurelia/kernel';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardContext, RouteGuardRedirect, RouteGuardResult } from './guard';
 import { RoutePhaseError, type RouteErrorResult, type RouteFailure, type RouteFailurePhase } from './error';
 import type { IPathAdapter, PathNavigation } from './path-adapter';
-import { RouteContext, type IRouteContext } from './route-context';
+import { RouteContext, type ActiveRouteSnapshot, type IRouteContext } from './route-context';
 import { parseRouteLocation, stringifyRouteLocation, type RouteLocation } from './route-location';
 import { type IRouteFocusService, noRouteFocusService } from './focus';
 import { type IRouteScrollService, noRouteScrollService, type RouteScrollNavigation } from './scroll';
@@ -85,6 +85,7 @@ export interface IRouteCoordinator {
   start(): boolean | Promise<boolean>;
   stop(): void;
   load(path: string, options?: LoadOptions): boolean | Promise<boolean>;
+  getActiveSnapshot(): ActiveRouteSnapshot;
   subscribe(callback: (path: string) => void): () => void;
   subscribeNavigation(callback: RouteNavigationCallback): () => void;
 }
@@ -452,6 +453,15 @@ export class RouteCoordinator implements IRouteCoordinator {
       return animation();
     }
     transaction.enterAnimations.push(animation);
+  }
+
+  public getActiveSnapshot(): ActiveRouteSnapshot {
+    const snapshot = this.root.getActiveSnapshot();
+    return Object.freeze({
+      path: this.currentPath,
+      matches: snapshot.matches,
+      branches: snapshot.branches,
+    });
   }
 
   public subscribe(callback: (path: string) => void): () => void {
