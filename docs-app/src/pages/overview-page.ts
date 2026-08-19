@@ -32,6 +32,13 @@ export class OverviewPage {
       syntax: '<au-route path="account">\n  <au-route path="profile">Profile</au-route>\n</au-route>',
     },
     {
+      title: 'Route Groups',
+      summary: 'Share layout or route policy across descendants without adding another URL segment.',
+      path: '/features/groups',
+      playgroundId: 'route-groups',
+      syntax: '<au-route group>\n  <workspace-shell></workspace-shell>\n  <au-route path="projects" exact>Projects</au-route>\n  <au-route path="reports" exact>Reports</au-route>\n</au-route>',
+    },
+    {
       title: 'Params',
       summary: 'Give each nested route its own URL parameters and access ancestors explicitly.',
       path: '/features/params',

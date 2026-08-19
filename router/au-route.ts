@@ -153,14 +153,17 @@ export class AuRoute implements ICustomElementViewModel {
   private loadedAst: IsBindingBehavior | null = null;
   private readonly redirectMode: RedirectMode;
   private readonly isRedirect: boolean;
+  private readonly isGroup: boolean;
   private readonly unsubscribe: () => void;
   private readonly unsubscribeNavigation: () => void;
   private viewActive: boolean = false;
+  private discoveryActive: boolean = false;
   private requestedViewActive: boolean = false;
   private viewTransition: Promise<void> | null = null;
   private animationRunId: number = 0;
   private lastRedirectKey: string | null = null;
   private previousState: RouteState | null = null;
+  private preflightedNavigationId: number = 0;
 
   public constructor() {
     const parentContext = resolve(IRouteContext);
@@ -179,6 +182,8 @@ export class AuRoute implements ICustomElementViewModel {
       guardFailure,
       swapOrder: swapOrder ?? undefined,
     });
+    (this.context as RouteContext & { _auRoute?: AuRoute })._auRoute = this;
+    (this.context as RouteContext)._setRegistered(false);
     this.path = path;
     this.title = title;
     (this.context as RouteContext)._setTitle(title);
@@ -190,6 +195,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.redirectTo = redirectTo;
     this.redirectMode = redirectMode;
     this.isRedirect = isRedirect;
+    this.isGroup = group;
     this.animationsEnabled = this.animationOptions.enabled || animate;
     this.overrideContext.$pattern = path;
     this.overrideContext.$params = this.context.$params;
@@ -229,6 +235,7 @@ export class AuRoute implements ICustomElementViewModel {
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
     this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
+    (this.context as RouteContext)._setRegistered(true);
     this.updateErrorHandler();
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
@@ -237,10 +244,13 @@ export class AuRoute implements ICustomElementViewModel {
     this.loadingAst ??= this.loadingExpression == null ? null : this.expressionParser.parse(this.loadingExpression, 'None');
     this.loadedAst ??= this.loadedExpression == null ? null : this.expressionParser.parse(this.loadedExpression, 'None');
     this.updatePath(this.path);
-
-    this.requestedViewActive = this.isActive && !this.isRedirect;
-    this.tryRedirect();
-    return this.queueViewUpdate();
+    const prepared = this.ensureDiscoveryView();
+    const update = onResolve(prepared, () => {
+      this.updateRequestedViewActive();
+      this.tryRedirect();
+      return this.queueViewUpdate();
+    });
+    return isPromise(update) ? update : undefined;
   }
 
   public bound(): void {
@@ -331,6 +341,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.scope = void 0;
     this.lifecycleScope = void 0;
     this.lifecycleOverrideContext.$lifecycle = undefined;
+    (this.context as RouteContext)._setRegistered(false);
     this.requestedViewActive = false;
     return this.queueViewUpdate();
   }
@@ -338,6 +349,7 @@ export class AuRoute implements ICustomElementViewModel {
   public dispose(): void {
     this.unsubscribe();
     this.unsubscribeNavigation();
+    delete (this.context as RouteContext & { _auRoute?: AuRoute })._auRoute;
     this.context.dispose();
     this.titleService.requestUpdate();
   }
@@ -348,7 +360,7 @@ export class AuRoute implements ICustomElementViewModel {
   }
   public set isActive(value: boolean) {
     this._isActive = value;
-    this.requestedViewActive = value && !this.isRedirect;
+    this.updateRequestedViewActive();
     if (!this.$controller?.isActive) {
       return;
     }
@@ -395,6 +407,94 @@ export class AuRoute implements ICustomElementViewModel {
     return this.factory!.create().setLocation(this.location);
   }
 
+  private ensureDiscoveryView(): void | Promise<void> {
+    if (!this.isGroup || this.factory == null || this.scope == null || this.discoveryActive) {
+      return;
+    }
+    const fragment = this.platform.globalThis.document.createDocumentFragment();
+    const view = this.view ??= this.factory.create().setHost(fragment);
+    const activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, this.scope!));
+    if (isPromise(activation)) {
+      return activation.then(() => {
+        this.discoveryActive = true;
+      });
+    }
+    this.discoveryActive = true;
+  }
+
+  private updateRequestedViewActive(): void {
+    this.requestedViewActive = this._isActive && !this.isRedirect && this.hasVisibleAncestorRoute();
+  }
+
+  private hasVisibleAncestorRoute(): boolean {
+    let parent = this.context.parent;
+    while (parent instanceof RouteContext) {
+      const route = (parent as RouteContext & { _auRoute?: AuRoute })._auRoute;
+      if (route != null && !route.viewActive) {
+        return false;
+      }
+      parent = parent.parent;
+    }
+    return true;
+  }
+
+  private notifyDescendantVisibilityChange(): void | Promise<void> {
+    const pending: Promise<void>[] = [];
+    for (const child of this.context.children) {
+      const route = (child as RouteContext & { _auRoute?: AuRoute })._auRoute;
+      const result = route?.handleAncestorVisibilityChange();
+      if (isPromise(result)) {
+        pending.push(result.catch(() => {}));
+      }
+    }
+    return pending.length === 0 ? undefined : Promise.all(pending).then(() => {});
+  }
+
+  private handleAncestorVisibilityChange(): void | Promise<void> {
+    const previous = this.requestedViewActive;
+    this.updateRequestedViewActive();
+    let update: void | Promise<void> = undefined;
+    if (previous !== this.requestedViewActive && this.$controller?.isActive) {
+      update = this.queueViewUpdate();
+    }
+    return onResolve(update, () => this.notifyDescendantVisibilityChange());
+  }
+
+  private preflightDescendantCanLoad(): void | Promise<void> {
+    const pending: Promise<void>[] = [];
+    for (const child of this.context.children) {
+      const route = (child as RouteContext & { _auRoute?: AuRoute })._auRoute;
+      const result = route?.preflightActivationBranch();
+      if (isPromise(result)) {
+        pending.push(result);
+      }
+    }
+    return pending.length === 0 ? undefined : Promise.all(pending).then(() => {});
+  }
+
+  private preflightActivationBranch(): void | Promise<void> {
+    if (!this.isActive || this.isRedirect || this.viewActive) {
+      return;
+    }
+    const navigationId = this.coordinator.navigation.id;
+    if (this.preflightedNavigationId === navigationId) {
+      return;
+    }
+    const lifecycle = this.coordinator._createLifecycleContext(this.context as RouteContext, 'enter');
+    const current = this.coordinator._runCanLoadOnly(this.context as RouteContext, this.canLoad, lifecycle);
+    const afterCurrent = onResolve(current, () => {
+      this.preflightedNavigationId = navigationId;
+      return this.preflightDescendantCanLoad();
+    });
+    return isPromise(afterCurrent) ? afterCurrent : undefined;
+  }
+
+  private refreshGroupDescendants(): void {
+    if (this.isGroup && this.context.active) {
+      (this.context as RouteContext).refresh();
+    }
+  }
+
   private activateView(): void | Promise<void> {
     if (this.viewActive || this.scope == null) {
       return;
@@ -407,66 +507,79 @@ export class AuRoute implements ICustomElementViewModel {
     const lifecycle = this.coordinator._createLifecycleContext(context, 'enter');
     const finishSettlementOnAbort = this.coordinator._isReplacementDescendantActivation(context);
     let viewSettlement: Promise<void> | null = null;
-    const routed = this.coordinator._runRouteActivation(context, this.canLoad, lifecycle, () => onResolve(
-      this.runLoading(lifecycle),
-      () => {
-        if (!this.requestedViewActive || this.scope == null) {
-          return;
-        }
+    const activate = () => onResolve(
+      this.isGroup ? this.refreshGroupDescendants() : undefined,
+      () => onResolve(
+        this.isGroup ? this.preflightDescendantCanLoad() : undefined,
+        () => onResolve(
+          this.runLoading(lifecycle),
+          () => {
+            if (!this.requestedViewActive || this.scope == null) {
+              return;
+            }
 
-        const scope = this.scope;
-        this.view ??= this.getView();
-        const view = this.view;
-        this.viewActive = true;
-        this.settlement.begin();
-        let settling = true;
-        const finishSettlement = (): void => {
-          if (!settling) {
-            return;
-          }
-          settling = false;
-          lifecycle.signal.removeEventListener('abort', finishSettlement);
-          this.endViewActivation();
-        };
-        if (finishSettlementOnAbort) {
-          if (lifecycle.signal.aborted) {
+            const scope = this.scope;
+            if (this.isGroup) {
+              const prepared = this.ensureDiscoveryView();
+              return onResolve(prepared, () => this.finishGroupActivation(lifecycle, finishSettlementOnAbort));
+            }
+            this.view ??= this.getView();
+            const view = this.view;
+            this.viewActive = true;
+            this.settlement.begin();
+            let settling = true;
+            const finishSettlement = (): void => {
+              if (!settling) {
+                return;
+              }
+              settling = false;
+              lifecycle.signal.removeEventListener('abort', finishSettlement);
+              this.endViewActivation();
+            };
+            if (finishSettlementOnAbort) {
+              if (lifecycle.signal.aborted) {
+                finishSettlement();
+              } else {
+                lifecycle.signal.addEventListener('abort', finishSettlement, { once: true });
+              }
+            }
+            let activation: void | Promise<void>;
+            try {
+              activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, scope));
+            } catch (error) {
+              return this.failViewActivation(error, finishSettlement);
+            }
+
+            let ready: unknown | Promise<unknown>;
+            try {
+              ready = onResolve(activation, () => {
+                this.coordinator._assertNavigationSignal(lifecycle.signal);
+                return this.runLoaded(lifecycle);
+              });
+            } catch (error) {
+              return this.failViewActivation(error, finishSettlement);
+            }
+            if (isPromise(ready)) {
+              const settled = ready.then(
+                () => {
+                  this.coordinator._assertNavigationSignal(lifecycle.signal);
+                  finishSettlement();
+                  return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+                },
+                error => this.failViewActivation(error, finishSettlement),
+              );
+              viewSettlement = settled.then(() => {}, () => {});
+              return settled;
+            }
             finishSettlement();
-          } else {
-            lifecycle.signal.addEventListener('abort', finishSettlement, { once: true });
-          }
-        }
-        let activation: void | Promise<void>;
-        try {
-          activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, scope));
-        } catch (error) {
-          return this.failViewActivation(error, finishSettlement);
-        }
-
-        let ready: unknown | Promise<unknown>;
-        try {
-          ready = onResolve(activation, () => {
-            this.coordinator._assertNavigationSignal(lifecycle.signal);
-            return this.runLoaded(lifecycle);
-          });
-        } catch (error) {
-          return this.failViewActivation(error, finishSettlement);
-        }
-        if (isPromise(ready)) {
-          const settled = ready.then(
-            () => {
-              this.coordinator._assertNavigationSignal(lifecycle.signal);
-              finishSettlement();
-              return this.coordinator._runEnterAnimation(() => this.animate('enter'));
-            },
-            error => this.failViewActivation(error, finishSettlement),
-          );
-          viewSettlement = settled.then(() => {}, () => {});
-          return settled;
-        }
-        finishSettlement();
-        return this.coordinator._runEnterAnimation(() => this.animate('enter'));
-      },
-    ));
+            return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+          },
+        ),
+      ),
+    );
+    const routed = this.preflightedNavigationId === this.coordinator.navigation.id
+      ? this.coordinator._runRouteActivation(context, this.canLoad, lifecycle, activate, true)
+      : this.coordinator._runRouteActivation(context, this.canLoad, lifecycle, activate);
     if (!isPromise(routed)) {
       return;
     }
@@ -479,6 +592,58 @@ export class AuRoute implements ICustomElementViewModel {
         throw error;
       });
     });
+  }
+
+  private finishGroupActivation(
+    lifecycle: RouteLifecycleContext,
+    finishSettlementOnAbort: boolean,
+  ): void | Promise<void> {
+    if (!this.requestedViewActive || this.scope == null) {
+      return;
+    }
+    const view = this.view!;
+    this.viewActive = true;
+    this.settlement.begin();
+    let settling = true;
+    const finishSettlement = (): void => {
+      if (!settling) {
+        return;
+      }
+      settling = false;
+      lifecycle.signal.removeEventListener('abort', finishSettlement);
+      this.endViewActivation();
+    };
+    if (finishSettlementOnAbort) {
+      if (lifecycle.signal.aborted) {
+        finishSettlement();
+      } else {
+        lifecycle.signal.addEventListener('abort', finishSettlement, { once: true });
+      }
+    }
+    try {
+      view.nodes.insertBefore(this.location);
+    } catch (error) {
+      return this.failViewActivation(error, finishSettlement);
+    }
+    const descendantsReady = this.notifyDescendantVisibilityChange();
+    let ready: void | Promise<void>;
+    try {
+      ready = onResolve(descendantsReady, () => this.runLoaded(lifecycle));
+    } catch (error) {
+      return this.failViewActivation(error, finishSettlement);
+    }
+    if (isPromise(ready)) {
+      return ready.then(
+        () => {
+          this.coordinator._assertNavigationSignal(lifecycle.signal);
+          finishSettlement();
+          return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+        },
+        error => this.failViewActivation(error, finishSettlement),
+      );
+    }
+    finishSettlement();
+    return this.coordinator._runEnterAnimation(() => this.animate('enter'));
   }
 
   private activateRestoredView(): void | Promise<void> {
@@ -707,6 +872,14 @@ export class AuRoute implements ICustomElementViewModel {
     }
 
     const view = this.view;
+    if (this.isGroup && this.discoveryActive) {
+      return onResolve(this.animate('leave'), () => {
+        this.viewActive = false;
+        view.nodes.remove();
+        void this.notifyDescendantVisibilityChange();
+        this.titleService.requestUpdate();
+      });
+    }
     return onResolve(this.animate('leave'), () => {
       this.viewActive = false;
       return onResolve(view.deactivate(view, this.$controller), () => {

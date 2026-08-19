@@ -134,6 +134,7 @@ export class RouteCoordinator implements IRouteCoordinator {
   private readonly subscribers = new Set<(path: string) => void>();
   private readonly navigationSubscribers = new Set<RouteNavigationCallback>();
   private stopListening: (() => void) | null = null;
+  private readonly stopRegistryListening: (() => void) | null;
   private stopping: Promise<void> | null = null;
   private started: boolean = false;
   private transaction: NavigationTransaction | null = null;
@@ -156,6 +157,14 @@ export class RouteCoordinator implements IRouteCoordinator {
   ) {
     if (root instanceof RouteContext) {
       root._setNavigator((path, options) => this.load(path, options));
+      this.stopRegistryListening = root._subscribeRegistry(() => {
+        if (!this.started || this.transaction != null) {
+          return;
+        }
+        this.root.apply(this.currentLocation.pathname, this.currentLocation);
+      });
+    } else {
+      this.stopRegistryListening = null;
     }
   }
 
@@ -200,6 +209,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     const finish = (): void => {
       this.stopListening?.();
       this.stopListening = null;
+      this.stopRegistryListening?.();
       this.focusService.stop();
       this.scrollService.stop();
     };
@@ -233,6 +243,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     canLoad: RouteCanLoadCallback | null,
     lifecycle: RouteLifecycleContext,
     activate: () => void | Promise<void>,
+    skipCanLoad: boolean = false,
   ): void | Promise<void> {
     if (this._isRollingBack) {
       return activate();
@@ -276,7 +287,7 @@ export class RouteCoordinator implements IRouteCoordinator {
 
     let result: void | Promise<void>;
     try {
-      result = this.runCanLoad(transaction, context, canLoad, lifecycle, activate);
+      result = skipCanLoad ? activate() : this.runCanLoad(transaction, context, canLoad, lifecycle, activate);
     } catch (error) {
       return recover(error);
     }
@@ -287,6 +298,22 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
 
     return this.raceTransaction(transaction, result).then(complete, recover);
+  }
+
+  /** @internal */
+  public _runCanLoadOnly(
+    context: RouteContext,
+    canLoad: RouteCanLoadCallback | null,
+    lifecycle: RouteLifecycleContext,
+  ): void | Promise<void> {
+    if (canLoad == null) {
+      return;
+    }
+    const transaction = this.transaction;
+    if (transaction == null) {
+      return this.runActivationOutsideNavigation(context, canLoad, lifecycle, () => {});
+    }
+    return this.runCanLoad(transaction, context, canLoad, lifecycle, () => {});
   }
 
   /** @internal */

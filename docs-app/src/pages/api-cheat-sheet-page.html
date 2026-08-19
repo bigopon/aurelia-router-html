@@ -35,12 +35,23 @@
   swap-order="parallel"
   animate&gt;
   ...
+&lt;/au-route&gt;
+
+&lt;au-route group&gt;
+  &lt;section class="shell"&gt;
+    &lt;h3&gt;Catalog&lt;/h3&gt;
+    &lt;au-viewport&gt;&lt;/au-viewport&gt;
+  &lt;/section&gt;
+
+  &lt;au-route path="/" exact&gt;Browse&lt;/au-route&gt;
+  &lt;au-route path="details/:id"&gt;Details&lt;/au-route&gt;
 &lt;/au-route&gt;</pre>
     <div class="option-table-wrap">
       <table class="option-table">
         <thead><tr><th>Attribute</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>path</code></td><td>Static route pattern. Dynamic values use <code>path.bind</code>, <code>path.to-view</code>, or <code>:path</code>.</td></tr>
+          <tr><td><code>group</code></td><td>Create a structural route parent with no path of its own. Groups can contain regular markup plus nested <code>au-route</code> declarations, but they are not direct navigation targets.</td></tr>
           <tr><td><code>exact</code></td><td>Require the route to consume the complete path supplied by its parent.</td></tr>
           <tr><td><code>fallback</code></td><td>Participate only when no regular sibling matches.</td></tr>
           <tr><td><code>redirect-to</code></td><td>Redirect without rendering this route. Use <code>redirect-mode="push"</code> to retain the source history entry.</td></tr>
@@ -65,7 +76,7 @@
         <thead><tr><th>Syntax</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>products</code>, <code>./products</code></td><td>Equivalent contextual route declaration patterns.</td></tr>
-          <tr><td><code>path="/"</code>, <code>path="."</code>, <code>path="./"</code></td><td>The current parent index in an <code>au-route</code> declaration.</td></tr>
+          <tr><td><code>path="/"</code>, <code>path="."</code>, <code>path="./"</code></td><td>Zero-segment contextual route declarations. Add <code>exact</code> for the true index child, or omit it to keep matching descendants.</td></tr>
           <tr><td><code>:id</code>, <code>:id?</code></td><td>Required and optional named parameters.</td></tr>
           <tr><td><code>:id{{^\d+$}}</code></td><td>Require a named parameter's single encoded segment to satisfy a JavaScript regular expression. Add <code>?</code> after <code>}}</code> to keep it optional.</td></tr>
           <tr><td><code>*</code></td><td>Consume and capture one segment as <code>$params['*']</code>.</td></tr>
@@ -75,6 +86,7 @@
       </table>
     </div>
     <p>Constraint expressions keep normal JavaScript regular-expression semantics, so use <code>^</code> and <code>$</code> for a complete-segment match. Link generation rejects parameter values that do not satisfy their registered constraint.</p>
+    <p><code>group</code> is structural rather than pattern-based, so it belongs on <code>au-route</code> by itself instead of alongside a matching attribute.</p>
   </section>
 
   <section class="route-stack" id="links-and-navigation">

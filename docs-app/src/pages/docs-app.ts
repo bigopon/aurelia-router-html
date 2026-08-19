@@ -14,6 +14,7 @@ import { FeatureGuardsPage } from './feature-guards-page';
 import { FeatureHashScrollingPage } from './feature-hash-scrolling-page';
 import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
+import { FeatureGroupsPage } from './feature-groups-page';
 import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureProgrammaticPage } from './feature-programmatic-page';
@@ -48,6 +49,7 @@ export class DocsApp {
       FeatureBasePathPage,
       FeatureBasicPage,
       FeatureNestedPage,
+      FeatureGroupsPage,
       FeatureParamsPage,
       FeatureSegmentConstraintsPage,
       FeatureUrlStatePage,

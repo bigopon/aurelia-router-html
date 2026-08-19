@@ -13,12 +13,12 @@
       <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route path="products"&gt;...&lt;/au-route&gt;
 &lt;au-route path="./products"&gt;...&lt;/au-route&gt;
-&lt;au-route path="/"&gt;Index&lt;/au-route&gt;</pre>
+&lt;au-route path="/" exact&gt;Index&lt;/au-route&gt;</pre>
     </section>
 
     <section>
       <h3>Meaning</h3>
-      <p>Every <code>au-route</code> declaration matches the URL remaining from its parent. <code>products</code> and <code>./products</code> mean the same contextual route. Only <code>/</code> has a special meaning: the current context's index.</p>
+      <p>Every <code>au-route</code> declaration matches the URL remaining from its parent. <code>products</code> and <code>./products</code> mean the same contextual route. The zero-segment patterns <code>/</code>, <code>.</code>, and <code>./</code> match without consuming a segment, so they can act as an index with <code>exact</code> or as a prefix that keeps matching children.</p>
       <p>A leading slash does not make an <code>au-route</code> declaration root-absolute. Prefer the slash-free form so declarations and navigation targets remain visually distinct.</p>
     </section>
 
@@ -43,6 +43,7 @@
 &lt;/au-route&gt;</pre>
       <p>A native <code>&lt;a href&gt;</code> uses the URL exactly as written, so bind <code>$route.isActive()</code> when it needs selected feedback. <code>au-link</code> resolves a registered route target and performs that active-state work automatically.</p>
       <p>For route-link targets, <code>reviews</code> and <code>./reviews</code> resolve from the current route context, while <code>/help</code> starts from the root context.</p>
+      <p>Use <code>path="/" exact</code> when you need the true index child. Omit <code>exact</code> only when the route should also stay active while one of its descendants owns the remaining segments.</p>
     </section>
   </div>
 

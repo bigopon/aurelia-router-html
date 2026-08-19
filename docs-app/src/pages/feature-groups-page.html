@@ -1,0 +1,90 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Route Groups</h2>
+      <p class="page-copy">
+        Use a structural <code>au-route</code> when several descendants should share markup or behavior without owning a URL segment.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route group&gt;
+  &lt;section class="shell"&gt;
+    &lt;h3&gt;Catalog&lt;/h3&gt;
+    &lt;au-viewport&gt;&lt;/au-viewport&gt;
+  &lt;/section&gt;
+
+  &lt;au-route path="/" exact&gt;Browse&lt;/au-route&gt;
+  &lt;au-route path="details/:id"&gt;Details&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>group</code> makes an <code>au-route</code> structural instead of path-owning. It contributes no path segment, cannot be linked to directly, and becomes active only when one of its descendant routes matches.</p>
+      <p>A group may contain ordinary markup, bindings, slots, and child components in addition to nested <code>au-route</code> declarations. It is not restricted to route elements only.</p>
+      <p>Keep <code>group</code> by itself. It does not combine with <code>path</code>, <code>exact</code>, <code>fallback</code>, or <code>redirect-to</code>.</p>
+    </section>
+  </div>
+
+  <div class="feature-details" data-e2e="route-group-usage-guide">
+    <section>
+      <h3>Usage: Share layout without a path segment</h3>
+      <pre class="code-block" syntax-html>&lt;au-route group&gt;
+  &lt;section class="catalog-shell"&gt;
+    &lt;aside&gt;Filters&lt;/aside&gt;
+    &lt;main&gt;
+      &lt;au-route path="/" exact&gt;Browse&lt;/au-route&gt;
+      &lt;au-route path="details/:id" exact&gt;Details&lt;/au-route&gt;
+    &lt;/main&gt;
+  &lt;/section&gt;
+&lt;/au-route&gt;</pre>
+      <p>The shell appears only while one of the grouped descendants is active, but the URL remains <code>/</code> or <code>/details/:id</code> rather than gaining an extra wrapper segment.</p>
+    </section>
+
+    <section>
+      <h3>Usage: Apply one policy to a branch</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  group
+  loading.bind="loadWorkspace($lifecycle)"
+  can-load.bind="transition =&gt; canOpenWorkspace(transition)"&gt;
+  &lt;workspace-chrome&gt;&lt;/workspace-chrome&gt;
+
+  &lt;au-route path="projects" exact&gt;Projects&lt;/au-route&gt;
+  &lt;au-route path="reports" exact&gt;Reports&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>Put branch-wide lifecycle or guard behavior on the group when multiple descendants should share the same preparation, authorization, or error boundary.</p>
+    </section>
+
+    <section>
+      <h3>Usage: Organize descendants that would otherwise be sibling clutter</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="account"&gt;
+  &lt;h1&gt;Account&lt;/h1&gt;
+
+  &lt;au-route group&gt;
+    &lt;account-tabs&gt;&lt;/account-tabs&gt;
+    &lt;au-route path="/" exact&gt;Profile&lt;/au-route&gt;
+    &lt;au-route path="security" exact&gt;Security&lt;/au-route&gt;
+  &lt;/au-route&gt;
+
+  &lt;au-route path="billing" exact&gt;Billing&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>Use a group when some descendants belong to a shared sub-layout or concept, but introducing another path segment would be artificial.</p>
+    </section>
+  </div>
+
+  <div class="feature-details">
+    <section>
+      <h3>Navigation implications</h3>
+      <pre class="code-block" syntax-html>&lt;a au-link="projects"&gt;Projects&lt;/a&gt;
+&lt;a au-link="reports"&gt;Reports&lt;/a&gt;
+&lt;!-- A group has no path, so links target one of its descendants instead. --&gt;</pre>
+      <p>Navigate to a descendant route, not to the group itself. Registered URLs come from the group's descendants, because the group is structural rather than addressable.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="route-groups" embedded.bind="true"></playground-page>
+</section>

@@ -184,7 +184,7 @@ describe('au-route zero-segment paths and group validation', function () {
 // Ordinary zero-segment routes remain prefix matches unless they are exact.
 // Groups are descendant-selected and cannot be implemented as another
 // zero-length matcher.
-describe.skip('au-route pathless route groups', function () {
+describe('au-route pathless route groups', function () {
   async function navigate(router: IRouteCoordinator, path: string): Promise<boolean> {
     const result = router.load(path);
     const accepted = result instanceof Promise ? await result : result;

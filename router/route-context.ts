@@ -138,6 +138,7 @@ export class RouteContext implements IRouteContext {
   private readonly _group: boolean;
   private readonly _swapOrder: SwapOrder;
   private readonly _hrefFormatter: (path: string) => string;
+  private _registered: boolean = true;
   private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
   private _navigationVersion: number = 0;
   private _deferredDeactivations: Set<RouteContext> | null = null;
@@ -554,6 +555,24 @@ export class RouteContext implements IRouteContext {
   }
 
   /** @internal */
+  public _setRegistered(value: boolean): void {
+    if (this._registered === value || this._disposed) {
+      return;
+    }
+    this._registered = value;
+    if (!value) {
+      this._deactivateBranch('/__inactive__', this.$query, this.$hash);
+    }
+    const parent = this.parent;
+    if (parent instanceof RouteContext) {
+      if (parent.active) {
+        parent.refresh();
+      }
+      parent._notifyRegistryChanged();
+    }
+  }
+
+  /** @internal */
   public _setTitle(title: string | null): void {
     const normalized = title == null || title.trim() === '' ? null : title.trim();
     if (this.title === normalized) {
@@ -771,6 +790,9 @@ export class RouteContext implements IRouteContext {
   }
 
   private _match(path: string): { residue: string } | null {
+    if (!this._registered) {
+      return null;
+    }
     if (this._group) {
       return this._matchGroup(path);
     }
@@ -797,7 +819,7 @@ export class RouteContext implements IRouteContext {
   private _selectOwnMatches(path: string): RouteContext[] {
     const failures = (this.root as RouteContext)._localGuardFailures;
     const matchingChildren = this.children.filter(child =>
-      failures?.has(child) !== true && child._match(path) !== null,
+      child._registered && failures?.has(child) !== true && child._match(path) !== null,
     );
     const regularMatches = matchingChildren.filter(child => !child._fallback);
     return regularMatches.length > 0
@@ -818,8 +840,8 @@ export class RouteContext implements IRouteContext {
     const normalizedPattern = normalizePattern(target);
     const normalizedPath = normalizePath(target);
     const contexts = searchContext._getContexts();
-    return contexts.find(context => context.fullPath === normalizedPath)
-      ?? contexts.find(context => context.pattern === normalizedPattern)
+    return contexts.find(context => context._registered && context.fullPath === normalizedPath)
+      ?? contexts.find(context => context._registered && context.pattern === normalizedPattern)
       ?? null;
   }
 
@@ -838,7 +860,7 @@ export class RouteContext implements IRouteContext {
   }
 
   private _getContexts(): RouteContext[] {
-    const contexts: RouteContext[] = [this];
+    const contexts: RouteContext[] = this._registered ? [this] : [];
     for (let index = 0; index < contexts.length; index++) {
       contexts.push(...contexts[index].children);
     }
@@ -915,6 +937,11 @@ export class RouteContext implements IRouteContext {
     this._notify();
   }
 }
+
+computed<RouteContext>({ deps: ['root.$path', '$query', '$hash'] })(
+  RouteContext.prototype.href,
+  { kind: 'method' } as ClassMethodDecoratorContext<RouteContext>,
+);
 
 computed<RouteContext>({ deps: ['root.$path', '$query', '$hash'] })(
   RouteContext.prototype.isActive,

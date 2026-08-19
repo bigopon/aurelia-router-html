@@ -21,6 +21,7 @@
     <section>
       <h3>Meaning</h3>
       <p><code>exact</code> requires a route to consume all residue supplied by its parent. <code>:id</code> requires a segment, while <code>:id?</code> makes that segment optional. <code>fallback</code> marks a candidate the parent selects only when no regular sibling matches in that parent context.</p>
+      <p><code>group</code> is separate from matching modifiers: it creates a structural parent for descendant routes and therefore does not combine with <code>path</code>, <code>exact</code>, <code>fallback</code>, or <code>redirect-to</code>.</p>
     </section>
     <section>
       <h3>Apply it</h3>

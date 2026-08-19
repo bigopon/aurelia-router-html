@@ -196,6 +196,82 @@ const featureExamples: PlaygroundExample[] = [
 </au-route>`,
   }),
   routerExample({
+    id: 'route-groups',
+    title: 'Route groups',
+    description: 'Share branch markup and behavior without creating another URL segment.',
+    initialPath: '/projects',
+    appTs: `export class App {
+  public access = 'member';
+  public branchLoads = 0;
+
+  public canOpenWorkspace(): boolean {
+    return this.access !== 'guest';
+  }
+
+  public loadWorkspace(): string {
+    this.branchLoads += 1;
+    return \`Workspace load #\${this.branchLoads}\`;
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="/projects">Projects</a>
+  <a au-link="/reports">Reports</a>
+  <a au-link="/sign-in">Sign in</a>
+</nav>
+
+<au-route
+  group
+  can-load.bind="() => canOpenWorkspace()"
+  loading.bind="loadWorkspace()">
+  <section class="workspace-shell">
+    <header>
+      <h1>Workspace</h1>
+      <p>\${$route.data.loading}</p>
+    </header>
+
+    <nav>
+      <a au-link="projects" active-class="selected">Projects</a>
+      <a au-link="reports" active-class="selected">Reports</a>
+    </nav>
+
+    <au-route path="projects" exact>
+      <main>
+        <h2>Projects</h2>
+        <p>The group provides the shared shell and lifecycle.</p>
+      </main>
+    </au-route>
+
+    <au-route path="reports" exact>
+      <main>
+        <h2>Reports</h2>
+        <p>This sibling reuses the same structural parent.</p>
+      </main>
+    </au-route>
+  </section>
+</au-route>
+
+<au-route path="sign-in" exact>
+  <main>
+    <h1>Sign in</h1>
+    <p>This route is outside the grouped branch.</p>
+  </main>
+</au-route>`,
+    appCss: `.workspace-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-shell > header,
+.workspace-shell > main {
+  display: block;
+}
+
+.workspace-shell a.selected {
+  color: white;
+  background: #08766b;
+}`,
+  }),
+  routerExample({
     id: 'route-params',
     title: 'Nested route parameters',
     description: 'Keep each route parameter local and reach parent parameters explicitly when a child needs them.',

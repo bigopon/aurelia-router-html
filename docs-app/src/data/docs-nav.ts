@@ -43,6 +43,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'groups',
+    title: 'Route Groups',
+    path: '/features/groups',
+    summary: 'Use structural route parents to share layout, policy, or context without adding a path segment.',
+    badge: 'A1',
+  },
+  {
     id: 'params',
     title: 'Params',
     path: '/features/params',

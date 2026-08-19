@@ -20,7 +20,7 @@
 
   <div class="docs-grid">
     <main class="main-panel" data-pagefind-body>
-      <div class="desktop-tools">
+      <div class="desktop-tools" data-pagefind-ignore>
         <button class="theme-switch desktop-theme-switch" type="button" aria-label.bind="theme === 'dark' ? 'Use light mode' : 'Use dark mode'" aria-pressed.bind="theme === 'dark'" click.trigger="toggleTheme()">
           <span class="theme-segment theme-segment-light" aria-hidden="true">☀</span>
           <span class="theme-segment theme-segment-dark" aria-hidden="true">☾</span>
@@ -28,7 +28,7 @@
         <section id="pagefind-search" class="docs-search" aria-label="Search documentation"></section>
       </div>
 
-      <au-route path="/" title="Overview">
+      <au-route path="/" exact title="Overview">
         <overview-page></overview-page>
       </au-route>
 
@@ -50,6 +50,10 @@
 
       <au-route path="features/nested" title="Nested Routes">
         <feature-nested-page></feature-nested-page>
+      </au-route>
+
+      <au-route path="features/groups" title="Route Groups">
+        <feature-groups-page></feature-groups-page>
       </au-route>
 
       <au-route path="features/params" title="Params">
