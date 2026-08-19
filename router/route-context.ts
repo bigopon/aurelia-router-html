@@ -1,4 +1,4 @@
-import { DI, isPromise } from '@aurelia/kernel';
+import { DI, emptyObject, isPromise } from '@aurelia/kernel';
 import { computed } from '@aurelia/runtime';
 import { createRouteHref, emptyRouteQuery, parseRouteLocation, type RouteHrefOptions, type RouteLocation, type RouteQuery } from './route-location';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
@@ -48,6 +48,7 @@ interface RouteNavigationOptions {
 export interface RouteContextOptions {
   exact?: boolean;
   fallback?: boolean;
+  group?: boolean;
   guardFailure?: RouteGuardFailure;
   swapOrder?: SwapOrder;
   hrefFormatter?: (path: string) => string;
@@ -134,6 +135,7 @@ export class RouteContext implements IRouteContext {
   private _disposed: boolean = false;
   private readonly _exact: boolean;
   private readonly _fallback: boolean;
+  private readonly _group: boolean;
   private readonly _swapOrder: SwapOrder;
   private readonly _hrefFormatter: (path: string) => string;
   private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
@@ -159,6 +161,7 @@ export class RouteContext implements IRouteContext {
   ) {
     this._exact = options.exact ?? false;
     this._fallback = options.fallback ?? false;
+    this._group = options.group ?? false;
     this._guardFailure = options.guardFailure ?? 'navigation';
     this._swapOrder = options.swapOrder ?? (
       parent instanceof RouteContext
@@ -203,10 +206,11 @@ export class RouteContext implements IRouteContext {
 
   private _navigate(target: string | IRouteContext, params: RouteParams, hrefOptions: RouteHrefOptions, navigationOptions: RouteNavigationOptions): boolean | Promise<boolean> {
     const root = this.root as RouteContext;
+    const href = this._createHref(target, params, hrefOptions);
     if (root._navigator == null) {
       throw new Error('The route context is not connected to a navigation adapter.');
     }
-    const result = root._navigator(this._createHref(target, params, hrefOptions), navigationOptions);
+    const result = root._navigator(href, navigationOptions);
     return isPromise(result) ? result as Promise<boolean> : typeof result === 'boolean' ? result : true;
   }
 
@@ -468,6 +472,9 @@ export class RouteContext implements IRouteContext {
     if (target instanceof RouteContext && target._disposed) {
       return false;
     }
+    if (target instanceof RouteContext && target._group) {
+      return target.active;
+    }
 
     const href = this._tryCreateHref(target, params, options);
     if (href == null) {
@@ -489,6 +496,9 @@ export class RouteContext implements IRouteContext {
   }
 
   private _createHref(target: string | IRouteContext, params: RouteParams, options: RouteHrefOptions): string {
+    if (target instanceof RouteContext && target._group) {
+      throw new Error('A pathless route group is structural and cannot be used as a navigation destination.');
+    }
     const href = this._tryCreateHref(target, params, options);
     if (href == null) {
       throw new Error(`No route matching "${target}" is registered below "${this.fullPath}".`);
@@ -527,7 +537,7 @@ export class RouteContext implements IRouteContext {
 
   public getPaths(includeSelf: boolean = true): readonly string[] {
     const paths: string[] = [];
-    if (includeSelf && this.parent != null) {
+    if (includeSelf && this.parent != null && !this._group) {
       paths.push(this.fullPath);
     }
     for (const child of this.children) {
@@ -564,7 +574,7 @@ export class RouteContext implements IRouteContext {
     }
     const navigationVersion = root._navigationVersion;
     const normalizedPath = normalizePath(path);
-    const match = this._matcher.exec(normalizedPath);
+    const match = this._group ? this._matchGroup(normalizedPath) : this._matcher.exec(normalizedPath);
 
     if (match === null) {
       this._deactivateBranch(normalizedPath, location.query, location.hash);
@@ -572,8 +582,8 @@ export class RouteContext implements IRouteContext {
     }
 
     const groups = match.groups ?? {};
-    const nextResidue = normalizeResidue(groups.rest__);
-    const nextParams = freezeParams(extractParams(groups));
+    const nextResidue = this._group ? normalizedPath : normalizeResidue(groups.rest__);
+    const nextParams = this._group ? freezeParams({}) : freezeParams(extractParams(groups));
     const stateChanged =
       !this.active
       || this.residue !== nextResidue
@@ -668,6 +678,7 @@ export class RouteContext implements IRouteContext {
     const child = new RouteContext(this, pattern, {
       exact: options.exact,
       fallback: options.fallback,
+      group: options.group,
       guardFailure: options.guardFailure,
       swapOrder: options.swapOrder ?? this._swapOrder,
       hrefFormatter: this._hrefFormatter,
@@ -760,6 +771,10 @@ export class RouteContext implements IRouteContext {
   }
 
   private _match(path: string): { residue: string } | null {
+    if (this._group) {
+      return this._matchGroup(path);
+    }
+
     const normalizedPath = normalizePath(path);
     const match = this._matcher.exec(normalizedPath);
     if (match === null) {
@@ -772,7 +787,14 @@ export class RouteContext implements IRouteContext {
     };
   }
 
-  private _selectMatches(path: string): RouteContext[] {
+  private _matchGroup(path: string): { groups: Record<string, string>; residue: string } | null {
+    const normalizedPath = normalizePath(path);
+    return this._selectOwnMatches(normalizedPath).length === 0
+      ? null
+      : { groups: Object.freeze({}), residue: normalizedPath };
+  }
+
+  private _selectOwnMatches(path: string): RouteContext[] {
     const failures = (this.root as RouteContext)._localGuardFailures;
     const matchingChildren = this.children.filter(child =>
       failures?.has(child) !== true && child._match(path) !== null,
@@ -781,6 +803,10 @@ export class RouteContext implements IRouteContext {
     return regularMatches.length > 0
       ? regularMatches
       : matchingChildren.filter(child => child._fallback);
+  }
+
+  private _selectMatches(path: string): RouteContext[] {
+    return this._selectOwnMatches(path);
   }
 
   private _findContext(path: string): IRouteContext | null {
@@ -820,17 +846,14 @@ export class RouteContext implements IRouteContext {
   }
 
   private _collectMatches(path: string, matches: Set<RouteContext>): void {
-    const match = this._matcher.exec(normalizePath(path));
+    const normalizedPath = normalizePath(path);
+    const match = this._group ? this._matchGroup(normalizedPath) : this._matcher.exec(normalizedPath);
     if (match == null) {
       return;
     }
     matches.add(this);
-    const residue = normalizeResidue(match.groups?.rest__);
-    const matchingChildren = this.children.filter(child => child._match(residue) !== null);
-    const regularMatches = matchingChildren.filter(child => !child._fallback);
-    const selected = regularMatches.length > 0
-      ? regularMatches
-      : matchingChildren.filter(child => child._fallback);
+    const residue = this._group ? normalizedPath : normalizeResidue(match.groups?.rest__);
+    const selected = this._selectOwnMatches(residue);
     for (const child of selected) {
       child._collectMatches(residue, matches);
     }
@@ -840,17 +863,14 @@ export class RouteContext implements IRouteContext {
     path: string,
     matches: Map<RouteContext, Readonly<Record<string, string>>>,
   ): void {
-    const match = this._matcher.exec(normalizePath(path));
+    const normalizedPath = normalizePath(path);
+    const match = this._group ? this._matchGroup(normalizedPath) : this._matcher.exec(normalizedPath);
     if (match == null) {
       return;
     }
-    matches.set(this, extractParams(match.groups ?? {}));
-    const residue = normalizeResidue(match.groups?.rest__);
-    const matchingChildren = this.children.filter(child => child._match(residue) !== null);
-    const regularMatches = matchingChildren.filter(child => !child._fallback);
-    const selected = regularMatches.length > 0
-      ? regularMatches
-      : matchingChildren.filter(child => child._fallback);
+    matches.set(this, this._group ? emptyObject as Readonly<Record<string, string>> : extractParams(match.groups ?? {}));
+    const residue = this._group ? normalizedPath : normalizeResidue(match.groups?.rest__);
+    const selected = this._selectOwnMatches(residue);
     for (const child of selected) {
       child._collectMatchParams(residue, matches);
     }
@@ -930,7 +950,9 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   }
 
   if (pattern === '/') {
-    return createRoutePatternMatcher(/^\/$/);
+    return createRoutePatternMatcher(exact
+      ? /^\/$/
+      : /^(?<rest__>\/.*|\/)?$/);
   }
 
   const parts = pattern.split('/').filter(Boolean);

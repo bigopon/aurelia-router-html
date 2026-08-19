@@ -49,7 +49,7 @@ run('A1 child contexts react to parent residue changes', () => {
 });
 
 for (const pattern of ['.', './']) {
-  run(`A1 ${pattern} matches the current context index like /`, () => {
+  run(`A1 ${pattern} normalizes to / and stays active as a non-exact zero-segment prefix`, () => {
     const root = new RouteContext(null, '*');
     const products = root.createChild('/products') as RouteContext;
     const index = products.createChild(pattern) as RouteContext;
@@ -59,6 +59,21 @@ for (const pattern of ['.', './']) {
     assert.equal(index.fullPath, '/products');
     assert.equal(index.active, true);
     assert.equal(products.href(pattern), '/products');
+
+    root.apply('/products/details');
+    assert.equal(index.active, true);
+    assert.equal(index.residue, '/details');
+  });
+}
+
+for (const pattern of ['/', '.', './']) {
+  run(`A1 ${pattern} remains index-only when exact is enabled`, () => {
+    const root = new RouteContext(null, '*');
+    const products = root.createChild('/products') as RouteContext;
+    const index = products.createChild(pattern, { exact: true }) as RouteContext;
+
+    root.apply('/products');
+    assert.equal(index.active, true);
 
     root.apply('/products/details');
     assert.equal(index.active, false);
@@ -206,6 +221,31 @@ run('A4 active links use prefix matching by default and exact matching on demand
   assert.equal(products.isActive(reviews, {}, { exact: true }), true);
   assert.equal(root.isActive('/products/:productId', { productId: 'coffee' }), false);
   assert.equal(root.isActive('/', {}, { exact: false }), false);
+});
+
+run('A1 descendant-selected groups consume no segment and stay out of addressable paths', () => {
+  const root = new RouteContext(null, '*');
+  const group = root.createChild('/', { group: true }) as RouteContext;
+  const dashboard = group.createChild('/dashboard', { exact: true }) as RouteContext;
+  const project = group.createChild('/projects/:id', { exact: true }) as RouteContext;
+  const signIn = root.createChild('/sign-in', { exact: true }) as RouteContext;
+
+  root.apply('/dashboard');
+  assert.equal(group.active, true);
+  assert.equal(dashboard.active, true);
+  assert.equal(group.residue, '/dashboard');
+  assert.deepEqual(group.getPaths(), ['/dashboard', '/projects/:id']);
+  assert.deepEqual(root.getPaths(), ['/dashboard', '/projects/:id', '/sign-in']);
+  assert.equal(group.href('projects/:id', { id: '42' }), '/projects/42');
+  assert.throws(() => group.href(group), /pathless route group.*destination/i);
+  assert.throws(() => group.load(group), /pathless route group.*destination/i);
+  assert.equal(group.isActive(group), true);
+
+  root.apply('/sign-in');
+  assert.equal(group.active, false);
+  assert.equal(project.active, false);
+  assert.equal(signIn.active, true);
+  assert.equal(group.isActive(group), false);
 });
 
 run('A4 active links generate nested, index, and terminal targets with active parameters', () => {

@@ -420,9 +420,13 @@ settlement. The next feature sequence is:
    behavior, explicit invalidation, and bounded LRU eviction before exposing
    the API.
 
-6. **Pathless route groups.** Allow a route context to contribute layout,
-   guards, titles, and error boundaries without consuming a URL segment.
-   Template nesting must remain the source of ownership and child residue.
+6. **Zero-segment routes and pathless groups.** Let normal `/`, `.`, and `./`
+   declarations use `exact` to choose index-only or unconditional prefix
+   behavior, and add descendant-selected groups for layout, guards, titles, and
+   error boundaries without a URL segment. Template nesting remains the source
+   of ownership and child residue. The detailed proposal, examples, migration,
+   API consequences, and HTML-first discovery constraint are documented in
+   [pathless-route-groups.md](pathless-route-groups.md).
 
 7. **Route metadata and active-match introspection.** Add bound metadata and a
    public active route chain for breadcrumbs, generated navigation,

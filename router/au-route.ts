@@ -40,6 +40,7 @@ export class AuRoute implements ICustomElementViewModel {
     template: null,
     bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError'],
     processContent: (node, _, data) => {
+      const group = node.hasAttribute('group');
       const path = node.getAttribute('path');
       const boundPathExpression = node.getAttribute('path.bind') ?? node.getAttribute('path.to-view');
       const shorthandPathExpression = node.getAttribute(':path');
@@ -53,6 +54,9 @@ export class AuRoute implements ICustomElementViewModel {
       const hasBoundPath = pathExpression != null;
       if (__DEV__ && !hasBoundPath && path?.includes('${') === true) {
         console.warn(`[au-route] The path value "${path}" looks like an interpolation. Dynamic paths must use path.bind, path.to-view, or :path.`);
+      }
+      if (group && (path != null || pathExpression != null)) {
+        throw new Error('An au-route group cannot also declare a path.');
       }
       data.path = path ?? (hasBoundPath ? '/__pending_route_path__' : '/');
       data.pathExpression = pathExpression;
@@ -92,6 +96,9 @@ export class AuRoute implements ICustomElementViewModel {
       if (__DEV__ && redirectExpression == null && redirectTo?.includes('${') === true) {
         console.warn(`[au-route] The redirect-to value "${redirectTo}" looks like an interpolation. Dynamic redirects must use redirect-to.bind, redirect-to.to-view, or :redirect-to.`);
       }
+      if (group && (redirectTo != null || redirectExpression != null)) {
+        throw new Error('An au-route group cannot declare redirect-to.');
+      }
       const redirectMode = node.getAttribute('redirect-mode') ?? 'replace';
       if (redirectMode !== 'replace' && redirectMode !== 'push') {
         throw new Error(`Invalid au-route redirect-mode "${redirectMode}". Expected "replace" or "push".`);
@@ -108,6 +115,13 @@ export class AuRoute implements ICustomElementViewModel {
       data.animate = node.hasAttribute('animate');
       data.exact = node.hasAttribute('exact');
       data.fallback = node.hasAttribute('fallback');
+      data.group = group;
+      if (group && data.exact) {
+        throw new Error('An au-route group cannot use exact matching.');
+      }
+      if (group && data.fallback) {
+        throw new Error('An au-route group cannot be a fallback route.');
+      }
     },
   };
 
@@ -152,8 +166,8 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null; transitionOn: ReadonlySet<RouteTransitionTrigger>; transitionPlan: RouteTransitionPlan }>;
-    const { projections, data: { animate, exact, fallback, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title, transitionOn, transitionPlan } } = instruction;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; group: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null; transitionOn: ReadonlySet<RouteTransitionTrigger>; transitionPlan: RouteTransitionPlan }>;
+    const { projections, data: { animate, exact, fallback, group, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title, transitionOn, transitionPlan } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
@@ -161,6 +175,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.context = parentContext.createChild(path, {
       exact,
       fallback,
+      group,
       guardFailure,
       swapOrder: swapOrder ?? undefined,
     });

@@ -89,6 +89,1019 @@ describe('au-route dynamic path binding', function () {
   });
 });
 
+describe('au-route zero-segment paths and group validation', function () {
+  async function navigate(router: IRouteCoordinator, path: string): Promise<boolean> {
+    const result = router.load(path);
+    const accepted = result instanceof Promise ? await result : result;
+    await tasksSettled();
+    return accepted;
+  }
+
+  it('treats every non-exact zero-segment syntax as a prefix without descendant backtracking', async function () {
+    const adapter = new MemoryPathAdapter('/missing');
+    const fixture = await createFixture(
+      `<au-route>
+        <span data-zero-omitted>Omitted</span>
+        <au-route path="known" exact><span data-zero-child>Known child</span></au-route>
+      </au-route>
+      <au-route path=""><span data-zero-empty>Empty</span></au-route>
+      <au-route path="/"><span data-zero-slash>Slash</span></au-route>
+      <au-route path="."><span data-zero-dot>Dot</span></au-route>
+      <au-route path="./"><span data-zero-dot-slash>Dot slash</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      for (const selector of [
+        '[data-zero-omitted]',
+        '[data-zero-empty]',
+        '[data-zero-slash]',
+        '[data-zero-dot]',
+        '[data-zero-dot-slash]',
+      ]) {
+        assert.strictEqual(fixture.appHost.querySelector(selector) != null, true);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-child]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]'), null);
+
+      assert.strictEqual(await navigate(router, '/known'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-child]')?.textContent, 'Known child');
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-omitted]')?.textContent, 'Omitted');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const testCase of [
+    {
+      label: 'a static path',
+      markup: '<au-route group path="account">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'an empty zero-segment path',
+      markup: '<au-route group path="">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'a bound path',
+      markup: '<au-route group path.bind="routePath">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'exact matching',
+      markup: '<au-route group exact>Account</au-route>',
+      expected: /group.*exact/i,
+    },
+    {
+      label: 'fallback matching',
+      markup: '<au-route group fallback>Account</au-route>',
+      expected: /group.*fallback/i,
+    },
+    {
+      label: 'a direct redirect',
+      markup: '<au-route group redirect-to="sign-in"></au-route>',
+      expected: /group.*redirect/i,
+    },
+  ]) {
+    it('rejects combining group with ' + testCase.label, function () {
+      class App {
+        public routePath: string = 'account';
+      }
+
+      assert.throws(
+        () => createFixture(testCase.markup, App, [Routing]),
+        testCase.expected,
+      );
+    });
+  }
+});
+
+// Pending design contract: pathless-route-groups.md.
+// Ordinary zero-segment routes remain prefix matches unless they are exact.
+// Groups are descendant-selected and cannot be implemented as another
+// zero-length matcher.
+describe.skip('au-route pathless route groups', function () {
+  async function navigate(router: IRouteCoordinator, path: string): Promise<boolean> {
+    const result = router.load(path);
+    const accepted = result instanceof Promise ? await result : result;
+    await tasksSettled();
+    return accepted;
+  }
+
+  it('treats every non-exact zero-segment syntax as a prefix without descendant backtracking', async function () {
+    const adapter = new MemoryPathAdapter('/missing');
+    const fixture = await createFixture(
+      `<au-route>
+        <span data-zero-omitted>Omitted</span>
+        <au-route path="known" exact><span data-zero-child>Known child</span></au-route>
+      </au-route>
+      <au-route path=""><span data-zero-empty>Empty</span></au-route>
+      <au-route path="/"><span data-zero-slash>Slash</span></au-route>
+      <au-route path="."><span data-zero-dot>Dot</span></au-route>
+      <au-route path="./"><span data-zero-dot-slash>Dot slash</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      for (const selector of [
+        '[data-zero-omitted]',
+        '[data-zero-empty]',
+        '[data-zero-slash]',
+        '[data-zero-dot]',
+        '[data-zero-dot-slash]',
+      ]) {
+        assert.strictEqual(fixture.appHost.querySelector(selector) != null, true);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-child]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]'), null);
+
+      assert.strictEqual(await navigate(router, '/known'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-child]')?.textContent, 'Known child');
+      assert.strictEqual(fixture.appHost.querySelector('[data-zero-omitted]')?.textContent, 'Omitted');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('makes every zero-segment syntax index-only when exact and keeps groups descendant-selected', async function () {
+    const adapter = new MemoryPathAdapter('/');
+    const fixture = await createFixture(
+      `<au-route exact><span data-index-omitted>Omitted</span></au-route>
+      <au-route path="" exact><span data-index-empty>Empty</span></au-route>
+      <au-route path="/" exact><span data-index-slash>Slash</span></au-route>
+      <au-route path="." exact><span data-index-dot>Dot</span></au-route>
+      <au-route path="./" exact><span data-index-dot-slash>Dot slash</span></au-route>
+      <au-route group>
+        <span data-group-shell>Group shell</span>
+        <au-route path="child" exact><span data-group-child>Child</span></au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      for (const selector of [
+        '[data-index-omitted]',
+        '[data-index-empty]',
+        '[data-index-slash]',
+        '[data-index-dot]',
+        '[data-index-dot-slash]',
+      ]) {
+        assert.strictEqual(fixture.appHost.querySelector(selector) != null, true);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-shell]'), null);
+
+      assert.strictEqual(await navigate(router, '/child'), true);
+      for (const selector of [
+        '[data-index-omitted]',
+        '[data-index-empty]',
+        '[data-index-slash]',
+        '[data-index-dot]',
+        '[data-index-dot-slash]',
+      ]) {
+        assert.strictEqual(fixture.appHost.querySelector(selector), null);
+      }
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-shell]')?.textContent, 'Group shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-child]')?.textContent, 'Child');
+      assert.strictEqual(adapter.getCurrentPath(), '/child');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  for (const testCase of [
+    {
+      label: 'a static path',
+      markup: '<au-route group path="account">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'an empty zero-segment path',
+      markup: '<au-route group path="">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'a bound path',
+      markup: '<au-route group path.bind="routePath">Account</au-route>',
+      expected: /group.*path/i,
+    },
+    {
+      label: 'exact matching',
+      markup: '<au-route group exact>Account</au-route>',
+      expected: /group.*exact/i,
+    },
+    {
+      label: 'fallback matching',
+      markup: '<au-route group fallback>Account</au-route>',
+      expected: /group.*fallback/i,
+    },
+    {
+      label: 'a direct redirect',
+      markup: '<au-route group redirect-to="sign-in"></au-route>',
+      expected: /group.*redirect/i,
+    },
+  ]) {
+    it('rejects combining group with ' + testCase.label, function () {
+      class App {
+        public routePath: string = 'account';
+      }
+
+      assert.throws(
+        () => createFixture(testCase.markup, App, [Routing]),
+        testCase.expected,
+      );
+    });
+  }
+
+  it('uses descendant paths as URLs and stays inactive for direct siblings and the parent fallback', async function () {
+    const adapter = new MemoryPathAdapter('/sign-in');
+    const fixture = await createFixture(
+      `<au-route group>
+        <section data-app-shell>
+          <a data-project-link au-link="projects/42">Project</a>
+          <au-route path="dashboard" exact><span data-dashboard>Dashboard</span></au-route>
+          <au-route path="projects/:id" exact>
+            <span data-project textcontent.bind="$params.id"></span>
+          </au-route>
+        </section>
+      </au-route>
+      <au-route path="sign-in" exact><span data-sign-in>Sign in</span></au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Not found</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(fixture.appHost.querySelector('[data-sign-in]')?.textContent, 'Sign in');
+      assert.strictEqual(fixture.appHost.querySelector('[data-app-shell]'), null);
+
+      assert.strictEqual(await navigate(router, '/dashboard'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-app-shell]') != null, true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dashboard]')?.textContent, 'Dashboard');
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-project-link]')?.getAttribute('href'),
+        '/projects/42',
+      );
+
+      assert.strictEqual(await navigate(router, '/projects/42'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-project]')?.textContent, '42');
+      assert.strictEqual(adapter.getCurrentPath(), '/projects/42');
+
+      assert.strictEqual(await navigate(router, '/missing'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-app-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]')?.textContent, 'Not found');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('retains group DOM and lifecycle while switching children and unloads deepest-first on exit', async function () {
+    const events: string[] = [];
+    class App {
+      public record(value: string): true {
+        events.push(value);
+        return true;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/orders');
+    const fixture = await createFixture(
+      `<au-route
+        group
+        can-load.bind="() => record('group can-load')"
+        loading.bind="record('group loading')"
+        loaded.bind="record('group loaded')"
+        can-unload.bind="() => record('group can-unload')">
+        <label>Filter <input data-filter value="initial"></label>
+        <au-route
+          path="orders"
+          exact
+          can-unload.bind="() => record('orders can-unload')">
+          <span data-orders>Orders</span>
+        </au-route>
+        <au-route
+          path="customers"
+          exact
+          can-unload.bind="() => record('customers can-unload')">
+          <span data-customers>Customers</span>
+        </au-route>
+      </au-route>
+      <au-route path="sign-in" exact><span data-sign-in>Sign in</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const filter = fixture.appHost.querySelector('[data-filter]') as HTMLInputElement;
+      assert.deepStrictEqual(events, ['group can-load', 'group loading', 'group loaded']);
+      filter.value = 'mine';
+      events.length = 0;
+
+      assert.strictEqual(await navigate(router, '/customers'), true);
+      assert.deepStrictEqual(events, ['orders can-unload']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-filter]'), filter);
+      assert.strictEqual((fixture.appHost.querySelector('[data-filter]') as HTMLInputElement).value, 'mine');
+      assert.strictEqual(fixture.appHost.querySelector('[data-customers]')?.textContent, 'Customers');
+
+      events.length = 0;
+      assert.strictEqual(await navigate(router, '/sign-in'), true);
+      assert.deepStrictEqual(events, ['customers can-unload', 'group can-unload']);
+      assert.strictEqual(filter.isConnected, false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-sign-in]')?.textContent, 'Sign in');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('preserves residue and URL generation beneath a parameterized parent without promoting params', async function () {
+    const adapter = new MemoryPathAdapter('/organizations/acme/members');
+    const fixture = await createFixture(
+      `<au-route path="organizations/:orgId">
+        <au-route group>
+          <a data-billing-link href.bind="$route.href('billing')">Billing</a>
+          <au-route path="members" exact><span data-members>Members</span></au-route>
+          <au-route path="billing" exact><span data-billing>Billing</span></au-route>
+        </au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const organization = router.root.children[0];
+      const group = organization.children[0];
+      assert.strictEqual(organization.$params.orgId, 'acme');
+      assert.deepStrictEqual(group.$params, {});
+      assert.strictEqual(group.residue, '/members');
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-billing-link]')?.getAttribute('href'),
+        '/organizations/acme/billing',
+      );
+
+      assert.strictEqual(await navigate(router, '/organizations/beta/billing'), true);
+      assert.strictEqual(organization.$params.orgId, 'beta');
+      assert.deepStrictEqual(group.$params, {});
+      assert.strictEqual(group.residue, '/billing');
+      assert.strictEqual(fixture.appHost.querySelector('[data-billing]')?.textContent, 'Billing');
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-billing-link]')?.getAttribute('href'),
+        '/organizations/beta/billing',
+      );
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('selects a group through its index child but lets an outer fallback handle unmatched paths', async function () {
+    const adapter = new MemoryPathAdapter('/');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-docs-shell>Docs</span>
+        <au-route path="/" exact><span data-docs-index>Index</span></au-route>
+        <au-route path="guides/:name" exact><span data-guide>Guide</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Application fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(fixture.appHost.querySelector('[data-docs-shell]')?.textContent, 'Docs');
+      assert.strictEqual(fixture.appHost.querySelector('[data-docs-index]')?.textContent, 'Index');
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]'), null);
+
+      assert.strictEqual(await navigate(router, '/guides/routing'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-guide]')?.textContent, 'Guide');
+
+      assert.strictEqual(await navigate(router, '/missing'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-docs-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]')?.textContent, 'Application fallback');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('lets a group-local fallback claim the branch at its own child stage', async function () {
+    const adapter = new MemoryPathAdapter('/missing');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-reports-shell>Reports</span>
+        <au-route path="reports/daily" exact><span data-daily>Daily</span></au-route>
+        <au-route path="*" fallback><span data-group-fallback>Unknown report</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Application fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-reports-shell]')?.textContent, 'Reports');
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-fallback]')?.textContent, 'Unknown report');
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('keeps match-all behavior for overlapping sibling groups', async function () {
+    const adapter = new MemoryPathAdapter('/dashboard');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-primary-shell>Primary</span>
+        <au-route path="dashboard" exact><span data-primary-dashboard>Dashboard</span></au-route>
+      </au-route>
+      <au-route group>
+        <span data-secondary-shell>Secondary</span>
+        <au-route path="dashboard" exact><span data-secondary-dashboard>Dashboard tools</span></au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-primary-shell]')?.textContent, 'Primary');
+      assert.strictEqual(fixture.appHost.querySelector('[data-secondary-shell]')?.textContent, 'Secondary');
+      assert.strictEqual(fixture.appHost.querySelector('[data-primary-dashboard]')?.textContent, 'Dashboard');
+      assert.strictEqual(fixture.appHost.querySelector('[data-secondary-dashboard]')?.textContent, 'Dashboard tools');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('orders nested group guards and lifecycle around the selected descendant', async function () {
+    const events: string[] = [];
+    class App {
+      public record(value: string): true {
+        events.push(value);
+        return true;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route
+        group
+        can-load.bind="() => record('outer can-load')"
+        loading.bind="record('outer loading')"
+        loaded.bind="record('outer loaded')"
+        can-unload.bind="() => record('outer can-unload')">
+        <au-route
+          group
+          can-load.bind="() => record('inner can-load')"
+          loading.bind="record('inner loading')"
+          loaded.bind="record('inner loaded')"
+          can-unload.bind="() => record('inner can-unload')">
+          <au-route
+            path="settings"
+            exact
+            can-load.bind="() => record('child can-load')"
+            loading.bind="record('child loading')"
+            loaded.bind="record('child loaded')"
+            can-unload.bind="() => record('child can-unload')">
+            <span data-settings>Settings</span>
+          </au-route>
+        </au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.deepStrictEqual(events, []);
+
+      assert.strictEqual(await navigate(router, '/settings'), true);
+      assert.deepStrictEqual(events, [
+        'outer can-load',
+        'inner can-load',
+        'child can-load',
+        'outer loading',
+        'inner loading',
+        'child loading',
+        'child loaded',
+        'inner loaded',
+        'outer loaded',
+      ]);
+
+      events.length = 0;
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      assert.deepStrictEqual(events, [
+        'child can-unload',
+        'inner can-unload',
+        'outer can-unload',
+      ]);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('cancels group entry atomically before child guards, loading, URL, or DOM changes', async function () {
+    const events: string[] = [];
+    class App {
+      public allowGroup: boolean = false;
+
+      public groupGuard(): boolean {
+        events.push('group can-load');
+        return this.allowGroup;
+      }
+
+      public childGuard(): true {
+        events.push('child can-load');
+        return true;
+      }
+
+      public loading(name: string): void {
+        events.push(name + ' loading');
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/public');
+    const fixture = await createFixture(
+      `<au-route
+        group
+        can-load.bind="() => groupGuard()"
+        loading.bind="loading('group')">
+        <span data-private-shell>Private shell</span>
+        <au-route
+          path="private"
+          exact
+          can-load.bind="() => childGuard()"
+          loading.bind="loading('child')">
+          <span data-private>Private</span>
+        </au-route>
+      </au-route>
+      <au-route path="public" exact><span data-public>Public</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const publicView = fixture.appHost.querySelector('[data-public]');
+      assert.strictEqual(await navigate(router, '/private'), false);
+      assert.deepStrictEqual(events, ['group can-load']);
+      assert.strictEqual(router.currentLocation.pathname, '/public');
+      assert.strictEqual(adapter.getCurrentPath(), '/public');
+      assert.strictEqual(fixture.appHost.querySelector('[data-public]'), publicView);
+      assert.strictEqual(fixture.appHost.querySelector('[data-private-shell]'), null);
+
+      fixture.component.allowGroup = true;
+      events.length = 0;
+      assert.strictEqual(await navigate(router, '/private'), true);
+      assert.deepStrictEqual(events, [
+        'group can-load',
+        'child can-load',
+        'group loading',
+        'child loading',
+      ]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-private]')?.textContent, 'Private');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rematches the parent stage when a group guard is locally denied', async function () {
+    class App {
+      public deny(): false {
+        return false;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/secure');
+    const fixture = await createFixture(
+      `<au-route group guard-failure="local" can-load.bind="() => deny()">
+        <span data-secure-shell>Secure shell</span>
+        <au-route path="secure" exact><span data-secure>Secure</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Public fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-secure-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-secure]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]')?.textContent, 'Public fallback');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rematches the group child stage when a child guard is locally denied', async function () {
+    class App {
+      public deny(): false {
+        return false;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/private');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-private-shell>Private shell</span>
+        <au-route
+          path="private"
+          exact
+          guard-failure="local"
+          can-load.bind="() => deny()">
+          <span data-private>Private</span>
+        </au-route>
+        <au-route path="*" fallback><span data-group-fallback>Group fallback</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Outer fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-private-shell]')?.textContent, 'Private shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-private]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-fallback]')?.textContent, 'Group fallback');
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('uses the group as the nearest error boundary and recovers within its child stage', async function () {
+    const failure = new Error('report failed');
+    class App {
+      public captured: RouteFailure | null = null;
+
+      public fail(): never {
+        throw failure;
+      }
+
+      public recover(value: RouteFailure): { readonly recover: 'local' } {
+        this.captured = value;
+        return { recover: 'local' };
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/reports/daily');
+    const fixture = await createFixture(
+      `<au-route group on-error.bind="failure => recover(failure)">
+        <span data-reports-shell>Reports shell</span>
+        <au-route path="reports/daily" exact loading.bind="fail()">
+          <span data-report>Daily report</span>
+        </au-route>
+        <au-route path="*" fallback><span data-group-recovery>Report unavailable</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-outer-fallback>Outer fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.component.captured?.error, failure);
+      assert.strictEqual(fixture.component.captured?.phase, 'loading');
+      assert.strictEqual(fixture.component.captured?.boundary, fixture.container.get(IRouteCoordinator).root.children[0]);
+      assert.strictEqual(fixture.appHost.querySelector('[data-reports-shell]')?.textContent, 'Reports shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-report]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-recovery]')?.textContent, 'Report unavailable');
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-fallback]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('composes group titles between parent and descendant titles only while the group is active', async function () {
+    const adapter = new MemoryPathAdapter('/dashboard');
+    const fixture = await createFixture(
+      `<au-route group title="Application">
+        <au-route path="dashboard" exact title="Dashboard"><span>Dashboard</span></au-route>
+      </au-route>
+      <au-route path="sign-in" exact title="Sign in"><span>Sign in</span></au-route>`,
+      class App {},
+      [Routing.customize({
+        adapter,
+        titles: { separator: ' | ', fallback: 'Fallback' },
+      })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Application | Dashboard');
+      assert.strictEqual(await navigate(router, '/sign-in'), true);
+      assert.strictEqual(fixture.appHost.ownerDocument.title, 'Sign in');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('keeps the structural group out of addressable paths while retaining contextual child APIs', async function () {
+    const adapter = new MemoryPathAdapter('/dashboard');
+    const fixture = await createFixture(
+      `<au-route group>
+        <au-route path="dashboard" exact><span data-dashboard>Dashboard</span></au-route>
+        <au-route path="projects/:id" exact><span data-project>Project</span></au-route>
+      </au-route>
+      <au-route path="sign-in" exact><span data-sign-in>Sign in</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const group = router.root.children[0];
+      assert.strictEqual(group.active, true);
+      assert.strictEqual(group.isActive(group), true);
+      assert.deepStrictEqual(group.getPaths(), ['/dashboard', '/projects/:id']);
+      assert.deepStrictEqual(router.root.getPaths(), ['/dashboard', '/projects/:id', '/sign-in']);
+      assert.strictEqual(group.href('projects/:id', { id: '42' }), '/projects/42');
+      assert.throws(() => group.href(group), /pathless route group.*not.*destination/i);
+      assert.throws(() => group.load(group), /pathless route group.*not.*destination/i);
+
+      assert.strictEqual(await navigate(router, '/sign-in'), true);
+      assert.strictEqual(group.active, false);
+      assert.strictEqual(group.isActive(group), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('applies query reruns and explicit replacement reloads to the complete grouped branch', async function () {
+    const calls: RouteLifecycleContext[] = [];
+    class App {
+      public lifecycle(context: RouteLifecycleContext): void {
+        calls.push(context);
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/dashboard?mode=compact#top');
+    const fixture = await createFixture(
+      `<au-route
+        group
+        transition-on="query"
+        transition-plan="rerun"
+        loading.bind="lifecycle($lifecycle)"
+        loaded.bind="lifecycle($lifecycle)">
+        <section data-group-view>
+          <au-route path="dashboard" exact><span data-dashboard>Dashboard</span></au-route>
+        </section>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const group = router.root.children[0];
+      const firstGroupView = fixture.appHost.querySelector('[data-group-view]');
+      const firstDashboard = fixture.appHost.querySelector('[data-dashboard]');
+      calls.length = 0;
+
+      assert.strictEqual(await navigate(router, '/dashboard?mode=wide#top'), true);
+      assert.deepStrictEqual(calls.map(context => context.kind), ['rerun', 'rerun']);
+      assert.strictEqual(calls[1], calls[0]);
+      assert.deepStrictEqual(calls[0].changes, ['query']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-group-view]'), firstGroupView);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dashboard]'), firstDashboard);
+
+      calls.length = 0;
+      const reloaded = group.reload({ plan: 'replace' });
+      assert.strictEqual(reloaded instanceof Promise ? await reloaded : reloaded, true);
+      await tasksSettled();
+      assert.deepStrictEqual(calls.map(context => context.kind), ['replace', 'replace']);
+      assert.strictEqual(calls[1], calls[0]);
+      assert.deepStrictEqual(calls[0].changes, ['reload']);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-group-view]'), firstGroupView);
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-dashboard]'), firstDashboard);
+      assert.strictEqual(adapter.getCurrentPath(), '/dashboard?mode=wide#top');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('discovers a bound child path before the group has ever activated and while it is inactive', async function () {
+    class App {
+      public routePath: string = 'dynamic';
+    }
+
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-dynamic-shell>Dynamic shell</span>
+        <au-route path.bind="routePath" exact><span data-dynamic>Dynamic child</span></au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dynamic-shell]'), null);
+      assert.strictEqual(await navigate(router, '/dynamic'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dynamic]')?.textContent, 'Dynamic child');
+
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      fixture.component.routePath = 'changed';
+      await tasksSettled();
+      assert.strictEqual(await navigate(router, '/changed'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dynamic]')?.textContent, 'Dynamic child');
+      assert.strictEqual(adapter.getCurrentPath(), '/changed');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('discovers a conditional child before first group activation and removes its inactive declaration', async function () {
+    class App {
+      public showPrivate: boolean = false;
+    }
+
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-private-shell>Private shell</span>
+        <au-route if.bind="showPrivate" path="private" exact>
+          <span data-private>Private</span>
+        </au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      fixture.component.showPrivate = true;
+      await tasksSettled();
+      assert.strictEqual(await navigate(router, '/private'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-private]')?.textContent, 'Private');
+
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      fixture.component.showPrivate = false;
+      await tasksSettled();
+      assert.strictEqual(await navigate(router, '/private'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-private-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Fallback');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('discovers repeated child declarations added and replaced while the group is inactive', async function () {
+    class App {
+      public routes: Array<{ path: string }> = [];
+    }
+
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-repeated-shell>Repeated shell</span>
+        <au-route repeat.for="entry of routes" path.bind="entry.path" exact>
+          <span data-repeated>Repeated child</span>
+        </au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      fixture.component.routes = [{ path: 'reports' }];
+      await tasksSettled();
+      assert.strictEqual(await navigate(router, '/reports'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-repeated]')?.textContent, 'Repeated child');
+
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      fixture.component.routes = [{ path: 'audit' }];
+      await tasksSettled();
+      assert.strictEqual(await navigate(router, '/reports'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-repeated-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Fallback');
+
+      assert.strictEqual(await navigate(router, '/audit'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-repeated]')?.textContent, 'Repeated child');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('re-evaluates the current location when a conditional group is added or removed', async function () {
+    class App {
+      public showGroup: boolean = false;
+    }
+
+    const adapter = new MemoryPathAdapter('/late');
+    const fixture = await createFixture(
+      `<au-route if.bind="showGroup" group>
+        <span data-late-shell>Late shell</span>
+        <au-route path="late" exact><span data-late>Late route</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Fallback');
+      fixture.component.showGroup = true;
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-late-shell]')?.textContent, 'Late shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-late]')?.textContent, 'Late route');
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]'), null);
+
+      fixture.component.showGroup = false;
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-late-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Fallback');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('resolves child redirects through the unchanged group URL base', async function () {
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-app-shell>Application</span>
+        <au-route path="legacy/:id" redirect-to="projects/:id"></au-route>
+        <au-route path="projects/:id" exact><span data-project>Project</span></au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(await navigate(router, '/legacy/42'), true);
+      assert.strictEqual(router.currentLocation.pathname, '/projects/42');
+      assert.strictEqual(adapter.getCurrentPath(), '/projects/42');
+      assert.strictEqual(fixture.appHost.querySelector('[data-app-shell]')?.textContent, 'Application');
+      assert.strictEqual(fixture.appHost.querySelector('[data-project]')?.textContent, 'Project');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('restores grouped URL and DOM when browser traversal is denied', async function () {
+    class App {
+      public allowLeave: boolean = false;
+
+      public canLeave(): boolean {
+        return this.allowLeave;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/public');
+    const fixture = await createFixture(
+      `<au-route group can-unload.bind="() => canLeave()">
+        <span data-private-shell>Private shell</span>
+        <au-route path="dashboard" exact><span data-dashboard>Dashboard</span></au-route>
+      </au-route>
+      <au-route path="public" exact><span data-public>Public</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(await navigate(router, '/dashboard'), true);
+      const shell = fixture.appHost.querySelector('[data-private-shell]');
+
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+      assert.strictEqual(router.currentLocation.pathname, '/dashboard');
+      assert.strictEqual(adapter.getCurrentPath(), '/dashboard');
+      assert.strictEqual(fixture.appHost.querySelector('[data-private-shell]'), shell);
+      assert.strictEqual(fixture.appHost.querySelector('[data-dashboard]')?.textContent, 'Dashboard');
+
+      fixture.component.allowLeave = true;
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+      assert.strictEqual(router.currentLocation.pathname, '/public');
+      assert.strictEqual(fixture.appHost.querySelector('[data-public]')?.textContent, 'Public');
+
+      assert.strictEqual(adapter.forward(), true);
+      await tasksSettled();
+      assert.strictEqual(router.currentLocation.pathname, '/dashboard');
+      assert.strictEqual(fixture.appHost.querySelector('[data-dashboard]')?.textContent, 'Dashboard');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route index path aliases', function () {
   for (const pattern of ['.', './']) {
     it(`renders ${pattern} at the current parent path only`, async function () {
