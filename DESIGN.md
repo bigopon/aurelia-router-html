@@ -72,6 +72,40 @@ Fallback selection remains local to a sibling set.
 
 ## HTML primitives
 
+### `au-router` (proposed)
+
+`au-router` would create a nested router boundary for the `au-route` and
+`au-link` elements declared inside it. Unlike `au-route`, which contributes one
+route context into an existing tree, `au-router` would start a new route tree
+with its own root context, coordinator, navigation state, and path adapter.
+
+This is intended for embedded flows such as tab panels, previews, editors,
+multi-step widgets, or side-by-side panels where multiple independent route
+trees may exist on one page.
+
+First step:
+
+```html
+<au-router current-path.bind="panelPath">
+  <au-route path="list" exact>...</au-route>
+  <au-route path="detail/:id" exact>...</au-route>
+</au-router>
+```
+
+In that first step, `au-router` is an isolated memory-backed router. No `mode`
+or adapter selection is needed yet.
+
+`current-path` is the router's external state surface. It is a two-way binding:
+
+- changing it from outside requests a normal router navigation;
+- successful navigation writes the committed path back to the bound value;
+- rejected navigation preserves the previous committed value;
+- the value is the nested router's internal route location, for example
+  `/detail/42?tab=specs`.
+
+Future extensions may add URL-backed and custom-adapter variants, but they are
+not part of the first `au-router` step.
+
 ### `au-route`
 
 `au-route` turns a route context into a structural view. It reads route
@@ -132,6 +166,10 @@ hash, query-key, memory, or host-specific forms.
 Route declarations are contextual even when their pattern begins with `/`.
 Navigation targets are different: a leading slash resolves from the root,
 while a plain or `./` target resolves from the calling context.
+
+For a future nested `au-router`, the same internal route-location model should
+remain the public state shape even if later extensions map it to query, hash,
+pathname slices, or another host-specific representation.
 
 ## Navigation transaction
 
@@ -363,6 +401,34 @@ The memory adapter follows the same settlement model with its entry array and
 cursor. Custom adapters that omit navigation metadata retain the callback-only
 contract; precise rollback is the responsibility of adapters that report
 host-first movement.
+
+## Base path and nested routers
+
+`basePath` belongs to the outer browser adapter that mounts the application
+below an origin-relative prefix such as `/my-app`. Its job is to keep the
+deployment prefix outside the internal route tree.
+
+That concern is different from nested `au-router` composition.
+
+- `basePath` strips and restores an application mount prefix at the browser
+  boundary;
+- a nested router should own only the portion of location state delegated to
+  it by its adapter;
+- a nested router should not reinterpret application deployment prefixes.
+
+For that reason, the first `au-router` step should stay memory-backed and avoid
+tying nested-router composition to `basePath`.
+
+If later extensions add URL-backed nested routers, they should define explicit
+ownership of a delegated location slot rather than reuse deployment `basePath`
+semantics. Examples include:
+
+- one named query entry for a nested route location;
+- exclusive ownership of the document hash by one nested router;
+- a delegated pathname slice from an existing router or custom adapter.
+
+That keeps deployment prefixes, route residue, and nested router boundaries as
+separate concerns.
 
 ## Browser settlement
 

@@ -119,6 +119,19 @@
 - [x] `E1` A successful retry clears recovery state, cancellation restores its snapshot, and a failing recovery fallback cannot reenter an already-used boundary.
 - [x] `E1` Unhandled failures preserve the original error and atomic rollback, while a throwing handler reports both errors through `AggregateError`.
 - [x] `S1` The docs app parallel swap demo overlaps its outgoing and incoming route transitions.
+
+# `au-router` matrix
+
+- [x] `R0` Memory-backed `au-router` reads its initial `current-path`, writes committed navigation back, and keeps sibling routers isolated.
+- [x] `R0` External `current-path` changes cancel, supersede, revert, and tear down cleanly while navigation is still in flight.
+- [x] `R1` Internal query and hash state round-trip through `current-path` as the nested router's own route location.
+- [x] `R1` Redirect routes inside `au-router` write the redirected destination back to `current-path`.
+- [x] `R1` Pathless route groups inside `au-router` preserve structural shell DOM while nested child routes switch.
+- [x] `R1` Local `guard-failure="local"` fallback recovery inside `au-router` keeps the requested `current-path` while rematching nested siblings.
+- [ ] `R2` Matched-route transitions and `route.reload()` inside `au-router` preserve the same rerun/replace contracts as root routing.
+- [ ] `R2` Local error recovery through `on-error` and fallback routes inside `au-router` preserves nested shell UI and `current-path`.
+- [ ] `R2` Nested `au-router` composition under a parent `au-route` verifies clear ownership between outer route residue and inner memory-router state.
+- [ ] `R3` Browser-facing services such as titles, scrolling, focus, and animation remain intentionally absent or explicitly scoped for the memory-only `au-router` step.
 # Browser playground
 
 - [x] CodeMirror highlights TypeScript, JavaScript, HTML, and CSS while preserving editor state across file tabs.

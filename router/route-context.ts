@@ -477,7 +477,15 @@ export class RouteContext implements IRouteContext {
       return target.active;
     }
 
-    const href = this._tryCreateHref(target, params, options);
+    let href: string | null;
+    try {
+      href = this._tryCreateHref(target, params, options);
+    } catch (error) {
+      if (!isRouteParameterResolutionError(error)) {
+        throw error;
+      }
+      return false;
+    }
     if (href == null) {
       return false;
     }
@@ -1230,4 +1238,11 @@ function escapeRegex(value: string): string {
 
 function escapeGroupName(value: string): string {
   return value.replace(/[^A-Za-z0-9_]/g, '_');
+}
+
+function isRouteParameterResolutionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return /^Route parameter ".+" (is required|value ".+" does not satisfy constraint)/.test(error.message);
 }

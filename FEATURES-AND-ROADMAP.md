@@ -363,6 +363,59 @@ An explicit `basePath` takes precedence; otherwise a same-origin `<base href>` s
 
 The browser adapter marks router-managed history entries while preserving other `history.state` fields. It delays intercepted-link pushes until navigation succeeds and uses compensating history traversal when Back or Forward is rejected. The memory adapter uses the same commit/rollback semantics with an in-process stack.
 
+### Nested router API
+
+For embedded route trees, `au-router` creates a nearest-router boundary for
+nested `au-route` and `au-link` declarations.
+
+Current step:
+
+```html
+<au-router current-path.bind="panelPath">
+  ...
+</au-router>
+```
+
+The current step is memory-only. No `mode` or adapter selection is needed yet.
+
+`current-path` is a two-way binding over the nested router's internal route
+location:
+
+- external writes request a normal navigation;
+- successful navigation writes the committed path back to the bound value;
+- rejected navigation keeps the previously committed value;
+- the value is the nested router's internal route location, for example
+  `/items/42?step=shipping`.
+
+Current coverage focuses on the memory-router boundary itself:
+
+- initial `current-path` synchronization;
+- committed write-back to the bound value;
+- rejection rollback;
+- superseding, reverting, and tearing down in-flight navigation;
+- internal query and hash state carried through the nested route location;
+- redirects, pathless groups, and local guard-failure fallback behavior inside
+  the nested router.
+
+Later extensions may add query-backed, hash-backed, pathname-sliced, or
+custom-adapter-backed nested routers, but those remain intentionally deferred.
+
+### Base path guidance for later nested-router extensions
+
+Nested `au-router` should not treat `basePath` as its main composition API.
+`basePath` belongs to the outer browser adapter and describes where the
+application is mounted, for example `/my-app`.
+
+Nested routers have a different concern: they need ownership of a delegated
+location slot inside an already-mounted application. If URL-backed nested
+routers are added later, preferred models are:
+
+- query ownership for one encoded nested route location;
+- hash ownership when exactly one nested router owns the document hash;
+- delegated pathname slices from an existing router or custom adapter.
+
+Those extensions should remain separate from deployment `basePath` semantics.
+
 ## Redirects
 
 Redirect routes render no intermediate view:
@@ -443,6 +496,13 @@ settlement. The next feature sequence is:
    `prefers-reduced-motion`, and complete transitions from actual animation or
    transition completion while retaining a bounded fallback for missing
    browser events.
+
+10. **Nested router extensions.** Extend the implemented memory-backed
+    `au-router` boundary with the next layers of behavior: matched-route
+    transitions and `reload()` parity, local error recovery, explicit
+    composition under outer routed residue, and eventually scoped URL-backed or
+    custom-adapter-backed variants only where slot ownership and rollback
+    semantics remain explicit.
 
 The following broader ideas remain deliberately deferred:
 

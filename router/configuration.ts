@@ -3,6 +3,7 @@ import { AppTask, IWindow } from '@aurelia/runtime-html';
 import { normalizeRouteAnimationOptions, IRouteAnimationOptions, type RouteAnimationInput } from './animation';
 import { AuRoute } from './au-route';
 import { AuRouteFocus } from './au-route-focus';
+import { AuRouter } from './au-router';
 import { AuLink } from './au-link';
 import { BrowserPathAdapter, type BrowserAdapterOptions } from './browser-path-adapter';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
@@ -101,6 +102,7 @@ const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
 
   c.register(
     AuRoute,
+    AuRouter,
     AuRouteFocus,
     AuLink,
     Registration.instance(IPathAdapter, adapter),
