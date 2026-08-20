@@ -590,11 +590,11 @@ export class RouteContext implements IRouteContext {
         : null;
       return pathname == null
         ? null
-        : createRouteHref(pathname, this.$query, this.$hash, options);
+        : createRouteHref(pathname, this.$query, this.$hash, mergeTargetHrefOptions(target, options));
     }
 
     const pathname = generateHref(targetContext.fullPath, resolvedParams);
-    return createRouteHref(pathname, this.$query, this.$hash, options);
+    return createRouteHref(pathname, this.$query, this.$hash, mergeTargetHrefOptions(target, options));
   }
 
   public getPaths(includeSelf: boolean = true): readonly string[] {
@@ -912,32 +912,33 @@ export class RouteContext implements IRouteContext {
 
   /** @internal */
   private _findContext(path: string): IRouteContext | null {
-    const trimmed = path.trim();
-    const searchContext = trimmed.startsWith('/') && this.root instanceof RouteContext
+    const target = parseNavigationTarget(path);
+    if (!target.hasPath) {
+      return null;
+    }
+    const baseContext = target.isAbsolute && this.root instanceof RouteContext
       ? this.root
       : this;
-    const target = stripCurrentPrefix(trimmed);
-    const normalizedPattern = normalizePattern(target);
-    const normalizedPath = normalizePath(target);
-    const contexts = searchContext._getContexts();
-    return contexts.find(context => context._registered && context.fullPath === normalizedPath)
+    const normalizedPattern = normalizePattern(resolveRouteTarget(baseContext.fullPath, target.path));
+    const contexts = (this.root as RouteContext)._getContexts();
+    return contexts.find(context => context._registered && context.fullPath === normalizedPattern)
       ?? contexts.find(context => context._registered && context.pattern === normalizedPattern)
       ?? null;
   }
 
   /** @internal */
   private _createConcretePath(path: string, params: RouteParams): string | null {
-    if (/[:*]/.test(path)) {
+    const target = parseNavigationTarget(path);
+    if (target.hasPath && /[:*]/.test(target.path)) {
       return null;
     }
-
-    const trimmed = path.trim();
-    const searchContext = trimmed.startsWith('/') && this.root instanceof RouteContext
+    const searchContext = target.isAbsolute && this.root instanceof RouteContext
       ? this.root
       : this;
-    return trimmed.startsWith('/')
-      ? normalizePath(trimmed)
-      : normalizePath(`${generateHref(searchContext.fullPath, params)}/${stripCurrentPrefix(trimmed)}`);
+    const basePath = generateHref(searchContext.fullPath, params);
+    return target.hasPath
+      ? resolveRouteTarget(basePath, target.path)
+      : this.root.$path;
   }
 
   /** @internal */
@@ -1267,6 +1268,95 @@ function stripCurrentPrefix(value: string): string {
     result = result.slice(2);
   }
   return result === '' ? '.' : result;
+}
+
+function resolveRouteTarget(basePath: string, targetPath: string): string {
+  const trimmed = targetPath.trim();
+  if (trimmed === '' || trimmed === '.' || trimmed === './') {
+    return normalizePath(basePath);
+  }
+  if (trimmed.startsWith('/')) {
+    return normalizePath(trimmed);
+  }
+
+  const segments = normalizePath(basePath).split('/').filter(Boolean);
+  for (const part of trimmed.split('/')) {
+    if (part === '' || part === '.') {
+      continue;
+    }
+    if (part === '..') {
+      if (segments.length > 0) {
+        segments.pop();
+      }
+      continue;
+    }
+    segments.push(part);
+  }
+  return normalizePath(segments.join('/'));
+}
+
+function parseNavigationTarget(value: string): {
+  path: string;
+  hasPath: boolean;
+  isAbsolute: boolean;
+  query?: string;
+  hash?: string;
+} {
+  const trimmed = value.trim();
+  const hashIndex = trimmed.indexOf('#');
+  const withoutHash = hashIndex < 0 ? trimmed : trimmed.slice(0, hashIndex);
+  const hash = hashIndex < 0 ? undefined : trimmed.slice(hashIndex + 1);
+  const queryIndex = findTargetQueryIndex(withoutHash);
+  const path = queryIndex < 0 ? withoutHash : withoutHash.slice(0, queryIndex);
+  const query = queryIndex < 0 ? undefined : withoutHash.slice(queryIndex + 1);
+  return {
+    path,
+    hasPath: path !== '',
+    isAbsolute: path.startsWith('/'),
+    query,
+    hash,
+  };
+}
+
+function findTargetQueryIndex(value: string): number {
+  if (value.startsWith('?')) {
+    return 0;
+  }
+  const queryIndex = value.indexOf('?');
+  if (queryIndex < 0) {
+    return -1;
+  }
+  const suffix = value.slice(queryIndex + 1);
+  return suffix.includes('=') || suffix.includes('&') || suffix.startsWith('#')
+    ? queryIndex
+    : -1;
+}
+
+function mergeTargetHrefOptions(target: string | IRouteContext, options: RouteHrefOptions): RouteHrefOptions {
+  if (typeof target !== 'string') {
+    return options;
+  }
+  const parsed = parseNavigationTarget(target);
+  if (parsed.query === undefined && parsed.hash === undefined) {
+    return options;
+  }
+
+  const merged: RouteHrefOptions = { ...options };
+  if (parsed.query !== undefined && options.query === undefined) {
+    merged.query = parsed.query;
+  }
+  if (parsed.hash !== undefined && options.hash === undefined) {
+    merged.hash = parsed.hash;
+  }
+
+  if (!parsed.hasPath && parsed.query !== undefined) {
+    merged.preserveHash = false;
+  }
+  if (!parsed.hasPath && parsed.query === undefined && parsed.hash !== undefined) {
+    merged.preserveQuery = options.query === undefined ? true : merged.preserveQuery;
+  }
+
+  return merged;
 }
 
 function normalizePath(path: string): string {

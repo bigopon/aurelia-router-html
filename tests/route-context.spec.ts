@@ -326,6 +326,77 @@ run('A4 link targets distinguish context-relative and root-absolute paths', () =
   assert.equal(section.isActive('/product', {}, { exact: true }), false);
 });
 
+run('A4 relative targets support parent traversal and clamp attempts above the route root', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  const reviews = products.createChild('/reviews') as RouteContext;
+  products.createChild('/specs');
+  root.createChild('/support');
+
+  root.apply('/products/aster-pack/reviews');
+
+  assert.equal(reviews.href('../specs'), '/products/aster-pack/specs');
+  assert.equal(reviews.href('../../support'), '/products/support');
+  assert.equal(reviews.href('../../../../support'), '/support');
+  assert.equal(reviews.isActive('../specs', {}, { exact: true }), false);
+
+  const navigations: string[] = [];
+  root._setNavigator(path => navigations.push(path));
+  reviews.load('../../../../support');
+  assert.deepEqual(navigations, ['/support']);
+});
+
+run('A4 parent-relative targets reuse active ancestor params and combine with explicit descendant params', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  const reviews = products.createChild('/reviews') as RouteContext;
+  products.createChild('/compare/:otherId', { exact: true });
+
+  root.apply('/products/aster-pack/reviews');
+
+  assert.equal(
+    reviews.href('../compare/:otherId', { otherId: 'camera-pro' }),
+    '/products/aster-pack/compare/camera-pro',
+  );
+  assert.equal(
+    reviews.isActive('../compare/:otherId', { otherId: 'camera-pro' }, { exact: true }),
+    false,
+  );
+
+  root.apply('/products/aster-pack/compare/camera-pro');
+  assert.equal(
+    reviews.isActive('../compare/:otherId', { otherId: 'camera-pro' }, { exact: true }),
+    true,
+  );
+});
+
+run('A4 query-only and hash-only targets preserve the expected portions of the current location', () => {
+  const root = new RouteContext(null, '*');
+  const products = root.createChild('/products/:productId') as RouteContext;
+  products.createChild('/reviews');
+
+  root.apply('/products/aster-pack/reviews', {
+    query: createRouteQuery('sort=recent'),
+    hash: 'comments',
+  });
+
+  assert.equal(products.href('?page=2'), '/products/aster-pack/reviews?page=2');
+  assert.equal(products.href('#specs'), '/products/aster-pack/reviews?sort=recent#specs');
+  assert.equal(products.isActive('?sort=recent', {}, { matchQuery: true }), true);
+  assert.equal(products.isActive('?page=2', {}, { matchQuery: true }), false);
+  assert.equal(products.isActive('#comments', {}, { matchHash: true }), true);
+  assert.equal(products.isActive('#specs', {}, { matchHash: true }), false);
+
+  const navigations: string[] = [];
+  root._setNavigator(path => navigations.push(path));
+  products.load('?page=2');
+  products.load('#specs');
+  assert.deepEqual(navigations, [
+    '/products/aster-pack/reviews?page=2',
+    '/products/aster-pack/reviews?sort=recent#specs',
+  ]);
+});
+
 run('A4 concrete links resolve parameter, prefix, terminal, and fallback routes', () => {
   const root = new RouteContext(null, '*');
   root.createChild('/products/:productId', { exact: true });

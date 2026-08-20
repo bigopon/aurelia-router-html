@@ -416,6 +416,81 @@ describe('au-router memory routing', function () {
     }
   });
 
+  it('keeps relative target resolution scoped to the nested au-router boundary', async function () {
+    class App {
+      public panelPath: string = '/items/42/reviews?sort=recent#comments';
+    }
+
+    const adapter = new MemoryPathAdapter('/workspace');
+    const fixture = await createFixture(
+      `<au-route path="workspace" exact>
+        <span data-shell>Workspace</span>
+        <au-router current-path.bind="panelPath">
+          <au-route path="items/:id">
+            <au-route path="reviews" exact>
+              <a data-specs au-link="../specs" active-class="selected">Specs</a>
+              <a
+                data-manual
+                href.bind="$route.href('../specs')"
+                class.bind="$route.isActive('../specs', {}, { exact: true }) ? 'is-active' : ''">
+                Manual
+              </a>
+              <span data-reviews>\${$query.get('sort')}:\${$hash}</span>
+            </au-route>
+            <au-route path="specs" exact>
+              <a
+                data-query
+                au-link="?page=2"
+                class.bind="$route.isActive('?page=2', {}, { matchQuery: true }) ? 'selected' : ''">
+                Page 2
+              </a>
+              <a
+                data-hash
+                au-link="#specs"
+                class.bind="$route.isActive('#specs', {}, { matchHash: true }) ? 'selected' : ''">
+                Specs hash
+              </a>
+              <span data-specs-view>\${$query.get('page') || '(none)'}:\${$hash || '(none)'}</span>
+            </au-route>
+          </au-route>
+        </au-router>
+      </au-route>
+      <au-route path="items/:id/specs" exact><span data-outer-specs>Outer specs</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await settleRouter();
+      const manual = fixture.appHost.querySelector('[data-manual]') as HTMLAnchorElement;
+      assert.strictEqual(manual.getAttribute('href'), '/items/42/specs');
+      assert.strictEqual(fixture.appHost.querySelector('[data-reviews]')?.textContent, 'recent:comments');
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace');
+
+      click(fixture.appHost.querySelector('[data-specs]') as HTMLElement);
+      await settleRouter();
+
+      assert.strictEqual(fixture.component.panelPath, '/items/42/specs');
+      assert.strictEqual(fixture.appHost.querySelector('[data-specs-view]')?.textContent, '(none):(none)');
+      assert.strictEqual(fixture.appHost.querySelector('[data-outer-specs]'), null);
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace');
+
+      click(fixture.appHost.querySelector('[data-query]') as HTMLElement);
+      await settleRouter();
+      assert.strictEqual(fixture.component.panelPath, '/items/42/specs?page=2');
+      assert.strictEqual(fixture.appHost.querySelector('[data-specs-view]')?.textContent, '2:(none)');
+      assert.strictEqual((fixture.appHost.querySelector('[data-query]') as HTMLAnchorElement).classList.contains('selected'), true);
+
+      click(fixture.appHost.querySelector('[data-hash]') as HTMLElement);
+      await settleRouter();
+      assert.strictEqual(fixture.component.panelPath, '/items/42/specs?page=2#specs');
+      assert.strictEqual(fixture.appHost.querySelector('[data-specs-view]')?.textContent, '2:specs');
+      assert.strictEqual((fixture.appHost.querySelector('[data-hash]') as HTMLAnchorElement).classList.contains('selected'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('keeps the requested current-path and rematches a fallback after local guard failure inside au-router', async function () {
     class App {
       public panelPath: string = '/portal/admin';

@@ -1723,6 +1723,30 @@ describe('au-route redirects', function () {
     }
   });
 
+  it('resolves a contextual declarative redirect with query and hash state', async function () {
+    const adapter = new MemoryPathAdapter('/area/workspace/private/42');
+    const fixture = await createFixture(
+      `<au-route path="area">
+        <au-route path="workspace">
+          <au-route path="private/:id" exact redirect-to="login?from=private#warning"></au-route>
+          <au-route path="login" exact>
+            <span data-login>\${$query.get('from')}:\${$hash}</span>
+          </au-route>
+        </au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/area/workspace/login?from=private#warning');
+      assert.strictEqual(fixture.appHost.querySelector('[data-login]')?.textContent, 'private:warning');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('rejects redirect loops with the visited location chain', function () {
     const adapter = new MemoryPathAdapter('/a');
     const root = new RouteContext(null, '*');

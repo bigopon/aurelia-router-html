@@ -474,7 +474,8 @@ remaining roadmap work.
    the contextual base; repeated `../` segments remove further segments; and
    `/reviews` starts at the route root. Query-only targets such as `?page=2`
    retain the current pathname and replace only the query, while `#comments`
-   retains the pathname and query and replaces only the hash.
+   retains the pathname and query and replaces only the hash. Attempts to
+   traverse above the route root clamp at the root instead of escaping it.
 
 6. **Zero-segment routes and pathless groups.** Normal `/`, `.`, and `./`
    declarations are supported, and descendant-selected `group` routes now

@@ -30,6 +30,22 @@
     </section>
 
     <section>
+      <h3>Relative redirects with query and hash</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="area"&gt;
+  &lt;au-route path="workspace"&gt;
+    &lt;au-route
+      path="private/:id"
+      exact
+      redirect-to="../login?from=private#warning"&gt;
+    &lt;/au-route&gt;
+  &lt;/au-route&gt;
+
+  &lt;au-route path="login" exact&gt;Login&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>The redirect target still resolves from the redirect route's parent context. In this example, <code>../login?from=private#warning</code> climbs from <code>/area/workspace/private/:id</code> to the parent branch and becomes <code>/area/login?from=private#warning</code>.</p>
+    </section>
+
+    <section>
       <h3>Dynamic targets</h3>
       <pre class="code-block" syntax-html>&lt;au-route
   path="legacy/:productId"
@@ -71,4 +87,5 @@
   </div>
 
   <playground-page example-id="declarative-redirects" embedded.bind="true"></playground-page>
+  <playground-page example-id="relative-redirects" embedded.bind="true"></playground-page>
 </section>

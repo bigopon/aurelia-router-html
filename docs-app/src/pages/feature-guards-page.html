@@ -40,6 +40,27 @@ public canLeaveAccount(): boolean {
     || confirm('Discard your changes?');
 }</pre>
       <p>Return <code>true</code> to continue, <code>false</code> to keep the complete current navigation, or a route target from <code>can-load</code> to redirect. A target without a leading slash resolves from the guarded route's parent; a leading slash starts at the root.</p>
+      <p><code>can-unload</code> does not redirect. It either allows the current navigation to continue or returns <code>false</code> to keep the active branch and URL as they are.</p>
+    </section>
+
+    <section>
+      <h3>Relative can-load redirects</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="area"&gt;
+  &lt;au-route path="workspace"&gt;
+    &lt;au-route
+      path="private"
+      exact
+      can-load.bind="() =&gt; openPrivate()"&gt;
+      Private
+    &lt;/au-route&gt;
+  &lt;/au-route&gt;
+
+  &lt;au-route path="login" exact&gt;Login&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <pre class="code-block" syntax-typescript>public openPrivate(): string {
+  return '../login?from=private#warning';
+}</pre>
+      <p>The guard result uses the same target rules as <code>au-link</code> and declarative redirects. Here <code>../login?from=private#warning</code> climbs from the guarded route's parent branch and settles at <code>/area/login?from=private#warning</code>.</p>
     </section>
 
     <section>
@@ -52,4 +73,5 @@ public canLeaveAccount(): boolean {
   </div>
 
   <playground-page example-id="navigation-guards" embedded.bind="true"></playground-page>
+  <playground-page example-id="navigation-guards-relative-redirect" embedded.bind="true"></playground-page>
 </section>

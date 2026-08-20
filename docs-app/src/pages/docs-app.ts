@@ -20,6 +20,7 @@ import { FeatureNestedPage } from './feature-nested-page';
 import { FeatureNestedRouterPage } from './feature-nested-router-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureProgrammaticPage } from './feature-programmatic-page';
+import { FeatureRelativeTargetsPage } from './feature-relative-targets-page';
 import { FeatureRepeatedPage } from './feature-repeated-page';
 import { FeatureSegmentConstraintsPage } from './feature-segment-constraints-page';
 import { FeatureRedirectsPage } from './feature-redirects-page';
@@ -60,6 +61,7 @@ export class DocsApp {
       FeatureHashScrollingPage,
       FeatureFocusPage,
       FeatureActiveLinksPage,
+      FeatureRelativeTargetsPage,
       FeatureProgrammaticPage,
       FeatureRedirectsPage,
       FeatureTitlesPage,

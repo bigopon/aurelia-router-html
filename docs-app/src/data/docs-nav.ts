@@ -92,6 +92,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'relative-targets',
+    title: 'Relative Targets',
+    path: '/features/relative-targets',
+    summary: 'Use descendant, parent, root, query-only, and hash-only targets with one consistent resolution model.',
+    badge: 'A4',
+  },
+  {
     id: 'active-branch',
     title: 'Snapshots',
     path: '/features/active-branch',

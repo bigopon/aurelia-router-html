@@ -1,0 +1,71 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Relative Targets</h2>
+      <p class="page-copy">Use URL-like targets consistently across <code>au-link</code>, redirects, <code>href()</code>, <code>isActive()</code>, and <code>load()</code>.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;a au-link="reviews"&gt;Reviews&lt;/a&gt;
+&lt;a au-link="./reviews"&gt;Explicit descendant&lt;/a&gt;
+&lt;a au-link="../specs"&gt;Parent sibling&lt;/a&gt;
+&lt;a au-link="/products"&gt;Root route&lt;/a&gt;
+&lt;a au-link="?page=2"&gt;Replace query only&lt;/a&gt;
+&lt;a au-link="#comments"&gt;Replace hash only&lt;/a&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <div class="option-table-wrap">
+        <table class="option-table">
+          <thead>
+            <tr><th>Target</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>reviews</code> or <code>./reviews</code></td><td>Resolve below the current route context.</td></tr>
+            <tr><td><code>../reviews</code></td><td>Remove one contextual URL segment, then resolve the sibling target.</td></tr>
+            <tr><td>Repeated <code>../</code></td><td>Continue removing segments, but clamp at the route root instead of traversing above it.</td></tr>
+            <tr><td><code>/reviews</code></td><td>Resolve from the root route context.</td></tr>
+            <tr><td><code>?page=2</code></td><td>Keep the current pathname and replace only the query.</td></tr>
+            <tr><td><code>#comments</code></td><td>Keep the current pathname and query and replace only the hash.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <pre class="code-block" syntax-typescript>const href = this.route.href('../specs');
+const queryOnly = this.route.href('?page=2');
+const hashOnly = this.route.href('#comments');
+
+await this.route.load('../../support');
+await this.route.load('?sort=recent');
+await this.route.load('#details');</pre>
+      <p>The same target rules apply to declarative redirects. A redirect target like <code>login?from=private#warning</code> resolves from the redirect route's parent context and still carries its query and hash update in one step.</p>
+    </section>
+
+    <section>
+      <h3>Parameterized parent traversal</h3>
+      <pre class="code-block" syntax-typescript>const href = this.route.href('../compare/:otherId', {
+  otherId: 'camera-pro'
+});
+
+const active = this.route.isActive('../compare/:otherId', {
+  otherId: 'camera-pro'
+}, { exact: true });</pre>
+      <p>Relative targets can climb to an ancestor branch and still reuse active ancestor parameters. If the current route is <code>/products/aster-pack/reviews</code>, the href above becomes <code>/products/aster-pack/compare/camera-pro</code>.</p>
+    </section>
+
+    <section>
+      <h3>Inside au-router</h3>
+      <p>An <code>au-router</code> creates a new memory-backed route boundary. Relative targets still use the same rules, but they stay scoped to that nested router's <code>current-path</code> instead of affecting the outer browser route.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="relative-targets" embedded.bind="true"></playground-page>
+  <playground-page example-id="relative-targets-nested-router" embedded.bind="true"></playground-page>
+</section>

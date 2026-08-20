@@ -707,6 +707,197 @@ const featureExamples: PlaygroundExample[] = [
 }`,
   }),
   routerExample({
+    id: 'relative-targets',
+    title: 'Relative targets',
+    description: 'Resolve descendant, parent, root, query-only, and hash-only targets from one route context.',
+    initialPath: '/products/aster-pack/reviews?sort=recent#comments',
+    initialFile: '/src/app.html',
+    appTs: `import { resolve } from '@aurelia/kernel';
+import { IRouteContext } from 'aurelia-router-html';
+
+export class App {
+  private readonly route = resolve(IRouteContext);
+
+  public openSupport(): void {
+    this.route.load('../../../../support');
+  }
+
+  public openQueryOnly(): void {
+    this.route.load('?page=2');
+  }
+
+  public openHashOnly(): void {
+    this.route.load('#specs');
+  }
+}`,
+    appHtml: `<au-route path="products/:productId">
+  <section class="relative-demo">
+    <h1>Product \${$params.productId}</h1>
+    <p>Current pathname: <code>\${$route.root.$path}</code></p>
+    <p>Query: <code>\${$query.toString() || '(none)'}</code></p>
+    <p>Hash: <code>\${$hash || '(none)'}</code></p>
+
+    <nav>
+      <a au-link="overview" active-class="selected">Overview</a>
+      <a au-link="./reviews" active-class="selected">Reviews</a>
+      <a au-link="/support" active-class="selected">Root support</a>
+      <a au-link="?page=2" active-class="selected">Query only</a>
+      <a au-link="#specs" active-class="selected">Hash only</a>
+    </nav>
+
+    <div class="button-row">
+      <button click.trigger="openSupport()">Load root support</button>
+      <button click.trigger="openQueryOnly()">Load query only</button>
+      <button click.trigger="openHashOnly()">Load hash only</button>
+    </div>
+
+    <au-route path="overview" exact>
+      <article class="route-card">
+        <h2>Overview</h2>
+      </article>
+    </au-route>
+
+    <au-route path="./reviews" exact>
+      <article class="route-card">
+        <h2>Reviews</h2>
+      </article>
+    </au-route>
+  </section>
+</au-route>
+
+<au-route path="support" exact>
+  <article class="route-card">
+    <h1>Support</h1>
+    <p>Repeated <code>../</code> traversal clamps at the route root before loading this route.</p>
+  </article>
+</au-route>`,
+    appCss: `.relative-demo {
+  display: grid;
+  gap: 16px;
+}
+
+.relative-demo a.selected {
+  color: white;
+  background: #08766b;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.route-card {
+  display: block;
+}`,
+  }),
+  routerExample({
+    id: 'relative-targets-nested-router',
+    title: 'Relative targets inside au-router',
+    description: 'Keep relative resolution inside a nested memory router while the outer browser route stays unchanged.',
+    initialPath: '/workspace',
+    initialFile: '/src/app.html',
+    appTs: `export class App {
+  public panelPath: string = '/items/42/reviews?sort=recent#comments';
+}`,
+    appHtml: `<au-route path="workspace" exact>
+  <section class="nested-relative-shell">
+    <h1>Workspace</h1>
+    <p>Outer route: <code>/workspace</code></p>
+    <p>Nested current-path: <code>\${panelPath}</code></p>
+
+    <au-router current-path.bind="panelPath">
+      <au-route path="items/:id">
+        <au-route path="reviews" exact>
+          <article class="route-card">
+            <h2>Reviews</h2>
+            <nav>
+              <a au-link="../specs" active-class="selected">Specs via ../</a>
+            </nav>
+            <p>Nested href: <code>\${$route.href('../specs')}</code></p>
+            <p>Sort: <code>\${$query.get('sort') || '(none)'}</code></p>
+            <p>Hash: <code>\${$hash || '(none)'}</code></p>
+          </article>
+        </au-route>
+
+        <au-route path="specs" exact>
+          <article class="route-card">
+            <h2>Specs</h2>
+            <nav>
+              <a au-link="?page=2">Query only</a>
+              <a au-link="#specs">Hash only</a>
+            </nav>
+            <p>Page: <code>\${$query.get('page') || '(none)'}</code></p>
+            <p>Hash: <code>\${$hash || '(none)'}</code></p>
+            <p>Query-only and hash-only active styling needs explicit <code>matchQuery</code> or <code>matchHash</code> checks when you want the current state to count.</p>
+          </article>
+        </au-route>
+      </au-route>
+    </au-router>
+  </section>
+</au-route>`,
+    appCss: `.nested-relative-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.nested-relative-shell a.selected {
+  color: white;
+  background: #08766b;
+}`,
+  }),
+  routerExample({
+    id: 'relative-redirects',
+    title: 'Relative redirects',
+    description: 'Resolve contextual redirects with route-relative paths plus query and hash updates.',
+    initialPath: '/area/workspace/private/42',
+    initialFile: '/src/app.html',
+    appHtml: `<au-route path="area">
+  <section class="redirect-demo-shell">
+    <h1>Area shell</h1>
+    <p>The redirect below resolves from the redirect route's parent context and climbs one level with <code>../</code>.</p>
+
+    <nav>
+      <a au-link="workspace/private/42">Private 42</a>
+      <a au-link="login?from=manual#note">Direct login</a>
+    </nav>
+
+    <au-route path="workspace">
+      <section class="redirect-demo-card">
+        <h2>Workspace</h2>
+
+        <au-route
+          path="private/:id"
+          exact
+          redirect-to="../login?from=private#warning">
+        </au-route>
+      </section>
+    </au-route>
+
+    <au-route path="login" exact>
+      <article class="redirect-demo-result">
+        <h3>Login</h3>
+        <p>From: <code>\${$query.get('from') || '(none)'}</code></p>
+        <p>Hash: <code>\${$hash || '(none)'}</code></p>
+      </article>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.redirect-demo-shell,
+.redirect-demo-card {
+  display: grid;
+  gap: 16px;
+}
+
+.redirect-demo-result {
+  display: block;
+  padding: 18px;
+  border: 1px solid #cbdad7;
+  border-radius: 18px;
+  background: white;
+}`,
+  }),
+  routerExample({
     id: 'active-branch',
     title: 'Active branch snapshots',
     description: 'Compare root, parent, and child snapshots when one URL activates sibling branches at one and two levels.',
@@ -837,7 +1028,6 @@ const featureExamples: PlaygroundExample[] = [
     title: 'Programmatic navigation',
     description: 'Load relative and root-absolute targets from the current route context.',
     initialPath: '/home',
-    initialFile: '/src/app.ts',
     appTs: `import { resolve } from '@aurelia/kernel';
 import { IRouteContext } from 'aurelia-router-html';
 
@@ -1117,7 +1307,72 @@ export class App {
     <h1>Sign in</h1>
     <p>The admin guard redirected here.</p>
   </au-route>
+  </main>`,
+  }),
+  routerExample({
+    id: 'navigation-guards-relative-redirect',
+    title: 'Relative can-load redirect',
+    description: 'Return a parent-relative target from can-load to redirect before the guarded route renders.',
+    initialPath: '/home',
+    initialFile: '/src/app.html',
+    appTs: `export class App {
+  public message = 'Choose a route';
+
+  public openPrivate(): string {
+    this.message = 'Private area requires sign in';
+    return '../login?from=private#warning';
+  }
+}`,
+    appHtml: `<nav>
+  <a au-link="home">Home</a>
+  <a au-link="area/workspace/private">Private workspace</a>
+  <a au-link="area/login?from=manual#note">Direct login</a>
+</nav>
+
+<p role="status">\${message}</p>
+
+<main>
+  <au-route path="home" exact>
+    <h1>Home</h1>
+    <p>Open the private route to trigger a contextual redirect from <code>can-load</code>.</p>
+  </au-route>
+
+  <au-route path="area">
+    <section class="guard-redirect-shell">
+      <h1>Area shell</h1>
+
+      <au-route path="workspace">
+        <section class="guard-redirect-card">
+          <h2>Workspace</h2>
+          <au-route path="private" exact can-load.bind="() => openPrivate()">
+            <p>Private content</p>
+          </au-route>
+        </section>
+      </au-route>
+
+      <au-route path="login" exact>
+        <article class="guard-redirect-result">
+          <h2>Login</h2>
+          <p>From: <code>\${$query.get('from') || '(none)'}</code></p>
+          <p>Hash: <code>\${$hash || '(none)'}</code></p>
+        </article>
+      </au-route>
+    </section>
+  </au-route>
 </main>`,
+    appCss: `.guard-redirect-shell,
+.guard-redirect-card {
+  display: grid;
+  gap: 16px;
+}
+
+.guard-redirect-result {
+  display: block;
+  padding: 18px;
+  border: 1px solid #cbdad7;
+  border-radius: 18px;
+  background: white;
+}`,
   }),
   routerExample({
     id: 'layered-navigation-guards',

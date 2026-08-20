@@ -67,6 +67,13 @@ export class OverviewPage {
       syntax: '<a au-link="reviews">Reviews</a>\n\n<a\n  href.bind="$route.href(\'reviews\')"\n  class.bind="$route.isActive(\'reviews\', {}, { exact: true })\n    ? \'is-active\'\n    : \'\'">\n  Reviews with low-level APIs\n</a>',
     },
     {
+      title: 'Relative Targets',
+      summary: 'Resolve descendants, parent siblings, query-only, and hash-only targets from one contextual model.',
+      path: '/features/relative-targets',
+      playgroundId: 'relative-targets',
+      syntax: '<a au-link="../specs">Parent sibling</a>\n<a au-link="?page=2">Query only</a>\n<a au-link="#comments">Hash only</a>',
+    },
+    {
       title: 'Scrolling & Restoration',
       summary: 'Scroll after asynchronous route rendering and restore each history entry to its saved viewport.',
       path: '/features/hash-scrolling',
