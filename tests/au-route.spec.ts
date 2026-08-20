@@ -89,6 +89,77 @@ describe('au-route dynamic path binding', function () {
   });
 });
 
+describe('au-link active state', function () {
+  it('applies active classes for the initial committed route when links attach after navigation', async function () {
+    const fixture = await createFixture(
+      `<au-route path="/products/:productId">
+        <au-route path="overview" exact><span data-overview>Overview</span></au-route>
+        <au-route path="reviews" exact><span data-reviews>Reviews</span></au-route>
+        <nav>
+          <a data-overview-link au-link.bind="{ target: 'overview', options: { exact: true }, activeClass: 'selected' }">Overview</a>
+          <a data-reviews-link au-link.bind="{ target: 'reviews', options: { exact: true }, activeClass: 'selected' }">Reviews</a>
+          <a
+            data-query-link
+            au-link.bind="{ target: 'reviews', options: { query: { sort: 'recent' }, matchQuery: true }, activeClass: 'selected' }">
+            Recent reviews
+          </a>
+        </nav>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter: new MemoryPathAdapter('/products/ice-cream/overview') })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview]')?.textContent, 'Overview');
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview-link]')?.classList.contains('selected'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-reviews-link]')?.classList.contains('selected'), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-query-link]')?.classList.contains('selected'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('applies active classes when links are attached after the current route has already settled', async function () {
+    class App {
+      public showLinks: boolean = false;
+    }
+
+    const fixture = await createFixture(
+      `<au-route path="/products/:productId">
+        <au-route path="overview" exact><span data-overview>Overview</span></au-route>
+        <au-route path="reviews" exact><span data-reviews>Reviews</span></au-route>
+        <nav if.bind="showLinks">
+          <a data-overview-link au-link.bind="{ target: 'overview', options: { exact: true }, activeClass: 'selected' }">Overview</a>
+          <a data-reviews-link au-link.bind="{ target: 'reviews', options: { exact: true }, activeClass: 'selected' }">Reviews</a>
+          <a
+            data-query-link
+            au-link.bind="{ target: 'reviews', options: { query: { sort: 'recent' }, matchQuery: true }, activeClass: 'selected' }">
+            Recent reviews
+          </a>
+        </nav>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter: new MemoryPathAdapter('/products/ice-cream/overview') })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview]')?.textContent, 'Overview');
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview-link]'), null);
+
+      fixture.component.showLinks = true;
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-overview-link]')?.classList.contains('selected'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-reviews-link]')?.classList.contains('selected'), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-query-link]')?.classList.contains('selected'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route zero-segment paths and group validation', function () {
   async function navigate(router: IRouteCoordinator, path: string): Promise<boolean> {
     const result = router.load(path);

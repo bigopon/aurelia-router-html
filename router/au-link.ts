@@ -62,6 +62,7 @@ export class AuLink implements ICustomAttributeViewModel {
       this.navigation = state;
       this.update();
     });
+    this.update();
   }
 
   public detaching(): void {
