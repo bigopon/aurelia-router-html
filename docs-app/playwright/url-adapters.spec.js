@@ -56,7 +56,7 @@ for (const mode of modes) {
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
     await details.evaluate(element => element.click());
     await expect(page).toHaveURL(mode.detailsUrl);
-    await expect(page.locator('[data-e2e="details-section"]')).toHaveCount(1);
+    await expect(page.locator('[data-e2e="details-section"]')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Adapter details' })).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
     expect(await page.locator('[data-e2e="details-section"]').evaluate(element => element.getBoundingClientRect().top)).toBeLessThan(50);
