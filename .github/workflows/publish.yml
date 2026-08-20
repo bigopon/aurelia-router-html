@@ -7,6 +7,11 @@ on:
         description: Git tag for this release (for example, v0.1.0-rc.0)
         required: true
         type: string
+      npm_tag:
+        description: npm dist-tag to publish under (for example, latest or rc)
+        required: true
+        default: latest
+        type: string
       confirm:
         description: Type PUBLISH to submit the package to npm
         required: true
@@ -64,5 +69,7 @@ jobs:
       - run: npm --prefix docs-app run test:e2e:ci
       - run: npm pack --dry-run
 
-      - name: Publish stable release
-        run: npm publish
+      - name: Publish release
+        env:
+          NPM_DIST_TAG: ${{ inputs.npm_tag }}
+        run: npm publish --tag "$NPM_DIST_TAG"
