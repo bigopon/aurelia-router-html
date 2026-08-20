@@ -458,45 +458,52 @@ Routing.customize({
 
 The public configuration covers rendering order, opt-in animation, browser URL mapping, optional plain-anchor interception, titles, scrolling, focus, and custom adapters. Route-specific markup can override behavior that belongs to an individual branch.
 
-## Roadmap
+## Feature status and roadmap
 
 Navigation lifecycle v2 items 1-3 delivered matched-route transitions,
 observable navigation state, and transactional cancellation and history
-settlement. The next feature sequence is:
+settlement. The later sequence has now split into delivered features and
+remaining roadmap work.
 
-4. **Real relative URL resolution.** Give route targets URL-like navigation
+### Delivered from that sequence
+
+4. **Real relative URL resolution.** Route targets now use URL-like navigation
    semantics across `au-link`, redirects, `href()`, `isActive()`, and `load()`.
-   A plain target such as `reviews` remains a descendant of the calling route;
-   `./reviews` is its explicit form; `../reviews` removes one URL segment from
-   that contextual base; repeated `../` segments remove further segments; and
-   `/reviews` starts at the route root. A query-only target such as `?page=2`
-   retains the current pathname and replaces its query, while `#comments`
-   retains the current pathname and query and replaces only the hash.
-   Resolution must be shared by registered route targets and concrete paths,
-   normalize `.` and `..`, and define attempts to traverse above the route
-   root.
+   Plain targets such as `reviews` remain descendants of the calling route;
+   `./reviews` is the explicit form; `../reviews` removes one URL segment from
+   the contextual base; repeated `../` segments remove further segments; and
+   `/reviews` starts at the route root. Query-only targets such as `?page=2`
+   retain the current pathname and replace only the query, while `#comments`
+   retains the pathname and query and replaces only the hash.
+
+6. **Zero-segment routes and pathless groups.** Normal `/`, `.`, and `./`
+   declarations are supported, and descendant-selected `group` routes now
+   provide layout, guards, titles, and error-boundary ownership without adding
+   a URL segment. Template nesting remains the source of ownership and child
+   residue. The original design discussion remains in
+   [pathless-route-groups.md](pathless-route-groups.md).
+
+7. **Active-match introspection.** Router HTML now exposes a committed active
+   snapshot model at both the router and route-context subtree levels. The
+   public shape provides flat active route snapshots plus branch-oriented route
+   and path views, without assuming one singular active route chain.
+
+10. **Nested router foundation.** `au-router` is implemented as a local
+    memory-backed router boundary with two-way `current-path`, nested
+    `au-route` and `au-link` ownership, redirect handling, internal query/hash
+    round-tripping, in-flight navigation supersession and teardown handling,
+    `reload()` parity, local guard-failure fallback behavior, local error
+    recovery, and active-snapshot access through the nested coordinator and
+    route contexts.
+
+### Remaining roadmap items
 
 5. **Retained route views.** Add an opt-in `retain` or `cache-view` policy for
    deactivated routed views so editors, wizards, and tabs can preserve
    component-local state. Define cache keys, parameter sensitivity, lifecycle
    behavior, explicit invalidation, and bounded LRU eviction before exposing
-   the API.
-
-6. **Zero-segment routes and pathless groups.** Let normal `/`, `.`, and `./`
-   declarations use `exact` to choose index-only or unconditional prefix
-   behavior, and add descendant-selected groups for layout, guards, titles, and
-   error boundaries without a URL segment. Template nesting remains the source
-   of ownership and child residue. The detailed proposal, examples, migration,
-   API consequences, and HTML-first discovery constraint are documented in
-   [pathless-route-groups.md](pathless-route-groups.md).
-
-7. **Route metadata and active-match introspection.** Add bound metadata and a
-   public active-match model for breadcrumbs, generated navigation,
-   permissions, and analytics. That API should represent flat active matches
-   and, where useful, active branches instead of assuming one singular route
-   chain. The same committed snapshot shape should be available at the router
-   level and at any route-context subtree. Stable route names may follow if
-   contextual paths and metadata do not provide sufficient identity.
+   the API. The current design discussion is documented in
+   [retained-route-views.md](retained-route-views.md).
 
 8. **Opt-in exclusive matching.** Preserve match-all sibling behavior by
    default, while allowing a parent to select one best regular match through a
@@ -510,9 +517,8 @@ settlement. The next feature sequence is:
    browser events.
 
 10. **Nested router extensions.** Extend the implemented memory-backed
-    `au-router` boundary with the next layers of behavior: matched-route
-    transitions and `reload()` parity, local error recovery, explicit
-    composition under outer routed residue, and eventually scoped URL-backed or
+    `au-router` boundary with the next layers of behavior: explicit composition
+    under outer routed residue, and eventually scoped URL-backed or
     custom-adapter-backed variants only where slot ownership and rollback
     semantics remain explicit.
 
