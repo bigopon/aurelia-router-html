@@ -15,7 +15,12 @@ import {
   IInstruction,
   HydrateElementInstruction,
 } from '@aurelia/template-compiler';
-import { IRouteAnimationOptions } from './animation';
+import {
+  IRouteAnimationOptions,
+  normalizeRouteAnimationValue,
+  type RouteAnimationDescriptor,
+  type RouteAnimationValue,
+} from './animation';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 import type { RouteLifecycleContext, RouteTransitionCause, RouteTransitionPlan, RouteTransitionTrigger, RouteValueSnapshot } from './lifecycle';
@@ -38,7 +43,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError'],
+    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError', 'animate'],
     processContent: (node, _, data) => {
       const group = node.hasAttribute('group');
       const path = node.getAttribute('path');
@@ -112,7 +117,17 @@ export class AuRoute implements ICustomElementViewModel {
       }
       data.guardFailure = guardFailure;
       data.swapOrder = node.getAttribute('swap-order') as SwapOrder | null;
-      data.animate = node.hasAttribute('animate');
+      const shorthandAnimateExpression = node.getAttribute(':animate');
+      if (shorthandAnimateExpression != null) {
+        node.removeAttribute(':animate');
+        if (!node.hasAttribute('animate.bind') && !node.hasAttribute('animate.to-view')) {
+          node.setAttribute('animate.bind', shorthandAnimateExpression);
+        }
+      }
+      const animateAttribute = node.getAttribute('animate');
+      data.animate = animateAttribute == null
+        ? false
+        : animateAttribute.trim() === '' ? true : animateAttribute;
       data.exact = node.hasAttribute('exact');
       data.fallback = node.hasAttribute('fallback');
       data.group = group;
@@ -128,6 +143,7 @@ export class AuRoute implements ICustomElementViewModel {
   public path: string = '/';
   public redirectTo: string | null = null;
   public title: string | null = null;
+  public animate: RouteAnimationValue = false;
   public canLoad: RouteCanLoadCallback | null = null;
   public canUnload: RouteCanUnloadCallback | null = null;
   public onError: RouteErrorHandler | null = null;
@@ -141,7 +157,7 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private readonly animationOptions = resolve(IRouteAnimationOptions);
   /** @internal */
-  private readonly animationsEnabled: boolean;
+  private animationDescriptor!: RouteAnimationDescriptor;
   /** @internal */
   private readonly expressionParser = resolve(IExpressionParser);
   /** @internal */
@@ -187,6 +203,8 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private animationRunId: number = 0;
   /** @internal */
+  private animationAbortController: AbortController | null = null;
+  /** @internal */
   private lastRedirectKey: string | null = null;
   /** @internal */
   private previousState: RouteState | null = null;
@@ -197,7 +215,7 @@ export class AuRoute implements ICustomElementViewModel {
     const parentContext = resolve(IRouteContext);
     const rendering = resolve(IRendering);
     const container = resolve(IContainer);
-    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: boolean; exact: boolean; fallback: boolean; group: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null; transitionOn: ReadonlySet<RouteTransitionTrigger>; transitionPlan: RouteTransitionPlan }>;
+    const instruction = resolve(IInstruction) as HydrateElementInstruction<{ animate: RouteAnimationValue; exact: boolean; fallback: boolean; group: boolean; guardFailure: RouteGuardFailure; isRedirect: boolean; loadedExpression: string | null; loadingExpression: string | null; path: string; pathExpression: string | null; redirectMode: RedirectMode; redirectTo: string | null; swapOrder: SwapOrder | null; title: string | null; transitionOn: ReadonlySet<RouteTransitionTrigger>; transitionPlan: RouteTransitionPlan }>;
     const { projections, data: { animate, exact, fallback, group, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title, transitionOn, transitionPlan } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
@@ -224,7 +242,8 @@ export class AuRoute implements ICustomElementViewModel {
     this.redirectMode = redirectMode;
     this.isRedirect = isRedirect;
     this.isGroup = group;
-    this.animationsEnabled = this.animationOptions.enabled || animate;
+    this.animate = animate;
+    this.updateAnimation(animate);
     this.overrideContext.$pattern = path;
     this.overrideContext.$params = this.context.$params;
     this.overrideContext.$query = this.context.$query;
@@ -284,6 +303,7 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   public bound(): void {
+    this.updateAnimation(this.animate);
     this.updateTitle(this.title);
     this.updateGuards();
     this.updateErrorHandler();
@@ -314,6 +334,10 @@ export class AuRoute implements ICustomElementViewModel {
     this.updateTitle(value);
   }
 
+  public animateChanged(value: RouteAnimationValue): void {
+    this.updateAnimation(value);
+  }
+
   /** @internal */
   private updateTitle(value: unknown): void {
     this.title = value == null ? null : String(value);
@@ -321,6 +345,15 @@ export class AuRoute implements ICustomElementViewModel {
     if (this.context.active && !this.isRedirect) {
       this.titleService.requestUpdate();
     }
+  }
+
+  /** @internal */
+  private updateAnimation(value: RouteAnimationValue): void {
+    this.animate = value;
+    const descriptor = normalizeRouteAnimationValue(value, this.animationOptions);
+    this.animationDescriptor = descriptor.kind === 'none' && this.animationOptions.enabled
+      ? normalizeRouteAnimationValue(true, this.animationOptions)
+      : descriptor;
   }
 
   /** @internal */
@@ -382,6 +415,8 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   public dispose(): void {
+    this.animationAbortController?.abort();
+    this.animationAbortController = null;
     this.unsubscribe();
     this.unsubscribeNavigation();
     delete (this.context as RouteContext & { _auRoute?: AuRoute })._auRoute;
@@ -612,7 +647,7 @@ export class AuRoute implements ICustomElementViewModel {
                 () => {
                   this.coordinator._assertNavigationSignal(lifecycle.signal);
                   finishSettlement();
-                  return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+                  return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
                 },
                 error => this.failViewActivation(error, finishSettlement),
               );
@@ -620,7 +655,7 @@ export class AuRoute implements ICustomElementViewModel {
               return settled;
             }
             finishSettlement();
-            return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+            return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
           },
         ),
       ),
@@ -686,13 +721,13 @@ export class AuRoute implements ICustomElementViewModel {
         () => {
           this.coordinator._assertNavigationSignal(lifecycle.signal);
           finishSettlement();
-          return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+          return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
         },
         error => this.failViewActivation(error, finishSettlement),
       );
     }
     finishSettlement();
-    return this.coordinator._runEnterAnimation(() => this.animate('enter'));
+    return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
   }
 
   /** @internal */
@@ -802,7 +837,7 @@ export class AuRoute implements ICustomElementViewModel {
     };
     const registered = this.coordinator._registerViewTransaction(commit, rollback);
     try {
-      await this.animate('leave');
+      await this.runViewAnimation('leave');
       this.coordinator._assertNavigationSignal(lifecycle.signal);
       this.viewActive = false;
       let finishPreviousDeactivation!: () => void;
@@ -828,7 +863,7 @@ export class AuRoute implements ICustomElementViewModel {
       if (!registered) {
         commit();
       }
-      this.coordinator._runEnterAnimation(() => this.animate('enter'));
+      this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
     } catch (error) {
       finishCandidateSettlement();
       try {
@@ -930,14 +965,14 @@ export class AuRoute implements ICustomElementViewModel {
 
     const view = this.view;
     if (this.isGroup && this.discoveryActive) {
-      return onResolve(this.animate('leave'), () => {
+      return onResolve(this.runViewAnimation('leave'), () => {
         this.viewActive = false;
         view.nodes.remove();
         void this.notifyDescendantVisibilityChange();
         this.titleService.requestUpdate();
       });
     }
-    return onResolve(this.animate('leave'), () => {
+    return onResolve(this.runViewAnimation('leave'), () => {
       this.viewActive = false;
       return onResolve(view.deactivate(view, this.$controller), () => {
         this.clearViewLocation();
@@ -994,8 +1029,8 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   /** @internal */
-  private animate(direction: 'enter' | 'leave'): void | Promise<void> {
-    if (!this.animationsEnabled || this.view == null) {
+  private runViewAnimation(direction: 'enter' | 'leave'): void | Promise<void> {
+    if (this.animationDescriptor.kind === 'none' || this.view == null) {
       return;
     }
 
@@ -1004,49 +1039,65 @@ export class AuRoute implements ICustomElementViewModel {
       return;
     }
 
-    return this.runAnimation(direction, elements);
+    return this.animationDescriptor.kind === 'js'
+      ? this.runCallbackAnimation(direction, elements)
+      : this.runCssAnimation(direction, elements);
   }
 
   /** @internal */
-  private async runAnimation(direction: 'enter' | 'leave', elements: HTMLElement[]): Promise<void> {
+  private async runCssAnimation(direction: 'enter' | 'leave', elements: HTMLElement[]): Promise<void> {
     const runId = ++this.animationRunId;
-    const prefix = this.animationOptions.classPrefix;
-    const fromClass = `${prefix}-${direction}-from`;
-    const activeClass = `${prefix}-${direction}-active`;
-    const stateClass = `${prefix}-animating`;
+    const signal = this.beginAnimationSignal();
+    const classes = this.createAnimationClassSet(direction);
 
     this.clearAnimationClasses(elements);
     for (const element of elements) {
-      element.classList.add(stateClass, fromClass);
+      element.classList.add(...classes.start);
       element.dataset.auRouteTransition = direction;
     }
 
     await this.nextFrame();
-    if (runId !== this.animationRunId) {
+    if (runId !== this.animationRunId || signal.aborted) {
       this.clearAnimationClasses(elements);
       return;
     }
 
     for (const element of elements) {
-      element.classList.add(activeClass);
-      element.classList.remove(fromClass);
+      element.classList.add(...classes.active);
+      element.classList.remove(...classes.from);
     }
 
     const duration = Math.max(
-      this.animationOptions.fallbackMs,
+      this.animationDescriptor.fallbackMs,
       ...elements.map(element => this.getElementAnimationDuration(element)),
     );
 
     if (duration > 0) {
-      await queueAsyncTask(() => {}, { delay: duration + 34 });
+      await this.waitForAnimationDelay(duration + 34, signal);
     }
 
-    if (runId !== this.animationRunId) {
+    if (runId !== this.animationRunId || signal.aborted) {
       this.clearAnimationClasses(elements);
       return;
     }
 
     this.clearAnimationClasses(elements);
+  }
+
+  /** @internal */
+  private runCallbackAnimation(direction: 'enter' | 'leave', elements: HTMLElement[]): void | Promise<void> {
+    const run = this.animationDescriptor.run;
+    if (run == null) {
+      return;
+    }
+    const signal = this.beginAnimationSignal();
+    return this.awaitAnimationCallback(run({
+      direction,
+      route: this.context,
+      elements,
+      signal,
+      fallbackMs: this.animationDescriptor.fallbackMs,
+    }), signal);
   }
 
   /** @internal */
@@ -1079,14 +1130,112 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   /** @internal */
+  private waitForAnimationDelay(delayMs: number, signal: AbortSignal): Promise<void> {
+    if (signal.aborted || delayMs <= 0) {
+      return Promise.resolve();
+    }
+    const task = queueAsyncTask(() => {}, { delay: delayMs });
+    return new Promise(resolve => {
+      const finish = (): void => {
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const abort = (): void => {
+        task.cancel();
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      signal.addEventListener('abort', abort, { once: true });
+      void task.then(finish, finish);
+    });
+  }
+
+  /** @internal */
+  private awaitAnimationCallback(
+    result: void | Promise<void>,
+    signal: AbortSignal,
+  ): void | Promise<void> {
+    if (!isPromise(result) || signal.aborted) {
+      return;
+    }
+    return new Promise<void>((resolve, reject) => {
+      const finish = (): void => {
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const abort = (): void => {
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      signal.addEventListener('abort', abort, { once: true });
+      result.then(
+        () => finish(),
+        error => {
+          signal.removeEventListener('abort', abort);
+          reject(error);
+        },
+      );
+    });
+  }
+
+  /** @internal */
+  private beginAnimationSignal(): AbortSignal {
+    this.animationAbortController?.abort();
+    const controller = new AbortController();
+    const navigationSignal = this.coordinator.navigation.signal;
+    if (navigationSignal != null) {
+      if (navigationSignal.aborted) {
+        controller.abort();
+      } else {
+        const abort = (): void => {
+          controller.abort();
+          navigationSignal.removeEventListener('abort', abort);
+        };
+        navigationSignal.addEventListener('abort', abort, { once: true });
+      }
+    }
+    this.animationAbortController = controller;
+    return controller.signal;
+  }
+
+  /** @internal */
+  private createAnimationClassSet(direction: 'enter' | 'leave'): {
+    readonly start: readonly string[];
+    readonly active: readonly string[];
+    readonly from: readonly string[];
+  } {
+    const prefix = this.animationOptions.classPrefix;
+    const name = this.animationDescriptor.name;
+    const baseFrom = `${prefix}-${direction}-from`;
+    const baseActive = `${prefix}-${direction}-active`;
+    const namedFrom = `${prefix}-${name}-${direction}-from`;
+    const namedActive = `${prefix}-${name}-${direction}-active`;
+    const stateClass = `${prefix}-animating`;
+    const namedStateClass = `${prefix}-${name}-animating`;
+    const from = name === 'default' ? [baseFrom] : [baseFrom, namedFrom];
+    const active = name === 'default' ? [baseActive] : [baseActive, namedActive];
+    const state = name === 'default' ? [stateClass] : [stateClass, namedStateClass];
+    return {
+      start: [...state, ...from],
+      active,
+      from,
+    };
+  }
+
+  /** @internal */
   private clearAnimationClasses(elements: HTMLElement[]): void {
     const prefix = this.animationOptions.classPrefix;
     const classes = [
       `${prefix}-animating`,
+      `${prefix}-${this.animationDescriptor.name}-animating`,
       `${prefix}-enter-from`,
       `${prefix}-enter-active`,
       `${prefix}-leave-from`,
       `${prefix}-leave-active`,
+      `${prefix}-${this.animationDescriptor.name}-enter-from`,
+      `${prefix}-${this.animationDescriptor.name}-enter-active`,
+      `${prefix}-${this.animationDescriptor.name}-leave-from`,
+      `${prefix}-${this.animationDescriptor.name}-leave-active`,
     ];
 
     for (const element of elements) {

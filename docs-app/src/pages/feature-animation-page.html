@@ -2,11 +2,76 @@
   <header class="page-header">
     <div>
       <h2>Animations</h2>
-      <p class="page-copy">
-        See the CSS classes available while a route enters or leaves the page.
-      </p>
+      <p class="page-copy">Opt routes into transition choreography today with CSS classes, and use this page as the staging area for the broader unified <code>animate</code> design.</p>
     </div>
   </header>
 
+  <div class="feature-details">
+    <section>
+      <h3>Current surface</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="details" animate&gt;
+  ...
+&lt;/au-route&gt;</pre>
+      <p><code>animate</code> is now one route-level animation entry point. Bare <code>animate</code> preserves the existing CSS-class workflow, while string, callback, and object forms normalize into the same internal descriptor.</p>
+    </section>
+
+    <section>
+      <h3>Implemented foundation</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="a" animate&gt;
+&lt;au-route path="b" animate="fade"&gt;
+&lt;au-route path="c" animate.bind="animateRoute"&gt;
+&lt;au-route path="d" animate.bind="{ kind: 'css', name: 'fade' }"&gt;
+&lt;au-route path="e" animate.bind="{ kind: 'js', run: animateRoute }"&gt;</pre>
+      <p>The implemented foundation is one route-level <code>animate</code> property with multiple value shapes. CSS remains the low-friction path; callback animation is the stronger primitive for exact completion and cancellation.</p>
+      <p>The broader design note currently lives in <code>route-animation-design.md</code> in the repository root.</p>
+    </section>
+
+    <section>
+      <h3>Next implementation slice</h3>
+      <ol>
+        <li>Normalize <code>animate</code> into one internal animation descriptor.</li>
+        <li>Keep today's CSS-class behavior working through that normalized descriptor.</li>
+        <li>Add callback-based animation completion.</li>
+        <li>Thread abort and supersession cancellation through the same contract.</li>
+      </ol>
+      <p>This foundation is now in place. The remaining work in roadmap item 9 can build on it without re-splitting the route animation API.</p>
+    </section>
+
+    <section>
+      <h3>Callback shape</h3>
+      <pre class="code-block" syntax-typescript>public animateRoute = ({ direction, elements, signal }) =&gt; {
+  const element = elements[0];
+  if (element == null) return;
+
+  const animation = element.animate(
+    direction === 'enter'
+      ? [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }]
+      : [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-18px)' }],
+    { duration: 180, easing: 'ease-out', fill: 'both' }
+  );
+
+  signal.addEventListener('abort', () =&gt; animation.cancel(), { once: true });
+  return animation.finished.then(() =&gt; undefined, () =&gt; undefined);
+};</pre>
+      <p>Callback animation receives the route direction, animated elements, and an abort signal. Returning a promise gives the router an exact completion point, while superseding navigation aborts the stale callback path.</p>
+    </section>
+
+    <section>
+      <h3>Reduced motion</h3>
+      <pre class="code-block" syntax-css>@media (prefers-reduced-motion: reduce) {
+  .animated-stage > .au-route-enter-active,
+  .animated-stage > .au-route-leave-active {
+    transition-duration: 1ms;
+    transform: none;
+  }
+}</pre>
+      <p>With the current CSS-based surface, reduced-motion support is expressed through ordinary CSS. If callback animation is added later, the callback context should expose the reduced-motion preference directly.</p>
+    </section>
+  </div>
+
   <playground-page example-id="route-animations" embedded.bind="true"></playground-page>
+  <playground-page example-id="route-animations-slide" embedded.bind="true"></playground-page>
+  <playground-page example-id="route-animations-arc" embedded.bind="true"></playground-page>
+  <playground-page example-id="route-animations-callback" embedded.bind="true"></playground-page>
+  <playground-page example-id="route-animations-reduced-motion" embedded.bind="true"></playground-page>
 </section>

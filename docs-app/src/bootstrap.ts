@@ -3,6 +3,7 @@ import type { IPathAdapter } from '../../router/path-adapter';
 import { Routing } from '../../router/configuration';
 import { DocsApp } from './pages/docs-app';
 import { SyntaxHtml } from './resources/syntax-html';
+import { SyntaxCss } from './resources/syntax-css';
 import { SyntaxTypeScript } from './resources/syntax-typescript';
 import './main.css';
 
@@ -32,6 +33,7 @@ export function createDocsApp(host: HTMLElement, options: DocsAppOptions = {}): 
     .register(
       routing,
       SyntaxHtml,
+      SyntaxCss,
       SyntaxTypeScript,
       ...(options.resources ?? []),
     )

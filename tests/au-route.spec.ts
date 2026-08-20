@@ -1797,6 +1797,136 @@ describe('au-route animation scheduling', function () {
       await fixture.tearDown();
     }
   });
+
+  it('supports named css animation variants through the animate value', async function () {
+    const fixture = await createFixture(
+      '<au-route path="/animated" animate="fade"><span data-animated>Animated route</span></au-route>',
+      class App {},
+      [Routing.customize({ animations: { fallbackMs: 50 } })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/animated');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      const platform = fixture.container.get(IPlatform) as IPlatform & {
+        requestAnimationFrame: typeof requestAnimationFrame;
+      };
+      await new Promise<void>(resolve => {
+        platform.requestAnimationFrame(() => {
+          platform.requestAnimationFrame(() => resolve());
+        });
+      });
+
+      const element = fixture.appHost.querySelector<HTMLElement>('[data-animated]');
+      assert.strictEqual(element?.dataset.auRouteTransition, 'enter');
+      assert.strictEqual(element?.classList.contains('au-route-enter-active'), true);
+      assert.strictEqual(element?.classList.contains('au-route-fade-enter-active'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('awaits callback-based leave animation completion before removing the route view', async function () {
+    let finishLeave!: () => void;
+    let leaveSignal!: AbortSignal;
+    let holdNextLeave = true;
+    class App {
+      public readonly animation = ({ direction, signal }: { direction: 'enter' | 'leave'; signal: AbortSignal }): void | Promise<void> => {
+        if (direction === 'leave' && holdNextLeave) {
+          holdNextLeave = false;
+          leaveSignal = signal;
+          return new Promise<void>(resolve => { finishLeave = resolve; });
+        }
+      };
+    }
+
+    const adapter = new MemoryPathAdapter('/item/one');
+    const fixture = await createFixture(
+      `<au-route
+        path="item/:id"
+        exact
+        transition-plan="replace"
+        animate.bind="animation">
+        <span data-item>\${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      const router = fixture.container.get(IRouteCoordinator);
+      const initialElement = fixture.appHost.querySelector('[data-item]');
+      const navigation = router.load('/item/two');
+      let settled = false;
+      void Promise.resolve(navigation).then(() => { settled = true; });
+      await Promise.resolve();
+
+      assert.strictEqual(settled, false);
+      assert.strictEqual(leaveSignal.aborted, false);
+      assert.strictEqual(adapter.getCurrentPath(), '/item/one');
+      assert.strictEqual(fixture.appHost.querySelector('[data-item]'), initialElement);
+
+      finishLeave();
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-item]')?.textContent, 'two');
+      assert.notStrictEqual(fixture.appHost.querySelector('[data-item]'), initialElement);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('aborts stale callback-based animation work when navigation is superseded', async function () {
+    let releaseLeave!: () => void;
+    let leaveSignal!: AbortSignal;
+    let holdNextLeave = true;
+    class App {
+      public readonly animation = ({ direction, signal }: { direction: 'enter' | 'leave'; signal: AbortSignal }): void | Promise<void> => {
+        if (direction === 'leave' && holdNextLeave) {
+          holdNextLeave = false;
+          leaveSignal = signal;
+          return new Promise<void>(resolve => { releaseLeave = resolve; });
+        }
+      };
+    }
+
+    const adapter = new MemoryPathAdapter('/item/one');
+    const fixture = await createFixture(
+      `<au-route
+        path="item/:id"
+        exact
+        transition-plan="replace"
+        animate.bind="animation">
+        <span data-item>\${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      const router = fixture.container.get(IRouteCoordinator);
+      const first = router.load('/item/two');
+      await Promise.resolve();
+      const second = router.load('/item/three');
+
+      await Promise.resolve(first);
+      assert.strictEqual(leaveSignal.aborted, true);
+      assert.strictEqual(second instanceof Promise ? await second : second, true);
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-item]')?.textContent, 'three');
+
+      releaseLeave();
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-item]')?.textContent, 'three');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
 });
 
 describe('au-route template lifecycle', function () {

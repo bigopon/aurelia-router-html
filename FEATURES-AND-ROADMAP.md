@@ -515,7 +515,8 @@ remaining roadmap work.
 9. **Accessibility-aware transitions.** Announce settled route changes, honor
    `prefers-reduced-motion`, and complete transitions from actual animation or
    transition completion while retaining a bounded fallback for missing
-   browser events.
+   browser events. The current API and behavior notes are documented in
+   [route-animation-design.md](route-animation-design.md).
 
 10. **Nested router extensions.** Extend the implemented memory-backed
     `au-router` boundary with the next layers of behavior: explicit composition

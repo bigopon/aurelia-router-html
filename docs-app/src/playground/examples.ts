@@ -1898,9 +1898,18 @@ export class App {
     </au-route>
   </div>
 </au-route>`,
-    appCss: `.stage > .au-route-enter-active,
+    appCss: `.stage {
+  display: grid;
+  min-height: 120px;
+}
+
+.stage > * {
+  grid-area: 1 / 1;
+}
+
+.stage > .au-route-enter-active,
 .stage > .au-route-leave-active {
-  transition: opacity 180ms ease;
+  transition: opacity 320ms ease;
 }
 
 .stage > .au-route-enter-from,
@@ -1913,6 +1922,7 @@ export class App {
     title: 'Route animations',
     description: 'Opt sibling routes into CSS-driven enter and leave transitions.',
     initialPath: '/rooms/sunny',
+    initialFile: '/src/app.html',
     appHtml: `<au-route path="rooms" swap-order="parallel">
   <nav>
     <a au-link="sunny">Sunny room</a>
@@ -1931,9 +1941,18 @@ export class App {
     </au-route>
   </div>
 </au-route>`,
-    appCss: `.animated-stage > .au-route-enter-active,
+    appCss: `.animated-stage {
+  display: grid;
+  min-height: 180px;
+}
+
+.animated-stage > * {
+  grid-area: 1 / 1;
+}
+
+.animated-stage > .au-route-enter-active,
 .animated-stage > .au-route-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 340ms ease, transform 340ms ease;
 }
 
 .animated-stage > .au-route-enter-from {
@@ -1957,6 +1976,467 @@ export class App {
 
 .moon {
   background: #dce5ff;
+}`,
+  }),
+  routerExample({
+    id: 'route-animations-slide',
+    title: 'Carousel animation',
+    description: 'Use the same animate opt-in for a horizontal carousel-style route transition.',
+    initialPath: '/panels/inbox',
+    initialFile: '/src/app.html',
+    appHtml: `<au-route path="panels" swap-order="parallel">
+  <nav>
+    <a au-link="inbox">Inbox</a>
+    <a au-link="archive">Archive</a>
+    <a au-link="settings">Settings</a>
+  </nav>
+
+  <section class="variant-stage">
+    <p class="carousel-note">This example keeps entering and leaving cards overlapped like a carousel track.</p>
+    <au-route path="inbox" animate>
+      <article class="variant-card inbox-card">
+        <h1>Inbox</h1>
+        <p>Fast-moving incoming work.</p>
+      </article>
+    </au-route>
+    <au-route path="archive" animate>
+      <article class="variant-card archive-card">
+        <h1>Archive</h1>
+        <p>Lower-energy slide with shared timing.</p>
+      </article>
+    </au-route>
+    <au-route path="settings" animate>
+      <article class="variant-card settings-card">
+        <h1>Settings</h1>
+        <p>Same route API, different visual tone.</p>
+      </article>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.variant-stage {
+  display: grid;
+  min-height: 220px;
+  overflow: hidden;
+}
+
+.variant-stage > * {
+  grid-area: 1 / 1;
+}
+
+.carousel-note {
+  align-self: start;
+  justify-self: start;
+  z-index: 2;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #30524a;
+  backdrop-filter: blur(8px);
+}
+
+.variant-stage > .au-route-enter-active,
+.variant-stage > .au-route-leave-active {
+  transition:
+    opacity 520ms ease,
+    transform 520ms cubic-bezier(.22, 1, .36, 1),
+    filter 520ms ease,
+    clip-path 520ms ease;
+}
+
+.variant-stage > .au-route-enter-from {
+  opacity: 0;
+  transform: translateX(84px) scale(.965);
+  filter: blur(10px);
+  clip-path: inset(0 0 0 24%);
+}
+
+.variant-stage > .au-route-leave-active {
+  opacity: 0;
+  transform: translateX(-84px) scale(.965);
+  filter: blur(10px);
+  clip-path: inset(0 24% 0 0);
+}
+
+.variant-card {
+  align-self: end;
+  padding: 28px;
+  border-radius: 22px;
+  color: #11251f;
+  box-shadow: 0 24px 50px rgba(17, 37, 31, 0.14);
+}
+
+.inbox-card {
+  background: linear-gradient(135deg, #fff2bf, #ffd9a0);
+}
+
+.archive-card {
+  background: linear-gradient(135deg, #d8efe9, #b8dcd2);
+}
+
+.settings-card {
+  background: linear-gradient(135deg, #dce5ff, #c7d4f8);
+}`,
+  }),
+  routerExample({
+    id: 'route-animations-arc',
+    title: 'Arc animation',
+    description: 'Show sibling routes mixing default CSS, named CSS variants, and a JS animation callback in one overlapping stage.',
+    initialPath: '/stories/dawn',
+    initialFile: '/src/app.html',
+    appTs: `export class App {
+  public readonly animateRoute = ({
+    direction,
+    elements,
+    signal,
+  }: {
+    direction: 'enter' | 'leave';
+    elements: readonly HTMLElement[];
+    signal: AbortSignal;
+  }): void | Promise<void> => {
+    const element = elements[0];
+    if (element == null) {
+      return;
+    }
+
+    const keyframes = direction === 'enter'
+      ? [
+          { opacity: 0, transform: 'translate(74px, 26px) rotate(12deg) scale(.92)' },
+          { opacity: 1, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+        ]
+      : [
+          { opacity: 1, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+          { opacity: 0, transform: 'translate(-70px, -24px) rotate(-12deg) scale(.92)' },
+        ];
+
+    const animation = element.animate(keyframes, {
+      duration: 540,
+      easing: 'cubic-bezier(.2, .8, .2, 1)',
+      fill: 'both',
+    });
+
+    if (signal.aborted) {
+      animation.cancel();
+      return;
+    }
+
+    const cancel = () => animation.cancel();
+    signal.addEventListener('abort', cancel, { once: true });
+    return animation.finished.then(
+      () => {
+        signal.removeEventListener('abort', cancel);
+      },
+      () => {
+        signal.removeEventListener('abort', cancel);
+      },
+    );
+  };
+}`,
+    appHtml: `<au-route path="stories" swap-order="parallel">
+  <nav>
+    <a au-link="dawn">Dawn</a>
+    <a au-link="noon">Noon</a>
+    <a au-link="night">Night</a>
+    <a au-link="orbit">Orbit</a>
+  </nav>
+
+  <section class="arc-stage">
+    <au-route path="dawn" animate>
+      <article class="arc-card dawn-card">
+        <h1>Dawn</h1>
+        <p>Uses the default <code>animate</code> style.</p>
+      </article>
+    </au-route>
+    <au-route path="noon" animate="arc">
+      <article class="arc-card noon-card">
+        <h1>Noon</h1>
+        <p>Uses the named <code>animate="arc"</code> style.</p>
+      </article>
+    </au-route>
+    <au-route path="night" animate="lift">
+      <article class="arc-card night-card">
+        <h1>Night</h1>
+        <p>Uses a separate <code>animate="lift"</code> variant.</p>
+      </article>
+    </au-route>
+    <au-route path="orbit" animate.bind="animateRoute">
+      <article class="arc-card orbit-card">
+        <h1>Orbit</h1>
+        <p>Uses <code>animate.bind="animateRoute"</code> for JS-driven motion.</p>
+      </article>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.arc-stage {
+  display: grid;
+  min-height: 240px;
+  overflow: hidden;
+}
+
+.arc-stage > * {
+  grid-area: 1 / 1;
+}
+
+.arc-stage > .au-route-enter-active,
+.arc-stage > .au-route-leave-active {
+  transition:
+    opacity 380ms ease,
+    transform 380ms cubic-bezier(.2, .8, .2, 1),
+    filter 380ms ease;
+  transform-origin: center center;
+}
+
+.arc-stage > .au-route-enter-from {
+  opacity: 0;
+  transform: translateY(22px) scale(.97);
+  filter: blur(8px);
+}
+
+.arc-stage > .au-route-leave-active {
+  opacity: 0;
+  transform: translateY(-18px) scale(.97);
+  filter: blur(8px);
+}
+
+.arc-stage > .au-route-arc-enter-active,
+.arc-stage > .au-route-arc-leave-active {
+  transition:
+    opacity 540ms ease,
+    transform 540ms cubic-bezier(.2, .8, .2, 1),
+    filter 540ms ease;
+  transform-origin: center center;
+}
+
+.arc-stage > .au-route-arc-enter-from {
+  opacity: 0;
+  transform: translate(88px, 40px) rotate(10deg) scale(.94);
+  filter: blur(10px);
+}
+
+.arc-stage > .au-route-arc-leave-active {
+  opacity: 0;
+  transform: translate(-88px, -36px) rotate(-10deg) scale(.94);
+  filter: blur(10px);
+}
+
+.arc-stage > .au-route-lift-enter-active,
+.arc-stage > .au-route-lift-leave-active {
+  transition:
+    opacity 460ms ease,
+    transform 460ms cubic-bezier(.22, 1, .36, 1),
+    filter 460ms ease;
+  transform-origin: center bottom;
+}
+
+.arc-stage > .au-route-lift-enter-from {
+  opacity: 0;
+  transform: translateY(30px) scale(.92) rotate(-4deg);
+  filter: blur(12px);
+}
+
+.arc-stage > .au-route-lift-leave-active {
+  opacity: 0;
+  transform: translateY(-26px) scale(.92) rotate(4deg);
+  filter: blur(12px);
+}
+
+.arc-card {
+  align-self: end;
+  padding: 28px;
+  border-radius: 24px;
+  color: #14231f;
+  box-shadow: 0 24px 54px rgba(20, 35, 31, 0.16);
+}
+
+.dawn-card {
+  background: linear-gradient(135deg, #ffd7b3, #fff1be);
+}
+
+.noon-card {
+  background: linear-gradient(135deg, #dff3eb, #c5e5d9);
+}
+
+.night-card {
+  background: linear-gradient(135deg, #d8defc, #becbf4);
+}
+
+.orbit-card {
+  background: linear-gradient(135deg, #e3d7ff, #c9e3ff);
+}`,
+  }),
+  routerExample({
+    id: 'route-animations-callback',
+    title: 'Callback animation',
+    description: 'Drive route transitions from a callback and settle on the returned promise instead of CSS timing alone.',
+    initialPath: '/cards/alpha',
+    initialFile: '/src/app.html',
+    appTs: `export class App {
+  public readonly animateRoute = ({
+    direction,
+    elements,
+    signal,
+  }: {
+    direction: 'enter' | 'leave';
+    elements: readonly HTMLElement[];
+    signal: AbortSignal;
+  }): void | Promise<void> => {
+    const element = elements[0];
+    if (element == null) {
+      return;
+    }
+
+    const keyframes = direction === 'enter'
+      ? [
+          { opacity: 0, transform: 'translateY(18px) scale(.985)' },
+          { opacity: 1, transform: 'translateY(0) scale(1)' },
+        ]
+      : [
+          { opacity: 1, transform: 'translateY(0) scale(1)' },
+          { opacity: 0, transform: 'translateY(-18px) scale(.985)' },
+        ];
+
+    const animation = element.animate(keyframes, {
+      duration: 360,
+      easing: 'cubic-bezier(.22, 1, .36, 1)',
+      fill: 'both',
+    });
+
+    if (signal.aborted) {
+      animation.cancel();
+      return;
+    }
+
+    const cancel = () => animation.cancel();
+    signal.addEventListener('abort', cancel, { once: true });
+    return animation.finished.then(
+      () => {
+        signal.removeEventListener('abort', cancel);
+      },
+      () => {
+        signal.removeEventListener('abort', cancel);
+      },
+    );
+  };
+}`,
+    appHtml: `<au-route path="cards" swap-order="parallel">
+  <nav>
+    <a au-link="alpha">Alpha</a>
+    <a au-link="beta">Beta</a>
+  </nav>
+
+  <section class="callback-stage">
+    <au-route path="alpha" animate.bind="animateRoute">
+      <article class="callback-card alpha-card">
+        <h1>Alpha</h1>
+        <p>Animation completion comes from the callback promise.</p>
+      </article>
+    </au-route>
+    <au-route path="beta" animate.bind="animateRoute">
+      <article class="callback-card beta-card">
+        <h1>Beta</h1>
+        <p>Superseded navigation aborts the stale callback.</p>
+      </article>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.callback-stage {
+  display: grid;
+  min-height: 220px;
+}
+
+.callback-stage > * {
+  grid-area: 1 / 1;
+}
+
+.callback-card {
+  padding: 28px;
+  border-radius: 22px;
+  color: #11251f;
+}
+
+.alpha-card {
+  background: linear-gradient(135deg, #ffe8b2, #ffd0a1);
+}
+
+.beta-card {
+  background: linear-gradient(135deg, #dce5ff, #bfd2ff);
+}`,
+  }),
+  routerExample({
+    id: 'route-animations-reduced-motion',
+    title: 'Reduced motion',
+    description: 'Use the same animate opt-in while softening movement through prefers-reduced-motion CSS.',
+    initialPath: '/gallery/posters',
+    initialFile: '/src/app.html',
+    appHtml: `<au-route path="gallery" swap-order="parallel">
+  <nav>
+    <a au-link="posters">Posters</a>
+    <a au-link="tickets">Tickets</a>
+  </nav>
+
+  <p>The default mode slides and fades. Reduced-motion mode removes the large movement and shortens the timing.</p>
+
+  <section class="motion-stage">
+    <au-route path="posters" animate>
+      <article class="motion-card posters-card">
+        <h1>Posters</h1>
+      </article>
+    </au-route>
+    <au-route path="tickets" animate>
+      <article class="motion-card tickets-card">
+        <h1>Tickets</h1>
+      </article>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.motion-stage {
+  display: grid;
+  min-height: 180px;
+}
+
+.motion-stage > * {
+  grid-area: 1 / 1;
+}
+
+.motion-stage > .au-route-enter-active,
+.motion-stage > .au-route-leave-active {
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+
+.motion-stage > .au-route-enter-from {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.motion-stage > .au-route-leave-active {
+  opacity: 0;
+  transform: translateY(-18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-stage > .au-route-enter-active,
+  .motion-stage > .au-route-leave-active {
+    transition-duration: 1ms;
+    transform: none;
+  }
+
+  .motion-stage > .au-route-enter-from,
+  .motion-stage > .au-route-leave-active {
+    transform: none;
+  }
+}
+
+.motion-card {
+  padding: 28px;
+  border-radius: 20px;
+}
+
+.posters-card {
+  background: #fee8bd;
+}
+
+.tickets-card {
+  background: #cfe5f8;
 }`,
   }),
   routerExample({

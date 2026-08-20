@@ -31,7 +31,14 @@ export type {
 export { createRouteQuery, normalizeRoutePath, parseRouteLocation, stringifyRouteLocation } from './route-location';
 export type { RouteHrefOptions, RouteLocation, RouteQuery, RouteQueryInput, RouteQueryValue } from './route-location';
 export { IRouteAnimationOptions } from './animation';
-export type { RouteAnimationOptions, RouteAnimationInput } from './animation';
+export type {
+  RouteAnimationOptions,
+  RouteAnimationInput,
+  RouteAnimationValue,
+  RouteAnimationConfig,
+  RouteAnimationCallback,
+  RouteAnimationContext,
+} from './animation';
 export { BrowserRouteTitleService, IRouteTitleService } from './title';
 export type { RouteTitleOptions } from './title';
 export { BrowserRouteScrollService, IRouteScrollService } from './scroll';
