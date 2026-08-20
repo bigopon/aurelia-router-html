@@ -157,6 +157,7 @@ const paths = route.getPaths();</pre>
           <tr><td><code>$hash</code></td><td>The route fragment without <code>#</code>.</td></tr>
           <tr><td><code>$navigation</code></td><td>The immutable current navigation snapshot, including phase, destination, href, signal, and terminal result.</td></tr>
           <tr><td><code>$route.parent</code> / <code>root</code> / <code>children</code></td><td>Traverse the declarative route tree.</td></tr>
+          <tr><td><code>$route.getActiveSnapshot()</code></td><td>Read the committed active subtree as immutable <code>matches</code>, plus branch <code>routes</code>, branch <code>paths</code>, and <code>uniquePaths</code>.</td></tr>
           <tr><td><code>$route.pattern</code> / <code>fullPath</code></td><td>The local pattern and its composed ancestor pattern.</td></tr>
           <tr><td><code>$route.$path</code> / <code>residue</code></td><td>The path presented to this context and the portion left for children.</td></tr>
           <tr><td><code>$route.active</code> / <code>title</code></td><td>Current match state and normalized route title.</td></tr>

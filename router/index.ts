@@ -18,13 +18,13 @@ export { Routing } from './configuration';
 export type { RoutingOptions } from './configuration';
 export { RouteContext, IRouteContext } from './route-context';
 export type {
-  ActiveRouteBranchSnapshot,
-  ActiveRouteMatchSnapshot,
   ActiveRouteSnapshot,
+  BranchesSnapshot,
   RouteActiveOptions,
   RouteLoadOptions,
   RouteParams,
   RouteReloadOptions,
+  RouteSnapshot,
   RouteState,
   SwapOrder,
 } from './route-context';

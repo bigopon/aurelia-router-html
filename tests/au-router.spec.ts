@@ -643,9 +643,17 @@ describe('au-router memory routing', function () {
         '/dashboard/reports',
         '/dashboard/reports',
       ]);
-      assert.deepStrictEqual(snapshot.branches.map(branch => branch.matches.map(match => match.fullPath)), [
+      assert.deepStrictEqual(snapshot.branches.routes.map(branch => branch.map(match => match.fullPath)), [
         ['/dashboard', '/dashboard', '/dashboard/reports'],
         ['/dashboard', '/dashboard/reports'],
+      ]);
+      assert.deepStrictEqual(snapshot.branches.paths, [
+        ['/dashboard', '/dashboard', '/dashboard/reports'],
+        ['/dashboard', '/dashboard/reports'],
+      ]);
+      assert.deepStrictEqual(snapshot.branches.uniquePaths, [
+        '/dashboard',
+        '/dashboard/reports',
       ]);
     } finally {
       await fixture.tearDown();
@@ -683,8 +691,15 @@ describe('au-router memory routing', function () {
         '/workspace',
         '/workspace/details/:id',
       ]);
-      assert.deepStrictEqual(snapshot.branches.map(branch => branch.matches.map(match => match.fullPath)), [
+      assert.deepStrictEqual(snapshot.branches.routes.map(branch => branch.map(match => match.fullPath)), [
         ['/workspace', '/workspace/details/:id'],
+      ]);
+      assert.deepStrictEqual(snapshot.branches.paths, [
+        ['/workspace', '/workspace/details/:id'],
+      ]);
+      assert.deepStrictEqual(snapshot.branches.uniquePaths, [
+        '/workspace',
+        '/workspace/details/:id',
       ]);
       assert.deepStrictEqual({ ...snapshot.matches[snapshot.matches.length - 1].params }, { id: '42' });
     } finally {
@@ -695,15 +710,17 @@ describe('au-router memory routing', function () {
 
 interface ActiveRouteSnapshot {
   readonly path: string;
-  readonly matches: readonly ActiveRouteMatchSnapshot[];
-  readonly branches: readonly ActiveRouteBranchSnapshot[];
+  readonly matches: readonly RouteSnapshot[];
+  readonly branches: BranchesSnapshot;
 }
 
-interface ActiveRouteBranchSnapshot {
-  readonly matches: readonly ActiveRouteMatchSnapshot[];
+interface BranchesSnapshot {
+  readonly routes: readonly (readonly RouteSnapshot[])[];
+  readonly paths: readonly (readonly string[])[];
+  readonly uniquePaths: readonly string[];
 }
 
-interface ActiveRouteMatchSnapshot {
+interface RouteSnapshot {
   readonly id: string;
   readonly pattern: string;
   readonly fullPath: string;

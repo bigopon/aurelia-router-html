@@ -56,15 +56,17 @@ export interface RouteContextOptions {
 
 export interface ActiveRouteSnapshot {
   readonly path: string;
-  readonly matches: readonly ActiveRouteMatchSnapshot[];
-  readonly branches: readonly ActiveRouteBranchSnapshot[];
+  readonly matches: readonly RouteSnapshot[];
+  readonly branches: BranchesSnapshot;
 }
 
-export interface ActiveRouteBranchSnapshot {
-  readonly matches: readonly ActiveRouteMatchSnapshot[];
+export interface BranchesSnapshot {
+  readonly routes: readonly (readonly RouteSnapshot[])[];
+  readonly paths: readonly (readonly string[])[];
+  readonly uniquePaths: readonly string[];
 }
 
-export interface ActiveRouteMatchSnapshot {
+export interface RouteSnapshot {
   readonly id: string;
   readonly pattern: string;
   readonly fullPath: string;
@@ -607,7 +609,7 @@ export class RouteContext implements IRouteContext {
   }
 
   public getActiveSnapshot(): ActiveRouteSnapshot {
-    const matchMap = new Map<RouteContext, ActiveRouteMatchSnapshot>();
+    const matchMap = new Map<RouteContext, RouteSnapshot>();
     const branches = this._collectActiveBranches(matchMap, [], this.parent != null);
     const path = this.parent === null
       ? this.$path
@@ -615,7 +617,7 @@ export class RouteContext implements IRouteContext {
     return Object.freeze({
       path,
       matches: Object.freeze([...matchMap.values()]),
-      branches: Object.freeze(branches),
+      branches: createBranchesSnapshot(branches),
     });
   }
 
@@ -949,10 +951,10 @@ export class RouteContext implements IRouteContext {
 
   /** @internal */
   private _collectActiveBranches(
-    matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>,
-    ancestors: readonly ActiveRouteMatchSnapshot[],
+    matchMap: Map<RouteContext, RouteSnapshot>,
+    ancestors: readonly RouteSnapshot[],
     includeSelf: boolean,
-  ): readonly ActiveRouteBranchSnapshot[] {
+  ): readonly (readonly RouteSnapshot[])[] {
     if (!this.active || !this._registered) {
       return Object.freeze([]);
     }
@@ -961,22 +963,18 @@ export class RouteContext implements IRouteContext {
     const nextAncestors = current == null
       ? ancestors
       : [...ancestors, current];
-    const childBranches: ActiveRouteBranchSnapshot[] = [];
+    const childBranches: (readonly RouteSnapshot[])[] = [];
     for (const child of this.children) {
       childBranches.push(...child._collectActiveBranches(matchMap, nextAncestors, true));
     }
     if (childBranches.length > 0) {
       return Object.freeze(childBranches);
     }
-    return Object.freeze([
-      Object.freeze({
-        matches: Object.freeze(nextAncestors),
-      }),
-    ]);
+    return Object.freeze([Object.freeze(nextAncestors)]);
   }
 
   /** @internal */
-  private _getOrCreateActiveMatchSnapshot(matchMap: Map<RouteContext, ActiveRouteMatchSnapshot>): ActiveRouteMatchSnapshot {
+  private _getOrCreateActiveMatchSnapshot(matchMap: Map<RouteContext, RouteSnapshot>): RouteSnapshot {
     let snapshot = matchMap.get(this);
     if (snapshot != null) {
       return snapshot;
@@ -1356,6 +1354,16 @@ function queryEqual(left: RouteQuery, right: RouteQuery): boolean {
   leftParams.sort();
   rightParams.sort();
   return leftParams.toString() === rightParams.toString();
+}
+
+function createBranchesSnapshot(branches: readonly (readonly RouteSnapshot[])[]): BranchesSnapshot {
+  const paths = Object.freeze(branches.map(branch => Object.freeze(branch.map(route => route.fullPath))));
+  const uniquePaths = Object.freeze([...new Set(paths.flat())]);
+  return Object.freeze({
+    routes: Object.freeze(branches),
+    paths,
+    uniquePaths,
+  });
 }
 
 function escapeRegex(value: string): string {

@@ -1,6 +1,7 @@
 import { docNav } from '../data/docs-nav';
 import { ApiCheatSheetPage } from './api-cheat-sheet-page';
 import { FeatureAdaptersPage } from './feature-adapters-page';
+import { FeatureActiveBranchPage } from './feature-active-branch-page';
 import { FeatureActiveLinksPage } from './feature-active-links-page';
 import { FeatureAnimationPage } from './feature-animation-page';
 import { FeatureBasePathPage } from './feature-base-path-page';
@@ -47,6 +48,7 @@ export class DocsApp {
       PrivacyPage,
       ApiCheatSheetPage,
       FeatureAdaptersPage,
+      FeatureActiveBranchPage,
       FeatureBasePathPage,
       FeatureBasicPage,
       FeatureNestedPage,

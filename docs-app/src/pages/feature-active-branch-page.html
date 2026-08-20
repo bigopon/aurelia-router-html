@@ -1,0 +1,49 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Snapshots</h2>
+      <p class="page-copy">Produce a snapshot of matches and branches from the current active routes.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-typescript>import { resolve } from '@aurelia/kernel';
+import { IRouteContext } from 'aurelia-router-html';
+
+export class ReportsPage {
+  private readonly route = resolve(IRouteContext);
+
+  public logActiveBranch(): void {
+    const snapshot = this.route.getActiveSnapshot();
+    console.log(snapshot.path);
+    console.log(snapshot.matches.map(match =&gt; match.fullPath));
+    console.log(snapshot.branches.paths);
+    console.log(snapshot.branches.uniquePaths);
+  }
+}</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p><code>getActiveSnapshot()</code> returns the last committed route state for the current router or route context subtree. The snapshot is immutable and keeps two views of the same state: <code>matches</code> is the flat set of active route snapshots, while <code>branches</code> exposes branch-shaped route snapshots, branch-shaped full paths, and precomputed unique full paths.</p>
+      <p>This matters because Router HTML does not model the active UI as one linear chain. Pathless groups, repeated structures, local fallback recovery, and sibling matches can produce multiple active branches at once.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <p>Use the flat <code>matches</code> collection when you need a compact list for diagnostics, titles, analytics, or inspection tools. Use <code>branches</code> when the distinction between parallel active branches matters.</p>
+      <pre class="code-block" syntax-typescript>const snapshot = this.route.getActiveSnapshot();
+
+const leaves = snapshot.branches.routes.map(branch =&gt; branch.at(-1)?.fullPath);
+const branchPaths = snapshot.branches.paths;
+const uniquePaths = snapshot.branches.uniquePaths;
+const activePatterns = snapshot.matches.map(match =&gt; match.fullPath);
+const currentParams = snapshot.matches.at(-1)?.params ?? {};</pre>
+      <p>Calling <code>getActiveSnapshot()</code> on a nested <code>IRouteContext</code> roots the result at that subtree. The returned <code>path</code> is the path visible to that context rather than the application root path.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="active-branch" embedded.bind="true"></playground-page>
+</section>

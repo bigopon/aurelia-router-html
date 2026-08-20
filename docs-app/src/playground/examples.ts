@@ -707,6 +707,132 @@ const featureExamples: PlaygroundExample[] = [
 }`,
   }),
   routerExample({
+    id: 'active-branch',
+    title: 'Active branch snapshots',
+    description: 'Compare root, parent, and child snapshots when one URL activates sibling branches at one and two levels.',
+    initialPath: '/workspace/reports',
+    appTs: `export class App {
+  public formatSnapshot(snapshot: {
+    path: string;
+    matches: readonly { fullPath: string; params: Record<string, string> }[];
+    branches: {
+      routes: readonly (readonly { fullPath: string }[])[];
+      paths: readonly (readonly string[])[];
+      uniquePaths: readonly string[];
+    };
+  }): string {
+    return JSON.stringify({
+      path: snapshot.path,
+      matches: snapshot.matches.map(match => ({
+        fullPath: match.fullPath,
+        params: match.params,
+      })),
+      routes: snapshot.branches.routes.map(branch => branch.map(match => match.fullPath)),
+      paths: snapshot.branches.paths,
+      uniquePaths: snapshot.branches.uniquePaths,
+    }, null, 2);
+  }
+}`,
+    appHtml: `<au-route path="workspace">
+  <section class="snapshot-layout">
+    <header>
+      <h1>Workspace</h1>
+      <p>This route intentionally activates two branches for one URL: a direct <code>reports</code> child and a second <code>reports</code> child nested under a pathless group.</p>
+    </header>
+
+    <nav>
+      <a au-link="reports" active-class="selected">Reports</a>
+      <a au-link="activity" active-class="selected">Activity</a>
+    </nav>
+
+    <section class="snapshot-card">
+      <h2>Root snapshot</h2>
+      <pre>\${formatSnapshot($route.root.getActiveSnapshot())}</pre>
+    </section>
+
+    <section class="snapshot-card">
+      <h2>Workspace snapshot</h2>
+      <pre>\${formatSnapshot($route.getActiveSnapshot())}</pre>
+    </section>
+
+    <au-route group>
+      <section class="snapshot-card emphasis">
+        <h2>Pathless group snapshot</h2>
+        <p>This branch contributes another active match with the same composed path.</p>
+        <pre>\${formatSnapshot($route.getActiveSnapshot())}</pre>
+
+        <au-route path="reports" exact>
+          <section class="snapshot-card nested">
+            <h3>Nested reports snapshot</h3>
+            <pre>\${formatSnapshot($route.getActiveSnapshot())}</pre>
+          </section>
+        </au-route>
+      </section>
+    </au-route>
+
+    <au-route path="reports" exact>
+      <section class="snapshot-card emphasis">
+        <h2>Direct reports snapshot</h2>
+        <p>This sibling matches the same final URL without the extra group level.</p>
+        <pre>\${formatSnapshot($route.getActiveSnapshot())}</pre>
+      </section>
+    </au-route>
+
+    <au-route path="activity" exact>
+      <section class="snapshot-card emphasis">
+        <h2>Activity snapshot</h2>
+        <pre>\${formatSnapshot($route.getActiveSnapshot())}</pre>
+      </section>
+    </au-route>
+  </section>
+</au-route>`,
+    appCss: `.snapshot-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.snapshot-layout a.selected {
+  color: white;
+  background: #08766b;
+}
+
+.snapshot-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #cbdad7;
+  border-radius: 18px;
+  background: white;
+}
+
+.snapshot-card.emphasis {
+  border-color: #87b7af;
+  background: #f2faf8;
+}
+
+.snapshot-card.nested {
+  border-color: #a7c9c2;
+  background: #f8fcfb;
+}
+
+.snapshot-card h2,
+.snapshot-card h3,
+.snapshot-card p {
+  margin: 0;
+}
+
+.snapshot-card pre {
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: #18202c;
+  color: #ecf6f2;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}` ,
+  }),
+  routerExample({
     id: 'programmatic-navigation',
     title: 'Programmatic navigation',
     description: 'Load relative and root-absolute targets from the current route context.',

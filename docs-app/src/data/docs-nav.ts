@@ -92,6 +92,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A4',
   },
   {
+    id: 'active-branch',
+    title: 'Snapshots',
+    path: '/features/active-branch',
+    summary: 'Inspect the committed active route state as flat matches or explicit branches.',
+    badge: 'A4',
+  },
+  {
     id: 'hash-scrolling',
     title: 'Scrolling & Restoration',
     path: '/features/hash-scrolling',
