@@ -430,6 +430,27 @@ button.secondary {
   position: relative;
 }
 
+[data-e2e="parallel-stage"] {
+  position: relative;
+}
+
+[data-e2e="parallel-stage"] > .au-route-enter-active,
+[data-e2e="parallel-stage"] > .au-route-leave-active {
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+}
+
+[data-e2e="parallel-stage"] > .au-route-enter-from {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+[data-e2e="parallel-stage"] > .au-route-leave-active {
+  opacity: 0;
+  transform: translateX(-18px);
+}
+
 [data-e2e="product-child-stage"] > .au-route-enter-active,
 [data-e2e="product-child-stage"] > .au-route-leave-active {
   transition:

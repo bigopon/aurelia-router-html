@@ -262,7 +262,7 @@ test.describe.serial('html-router example app', () => {
 
     const overlapSeen = page.waitForFunction(() => {
       const stage = document.querySelector('[data-e2e="parallel-stage"]');
-      return stage?.querySelector('[data-au-route-transition="leave"]') != null
+      return stage?.querySelector('.au-route-leave-active') != null
         && stage.querySelector('[data-au-route-transition="enter"]') != null;
     });
 

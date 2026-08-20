@@ -361,14 +361,14 @@
         <au-route path="parallel" swap-order="parallel">
           <section class="route-stack">
             <nav class="mini-list">
-              <a href="/parallel/alpha" class="mini-chip">Parallel alpha</a>
-              <a href="/parallel/beta" class="mini-chip">Parallel beta</a>
+              <a au-link="alpha" class="mini-chip">Parallel alpha</a>
+              <a au-link="beta" class="mini-chip">Parallel beta</a>
             </nav>
             <div class="route-stack" data-e2e="parallel-stage">
-              <au-route path="alpha">
+              <au-route path="alpha" animate>
                 <div class="route-callout" data-e2e="parallel-alpha">Parallel alpha branch</div>
               </au-route>
-              <au-route path="beta">
+              <au-route path="beta" animate>
                 <div class="route-callout" data-e2e="parallel-beta">Parallel beta branch</div>
               </au-route>
             </div>
