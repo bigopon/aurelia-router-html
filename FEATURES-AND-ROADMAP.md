@@ -507,10 +507,10 @@ remaining roadmap work.
    [retained-route-views.md](retained-route-views.md).
 
 8. **Opt-in exclusive matching.** Preserve match-all sibling behavior by
-   default, while allowing a parent to select one best regular match through a
-   mode such as `match-mode="best"` or `exclusive`. Specificity, ties,
-   fallbacks, constraints, and dynamic route registration require deterministic
-   rules.
+   default, while allowing an explicitly marked route to suppress competing
+   regular sibling matches in the same parent context. This remains a design
+   discussion rather than an accepted API. The current notes are documented in
+   [exclusive-matching.md](exclusive-matching.md).
 
 9. **Accessibility-aware transitions.** Announce settled route changes, honor
    `prefers-reduced-motion`, and complete transitions from actual animation or
