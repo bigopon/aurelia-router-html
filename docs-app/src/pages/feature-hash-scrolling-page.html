@@ -30,8 +30,8 @@
 
     <section>
       <h3>Meaning</h3>
-      <p>The hash remains route state while the pathname selects the route tree. After navigation succeeds, scrolling waits until every activating route view is attached. Fragment selection follows HTML behavior: literal then decoded IDs, followed by legacy <code>&lt;a name&gt;</code> targets, with special handling for <code>#top</code>.</p>
-      <p>New push and replace navigations start at the top unless a hash selects a target. Back and Forward restore the position saved for that individual history entry after its routed view settles.</p>
+      <p>The hash remains route state while the pathname selects the route tree. After navigation succeeds, scrolling waits until every activating route view and any route-owned enter transition settle. Fragment selection follows HTML behavior: literal then decoded IDs, followed by legacy <code>&lt;a name&gt;</code> targets, with special handling for <code>#top</code>.</p>
+      <p>New push and replace navigations start at the top unless a hash selects a target. Back and Forward restore the position saved for that individual history entry after its routed view and transition settle.</p>
     </section>
 
     <section>
@@ -56,7 +56,7 @@
           </tbody>
         </table>
       </div>
-      <p>Every automatic action waits for the routed view tree to settle. Set <code>hash: false</code> to keep the selected restoration policy while disabling only hash-target scrolling.</p>
+      <p>Every automatic action waits for the routed view tree and route-owned enter transition to settle. Set <code>hash: false</code> to keep the selected restoration policy while disabling only hash-target scrolling.</p>
       <p>The default browser adapter enables scrolling automatically and temporarily sets native <code>history.scrollRestoration</code> to <code>manual</code> while active. Use <code>scrolling: false</code> to disable it. Memory and custom adapters opt in with <code>scrolling: true</code> or an options object when they render into a browser document.</p>
       <p>The same link becomes <code>/guide#api-reference</code> in path mode, <code>#guide#api-reference</code> in hash mode, and <code>?app=guide#api-reference</code> in query mode.</p>
     </section>

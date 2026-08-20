@@ -20,7 +20,7 @@
 
     <section>
       <h3>Meaning</h3>
-      <p>Focus waits for the complete routed view tree, including asynchronous activation. Initial rendering is ignored by default, and changing only query or hash state does not refocus an unchanged route. When nested incoming views provide markers, the last attached marker—normally the deepest route—wins.</p>
+      <p>Focus waits for the complete routed view tree, including asynchronous activation and any route-owned enter transition. Initial rendering is ignored by default, and changing only query or hash state does not refocus an unchanged route. When nested incoming views provide markers, the last attached marker, normally the deepest route, wins.</p>
       <p>Non-interactive targets such as headings receive <code>tabindex="-1"</code>, making them programmatically focusable without adding them to the Tab order.</p>
     </section>
 

@@ -1802,7 +1802,7 @@ describe('au-route animation scheduling', function () {
     const fixture = await createFixture(
       '<au-route path="/animated" animate="fade"><span data-animated>Animated route</span></au-route>',
       class App {},
-      [Routing.customize({ animations: { fallbackMs: 50 } })],
+      [Routing.customize({ animations: { fallbackMs: 500 } })],
     ).started;
 
     try {
@@ -2023,6 +2023,7 @@ describe('au-route animation scheduling', function () {
       await fixture.tearDown();
     }
   });
+
 });
 
 describe('au-route template lifecycle', function () {

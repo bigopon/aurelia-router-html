@@ -818,11 +818,12 @@ export class RouteCoordinator implements IRouteCoordinator {
     if (this.root instanceof RouteContext) {
       this.root._commitNavigationTransaction();
     }
+    const enterAnimations: Promise<unknown>[] = [];
     for (const animation of transaction.enterAnimations) {
       try {
         const result = animation();
         if (isPromise(result)) {
-          void result.catch(() => {});
+          enterAnimations.push(result);
         }
       } catch {
         // Animation failure must not roll back an already committed navigation.
@@ -831,15 +832,22 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.currentLocation = transaction.location;
     this.currentPath = transaction.location.pathname;
     this.notify();
-    this.scrollService.afterNavigation(
-      transaction.location,
-      transaction.options.scrollNavigation
-        ?? (transaction.options.replace === true ? 'replace' : 'push'),
-    );
-    this.focusService.afterNavigation(
-      transaction.options.scrollNavigation
-        ?? (transaction.options.replace === true ? 'replace' : 'push'),
-    );
+    const navigation = transaction.options.scrollNavigation
+      ?? (transaction.options.replace === true ? 'replace' : 'push');
+    const runPostCommitEffects = (): void => {
+      if (this.navigation.id !== transaction.id || this.navigation.pending) {
+        return;
+      }
+      this.scrollService.afterNavigation(transaction.location, navigation);
+      this.focusService.afterNavigation(navigation);
+    };
+    if (enterAnimations.length === 0) {
+      runPostCommitEffects();
+    } else {
+      void Promise.allSettled(enterAnimations).then(() => {
+        runPostCommitEffects();
+      });
+    }
     transaction.resolve(true);
     this.publishTerminal(transaction, 'completed');
     this.redirectChain = [];
