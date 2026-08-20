@@ -2588,42 +2588,861 @@ export class App {
   routerExample({
     id: 'kitchen-sink',
     title: 'Kitchen sink',
-    description: 'Compose repeated routes with VM scope, let bindings, two-way interaction, and named slots.',
-    initialPath: '/sunny',
-    appTs: `export class App {
-  public rooms = [
-    { path: 'sunny', name: 'Sunny room', visits: 0 },
-    { path: 'moon', name: 'Moon room', visits: 0 },
+    description: 'Run a small authenticated workspace with an in-memory database, nested routes, CRUD forms, repeated links, guards, and slotted shells.',
+    initialPath: '/welcome',
+    appTs: `import { resolve } from 'aurelia';
+import { IRouteContext } from 'aurelia-router-html';
+
+type Role = 'guest' | 'member' | 'admin';
+
+interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+interface ProjectRecord {
+  id: string;
+  name: string;
+  ownerId: string;
+  status: 'draft' | 'active' | 'paused';
+}
+
+class MockDatabase {
+  public readonly users: UserRecord[] = [
+    { id: 'ada', name: 'Ada Lovelace', email: 'ada@aurora.test', role: 'admin' },
+    { id: 'mina', name: 'Mina Park', email: 'mina@aurora.test', role: 'member' },
+    { id: 'jo', name: 'Jo Diaz', email: 'jo@aurora.test', role: 'guest' },
   ];
+
+  public readonly projects: ProjectRecord[] = [
+    { id: 'atlas', name: 'Atlas migration', ownerId: 'ada', status: 'active' },
+    { id: 'canvas', name: 'Canvas refresh', ownerId: 'mina', status: 'draft' },
+  ];
+}
+
+export class App {
+  private readonly route = resolve(IRouteContext);
+  public readonly db = new MockDatabase();
+  public sessionUserId = '';
+  public notice = 'Choose a user and sign in to open the workspace.';
+  public draftUserName = '';
+  public draftUserEmail = '';
+  public draftUserRole: Role = 'member';
+  public draftProjectName = '';
+  public draftProjectOwnerId = 'ada';
+  public draftProjectStatus: ProjectRecord['status'] = 'draft';
+
+  public get users(): UserRecord[] {
+    return this.db.users;
+  }
+
+  public get projects(): ProjectRecord[] {
+    return this.db.projects;
+  }
+
+  public get currentUser(): UserRecord | null {
+    return this.users.find(user => user.id === this.sessionUserId) ?? null;
+  }
+
+  public get isSignedIn(): boolean {
+    return this.currentUser != null;
+  }
+
+  public get isAdmin(): boolean {
+    return this.currentUser?.role === 'admin';
+  }
+
+  public signIn(): void {
+    const user = this.currentUser;
+    if (user == null) {
+      this.notice = 'Pick a user before signing in.';
+      return;
+    }
+    this.notice = \`Signed in as \${user.name}.\`;
+    void this.route.load('/workspace/dashboard');
+  }
+
+  public signOut(): void {
+    const user = this.currentUser;
+    this.sessionUserId = '';
+    this.notice = user == null
+      ? 'Signed out.'
+      : \`Signed out \${user.name}.\`;
+    void this.route.load('/welcome', {}, { replace: true });
+  }
+
+  public requireSession(): boolean | string {
+    return this.isSignedIn ? true : '/sign-in';
+  }
+
+  public openAdmin(): void {
+    this.notice = this.isAdmin
+      ? 'Admin tools unlocked.'
+      : 'Administration stays locked to the admin account.';
+  }
+
+  public createUser(): void {
+    if (this.draftUserName.trim() === '' || this.draftUserEmail.trim() === '') {
+      this.notice = 'User name and email are both required.';
+      return;
+    }
+    const id = this.draftUserName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || \`user-\${this.users.length + 1}\`;
+    this.db.users.push({
+      id,
+      name: this.draftUserName.trim(),
+      email: this.draftUserEmail.trim(),
+      role: this.draftUserRole,
+    });
+    this.draftUserName = '';
+    this.draftUserEmail = '';
+    this.draftUserRole = 'member';
+    this.notice = \`Created user \${id}.\`;
+    if (this.draftProjectOwnerId === '') {
+      this.draftProjectOwnerId = id;
+    }
+  }
+
+  public saveUser(user: UserRecord): void {
+    this.notice = \`Saved \${user.name}.\`;
+  }
+
+  public deleteUser(userId: string): void {
+    if (this.currentUser?.id === userId) {
+      this.notice = 'Sign out before deleting the active user.';
+      return;
+    }
+    const index = this.users.findIndex(user => user.id === userId);
+    if (index === -1) {
+      return;
+    }
+    const [removed] = this.db.users.splice(index, 1);
+    for (const project of this.projects) {
+      if (project.ownerId === removed.id) {
+        project.ownerId = this.users[0]?.id ?? '';
+      }
+    }
+    this.notice = \`Deleted \${removed.name}.\`;
+    if (this.draftProjectOwnerId === removed.id) {
+      this.draftProjectOwnerId = this.users[0]?.id ?? '';
+    }
+  }
+
+  public createProject(): void {
+    if (this.draftProjectName.trim() === '' || this.draftProjectOwnerId === '') {
+      this.notice = 'Project name and owner are required.';
+      return;
+    }
+    const id = this.draftProjectName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || \`project-\${this.projects.length + 1}\`;
+    this.db.projects.push({
+      id,
+      name: this.draftProjectName.trim(),
+      ownerId: this.draftProjectOwnerId,
+      status: this.draftProjectStatus,
+    });
+    this.draftProjectName = '';
+    this.draftProjectStatus = 'draft';
+    this.notice = \`Created project \${id}.\`;
+  }
+
+  public saveProject(project: ProjectRecord): void {
+    this.notice = \`Saved project \${project.name}.\`;
+  }
+
+  public deleteProject(projectId: string): void {
+    const index = this.projects.findIndex(project => project.id === projectId);
+    if (index === -1) {
+      return;
+    }
+    const [removed] = this.db.projects.splice(index, 1);
+    this.notice = \`Deleted project \${removed.name}.\`;
+  }
+
+  public ownerName(ownerId: string): string {
+    return this.users.find(user => user.id === ownerId)?.name ?? 'Unassigned';
+  }
+
+  public userRoute(user: UserRecord): string {
+    return '/workspace/users/' + user.id;
+  }
+
+  public projectRoute(project: ProjectRecord): string {
+    return '/workspace/projects/' + project.id;
+  }
 }`,
-    appHtml: `<import from="./room-shell"></import>
-<nav>
-  <a repeat.for="room of rooms" au-link.bind="'/' + room.path">\${room.name}</a>
+    appHtml: `<import from="./workspace-shell"></import>
+
+<header class="kitchen-header">
+  <span class="eyebrow">Kitchen sink</span>
+  <h1>Aurora Ops</h1>
+  <p>Mock auth, nested routes, CRUD forms, repeated links, slots, and ordinary Aurelia state in one small routed app.</p>
+</header>
+
+<nav class="global-nav">
+  <a au-link="/welcome" active-class="is-active">Welcome</a>
+  <a au-link="/sign-in" active-class="is-active">Sign in</a>
+  <a au-link="/workspace/dashboard" active-class="is-active">Workspace</a>
 </nav>
-<template repeat.for="room of rooms">
-  <au-route path.bind="room.path">
-    <let greeting.bind="'Welcome to ' + room.name"></let>
-    <room-shell room.bind="room">
-      <strong au-slot="title">\${greeting}</strong>
-      <button click.trigger="room.visits = room.visits + 1">Visits: \${room.visits}</button>
-    </room-shell>
+
+<section class="session-bar">
+  <div>
+    <strong>Session</strong>
+    <span>\${currentUser?.name ?? 'Signed out'}</span>
+  </div>
+  <button click.trigger="signOut()" disabled.bind="!isSignedIn">Sign out</button>
+</section>
+
+<p class="notice" role="status">\${notice}</p>
+
+<main>
+  <au-route path="welcome" exact>
+    <section class="landing-card">
+      <h2>Welcome</h2>
+      <p>Use the mock sign-in flow, then open the workspace to edit users and projects without leaving the page.</p>
+      <ul class="landing-list">
+        <li><strong>Users:</strong> \${users.length}</li>
+        <li><strong>Projects:</strong> \${projects.length}</li>
+        <li><strong>Current user:</strong> \${currentUser?.role ?? 'none'}</li>
+      </ul>
+    </section>
   </au-route>
-</template>`,
-    extraFiles: {
-      '/src/room-shell.ts': `export class RoomShell {
-  public static readonly bindables = ['room'];
-  public room = {
-    name: '',
-    visits: 0,
-  };
+
+  <au-route path="sign-in" exact>
+    <section class="panel-card auth-card">
+      <h2>Sign in</h2>
+      <p>Pick a mock record from the in-memory database.</p>
+      <label>
+        <span>User</span>
+        <select value.bind="sessionUserId">
+          <option value="">Choose a user</option>
+          <option repeat.for="user of users" model.bind="user.id">\${user.name} · \${user.role}</option>
+        </select>
+      </label>
+      <div class="row-actions">
+        <button click.trigger="signIn()">Sign in</button>
+        <a au-link="/workspace/dashboard">Go to workspace</a>
+      </div>
+    </section>
+  </au-route>
+
+  <au-route path="workspace" can-load.bind="() => requireSession()">
+    <let sessionLabel.bind="currentUser == null ? 'No session' : currentUser.name + ' · ' + currentUser.role"></let>
+    <workspace-shell>
+      <strong au-slot="title">Aurora Ops workspace</strong>
+      <span au-slot="subtitle">Signed in as \${sessionLabel}</span>
+
+      <nav class="workspace-nav" au-slot="nav">
+        <a au-link="dashboard" active-class="is-active">Dashboard</a>
+        <a au-link="users" active-class="is-active">Users</a>
+        <a au-link="projects" active-class="is-active">Projects</a>
+        <a
+          au-link="admin"
+          active-class="is-active"
+          class.bind="isAdmin ? '' : 'is-restricted'"
+          click.trigger="openAdmin()">Admin</a>
+      </nav>
+
+      <au-route path="dashboard" exact>
+        <section class="dashboard-grid">
+          <article class="metric-card">
+            <span class="metric-label">Users</span>
+            <strong>\${users.length}</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Projects</span>
+            <strong>\${projects.length}</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Signed in</span>
+            <strong>\${currentUser?.name ?? 'None'}</strong>
+          </article>
+        </section>
+
+        <section class="dashboard-columns">
+          <article class="panel-card">
+            <h3>Recent users</h3>
+            <a repeat.for="user of users" class="list-link" au-link.bind="userRoute(user)" active-class="is-active">
+              \${user.name}
+              <span>\${user.role}</span>
+            </a>
+          </article>
+
+          <article class="panel-card">
+            <h3>Recent projects</h3>
+            <a repeat.for="project of projects" class="list-link" au-link.bind="projectRoute(project)" active-class="is-active">
+              \${project.name}
+              <span>\${project.status}</span>
+            </a>
+          </article>
+        </section>
+      </au-route>
+
+      <au-route path="users">
+        <section class="split-layout">
+          <aside class="sidebar-card">
+            <h3>Users</h3>
+            <a repeat.for="user of users" class="list-link" au-link.bind="user.id" active-class="is-active">
+              \${user.name}
+              <span>\${user.role}</span>
+            </a>
+            <a class="list-link create-link" au-link="new" active-class="is-active">
+              Create user
+              <span>Form</span>
+            </a>
+          </aside>
+
+          <section class="detail-card">
+            <au-route path="new" exact>
+              <h3>Create user</h3>
+              <label>
+                <span>Name</span>
+                <input type="text" value.bind="draftUserName">
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" value.bind="draftUserEmail">
+              </label>
+              <label>
+                <span>Role</span>
+                <select value.bind="draftUserRole">
+                  <option model.bind="'guest'">guest</option>
+                  <option model.bind="'member'">member</option>
+                  <option model.bind="'admin'">admin</option>
+                </select>
+              </label>
+              <div class="row-actions">
+                <button click.trigger="createUser()">Create user</button>
+                <a au-link="../dashboard">Cancel</a>
+              </div>
+            </au-route>
+
+            <template repeat.for="user of users">
+              <au-route path.bind="user.id" exact>
+                <h3>Edit \${user.name}</h3>
+                <label>
+                  <span>Name</span>
+                  <input type="text" value.bind="user.name">
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input type="email" value.bind="user.email">
+                </label>
+                <label>
+                  <span>Role</span>
+                  <select value.bind="user.role">
+                    <option model.bind="'guest'">guest</option>
+                    <option model.bind="'member'">member</option>
+                    <option model.bind="'admin'">admin</option>
+                  </select>
+                </label>
+                <div class="row-actions">
+                  <button click.trigger="saveUser(user)">Save user</button>
+                  <button class="danger" click.trigger="deleteUser(user.id)">Delete</button>
+                </div>
+              </au-route>
+            </template>
+
+            <au-route path="*" fallback>
+              <div class="empty-state">
+                <h3>Select a user</h3>
+                <p>Choose a record from the sidebar or open the create form.</p>
+              </div>
+            </au-route>
+          </section>
+        </section>
+      </au-route>
+
+      <au-route path="projects">
+        <section class="split-layout">
+          <aside class="sidebar-card">
+            <h3>Projects</h3>
+            <a repeat.for="project of projects" class="list-link" au-link.bind="project.id" active-class="is-active">
+              \${project.name}
+              <span>\${project.status}</span>
+            </a>
+            <a class="list-link create-link" au-link="new" active-class="is-active">
+              Create project
+              <span>Form</span>
+            </a>
+          </aside>
+
+          <section class="detail-card">
+            <au-route path="new" exact>
+              <h3>Create project</h3>
+              <label>
+                <span>Name</span>
+                <input type="text" value.bind="draftProjectName">
+              </label>
+              <label>
+                <span>Owner</span>
+                <select value.bind="draftProjectOwnerId">
+                  <option repeat.for="user of users" model.bind="user.id">\${user.name}</option>
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select value.bind="draftProjectStatus">
+                  <option model.bind="'draft'">draft</option>
+                  <option model.bind="'active'">active</option>
+                  <option model.bind="'paused'">paused</option>
+                </select>
+              </label>
+              <div class="row-actions">
+                <button click.trigger="createProject()">Create project</button>
+                <a au-link="../dashboard">Cancel</a>
+              </div>
+            </au-route>
+
+            <template repeat.for="project of projects">
+              <au-route path.bind="project.id" exact>
+                <h3>Edit \${project.name}</h3>
+                <label>
+                  <span>Name</span>
+                  <input type="text" value.bind="project.name">
+                </label>
+                <label>
+                  <span>Owner</span>
+                  <select value.bind="project.ownerId">
+                    <option repeat.for="user of users" model.bind="user.id">\${user.name}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select value.bind="project.status">
+                    <option model.bind="'draft'">draft</option>
+                    <option model.bind="'active'">active</option>
+                    <option model.bind="'paused'">paused</option>
+                  </select>
+                </label>
+                <p class="meta-line">Owner: \${ownerName(project.ownerId)}</p>
+                <div class="row-actions">
+                  <button click.trigger="saveProject(project)">Save project</button>
+                  <button class="danger" click.trigger="deleteProject(project.id)">Delete</button>
+                </div>
+              </au-route>
+            </template>
+
+            <au-route path="*" fallback>
+              <div class="empty-state">
+                <h3>Select a project</h3>
+                <p>Choose a project from the sidebar or create a fresh one.</p>
+              </div>
+            </au-route>
+          </section>
+        </section>
+      </au-route>
+
+      <au-route path="admin" exact>
+        <section class="panel-card admin-card">
+          <template if.bind="isAdmin">
+          <h3>Admin audit panel</h3>
+          <p>Only the admin account can open this screen.</p>
+          <ul class="landing-list">
+            <li repeat.for="project of projects">\${project.name} · owner: \${ownerName(project.ownerId)} · \${project.status}</li>
+          </ul>
+          </template>
+          <template else>
+            <h3>Admin access required</h3>
+            <p>This route stays visible, but the audit data unlocks only for the admin account.</p>
+            <p>Sign in as Ada Lovelace to open the full admin panel.</p>
+          </template>
+        </section>
+      </au-route>
+
+      <au-route path="*" fallback>
+        <div class="empty-state">
+          <h3>Choose a workspace screen</h3>
+          <p>Start with the dashboard, users, or projects section.</p>
+        </div>
+      </au-route>
+    </workspace-shell>
+  </au-route>
+
+  <au-route path="*" fallback>
+    <section class="landing-card">
+      <h2>Not found</h2>
+      <p>The requested screen is not part of this mock app.</p>
+    </section>
+  </au-route>
+</main>`,
+    appCss: `:root {
+  color: #102521;
+  background:
+    radial-gradient(circle at top left, rgba(31, 122, 103, 0.18), transparent 28%),
+    linear-gradient(180deg, #eef5f3 0%, #e6efec 100%);
+}
+
+body {
+  margin: 0;
+}
+
+#app {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 36px 24px 48px;
+}
+
+.kitchen-header {
+  margin-bottom: 28px;
+}
+
+.kitchen-header h1 {
+  margin: 10px 0 12px;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: .92;
+  letter-spacing: -.04em;
+}
+
+.kitchen-header p {
+  max-width: 780px;
+  margin: 0;
+  color: #4d6660;
+  font-size: 1.02rem;
+}
+
+.eyebrow {
+  color: #0a7566;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.global-nav,
+.workspace-nav,
+.row-actions,
+.session-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.global-nav {
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid rgba(130, 161, 151, 0.45);
+  border-radius: 20px;
+  background: rgba(248, 251, 250, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.global-nav a,
+.workspace-nav a {
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #36534d;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.global-nav a.is-active,
+.workspace-nav a.is-active {
+  color: white;
+  background: linear-gradient(135deg, #0f7664, #0b5b4d);
+  box-shadow: 0 10px 24px rgba(11, 91, 77, 0.24);
+}
+
+.workspace-nav a.is-restricted {
+  color: #7a6934;
+  background: rgba(205, 182, 120, 0.16);
+}
+
+.session-bar {
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(124, 148, 141, 0.42);
+  border-radius: 20px;
+  background: rgba(248, 251, 250, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.session-bar strong,
+.metric-label,
+.workspace-shell .shell-label {
+  display: block;
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: #647c76;
+}
+
+.notice {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border: 1px solid rgba(149, 177, 168, 0.5);
+  border-radius: 16px;
+  color: #31544c;
+  background: rgba(244, 249, 247, 0.92);
+}
+
+main {
+  display: block;
+}
+
+.landing-card,
+.panel-card,
+.sidebar-card,
+.detail-card,
+.workspace-shell {
+  border: 1px solid rgba(192, 208, 203, 0.9);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 22px 50px rgba(18, 37, 32, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+.landing-card,
+.panel-card,
+.sidebar-card,
+.detail-card {
+  padding: 24px;
+}
+
+.auth-card,
+.admin-card {
+  max-width: 620px;
+}
+
+.landing-list {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-grid,
+.dashboard-columns,
+.split-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-bottom: 18px;
+}
+
+.dashboard-columns,
+.split-layout {
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+}
+
+.metric-card {
+  padding: 20px;
+  border: 1px solid #d7e5e1;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f9fbfb, #eef6f3);
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.95rem;
+  letter-spacing: -.04em;
+}
+
+.sidebar-card h3,
+.detail-card h3,
+.panel-card h3 {
+  margin-top: 0;
+}
+
+.list-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid #dbe6e3;
+  border-radius: 16px;
+  color: #173f39;
+  background: #f8fbfa;
+  text-decoration: none;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.list-link + .list-link {
+  margin-top: 10px;
+}
+
+.list-link:hover {
+  border-color: #b8d0ca;
+  background: #f3f8f6;
+  transform: translateY(-1px);
+}
+
+.list-link.is-active {
+  border-color: #0f7664;
+  background: linear-gradient(135deg, rgba(15, 118, 100, 0.12), rgba(11, 91, 77, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 100, 0.18);
+}
+
+.list-link span {
+  color: #607872;
+  font-size: .88rem;
+}
+
+.create-link {
+  margin-top: 14px;
+  border-style: dashed;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+label span {
+  font-weight: 600;
+  color: #294640;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #bfd2cd;
+  border-radius: 14px;
+  color: #16312d;
+  background: #fbfdfc;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #0f7664;
+  box-shadow: 0 0 0 4px rgba(15, 118, 100, 0.12);
+}
+
+button,
+a {
+  text-decoration: none;
+}
+
+button {
+  padding: 11px 15px;
+  border: 1px solid #9bb8b0;
+  border-radius: 999px;
+  color: #0c5f55;
+  background: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: #7fa79e;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.row-actions {
+  margin-top: 18px;
+}
+
+.row-actions button:first-child {
+  color: white;
+  border-color: #0f7664;
+  background: linear-gradient(135deg, #0f7664, #0b5b4d);
+}
+
+button.danger {
+  border-color: #d3a6a6;
+  color: #8b2f2f;
+  background: #fff8f8;
+}
+
+.meta-line {
+  margin-top: 12px;
+  color: #58716b;
+  font-size: .94rem;
+}
+
+.empty-state {
+  padding: 18px 4px;
+  color: #526965;
+}
+
+@media (max-width: 760px) {
+  #app {
+    padding: 28px 16px 36px;
+  }
+
+  .session-bar,
+  .dashboard-columns,
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
 }`,
-      '/src/room-shell.html': `<article class="room-shell">
-  <header>
-    <au-slot name="title"></au-slot>
+    extraFiles: {
+      '/src/workspace-shell.ts': `export class WorkspaceShell {}
+`,
+      '/src/workspace-shell.html': `<article class="workspace-shell">
+  <header class="workspace-top">
+    <div>
+      <span class="shell-label">Workspace shell</span>
+      <h2><au-slot name="title"></au-slot></h2>
+      <p><au-slot name="subtitle"></au-slot></p>
+    </div>
   </header>
-  <p>VM scope: \${room.name}</p>
-  <au-slot></au-slot>
+  <div class="workspace-nav-slot">
+    <au-slot name="nav"></au-slot>
+  </div>
+  <section class="workspace-body">
+    <au-slot></au-slot>
+  </section>
 </article>`,
+      '/src/workspace-shell.css': `.workspace-shell {
+  padding: 26px;
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 120px;
+  background: linear-gradient(135deg, rgba(15, 118, 100, 0.12), rgba(11, 91, 77, 0));
+  pointer-events: none;
+}
+
+.workspace-top,
+.workspace-nav-slot,
+.workspace-body {
+  position: relative;
+}
+
+.workspace-top h2 {
+  margin: 8px 0 4px;
+  font-size: 1.9rem;
+  letter-spacing: -.03em;
+}
+
+.workspace-top p {
+  margin: 0;
+  color: #58726c;
+}
+
+.workspace-nav-slot {
+  margin: 20px 0 18px;
+  padding: 8px;
+  border: 1px solid rgba(202, 217, 212, 0.86);
+  border-radius: 18px;
+  background: #f8fbfa;
+}
+
+.workspace-body {
+  display: block;
+}`,
     },
   }),
 ];

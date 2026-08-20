@@ -47,6 +47,7 @@ interface RouteNavigationOptions {
 
 export interface RouteContextOptions {
   exact?: boolean;
+  index?: boolean;
   fallback?: boolean;
   group?: boolean;
   guardFailure?: RouteGuardFailure;
@@ -167,6 +168,8 @@ export class RouteContext implements IRouteContext {
   /** @internal */
   private readonly _exact: boolean;
   /** @internal */
+  private readonly _index: boolean;
+  /** @internal */
   private readonly _fallback: boolean;
   /** @internal */
   private readonly _group: boolean;
@@ -209,6 +212,7 @@ export class RouteContext implements IRouteContext {
     options: RouteContextOptions = {},
   ) {
     this._exact = options.exact ?? false;
+    this._index = options.index ?? false;
     this._fallback = options.fallback ?? false;
     this._group = options.group ?? false;
     this._guardFailure = options.guardFailure ?? 'navigation';
@@ -623,13 +627,13 @@ export class RouteContext implements IRouteContext {
 
   public usePattern(pattern: string): void {
     const normalizedPattern = normalizePattern(pattern);
-    const matcher = compilePattern(normalizedPattern, this._exact, this.parent === null);
+    const matcher = compilePattern(normalizedPattern, this._exact || this._index, this.parent === null);
     this.pattern = normalizedPattern;
     this._matcher = matcher;
   }
 
   /** @internal */
-  public _setRegistered(value: boolean): void {
+  public _setRegistered(value: boolean, suppressParentUpdate: boolean = false): void {
     if (this._registered === value || this._disposed) {
       return;
     }
@@ -639,10 +643,12 @@ export class RouteContext implements IRouteContext {
     }
     const parent = this.parent;
     if (parent instanceof RouteContext) {
-      if (parent.active) {
+      if (!suppressParentUpdate && parent.active) {
         parent.refresh();
       }
-      parent._notifyRegistryChanged();
+      if (!suppressParentUpdate) {
+        parent._notifyRegistryChanged();
+      }
     }
   }
 
@@ -770,6 +776,7 @@ export class RouteContext implements IRouteContext {
   public createChild(pattern?: string, options: RouteContextOptions = {}): IRouteContext {
     const child = new RouteContext(this, pattern, {
       exact: options.exact,
+      index: options.index,
       fallback: options.fallback,
       group: options.group,
       guardFailure: options.guardFailure,

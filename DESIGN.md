@@ -488,6 +488,77 @@ the complete route-tree settlement boundary:
 
 Cancelled work is discarded before it can publish stale browser effects.
 
+## Activation lifecycle audit
+
+The repeated-sibling freeze uncovered a sensitive boundary in commit ordering:
+route registry churn can still happen while a navigation is being finalized.
+That suggests the following adjacent risk areas need explicit coverage and
+possibly stricter coordinator invariants:
+
+- **Commit-time registry callbacks against stale location**.
+  A route may unregister or refresh descendants during view commit, rollback, or
+  deferred deactivation. The coordinator must not let registry listeners reapply
+  the previous committed path while the new transaction is still finalizing.
+  Covered by regression tests for repeated nested siblings, redirect settlement,
+  and local error recovery under registration churn.
+
+- **Parent loaded before descendant activation is truly stable**.
+  If a parent route settles or publishes `loaded` while a child branch is still
+  mounting, replacing, or recovering, the tree can observe a partially committed
+  state.
+  Covered by nested lifecycle ordering tests that assert parent-first `loading`,
+  child-first `loaded`, and grandchild settlement before ancestor `loaded`.
+
+- **Replacement transitions that clear the active transaction too early**.
+  A replace-plan navigation can dispose the previous branch, activate the new
+  branch, and trigger descendant registration changes in the same window. The
+  transaction must remain authoritative until both route-tree state and browser
+  location are coherent.
+  Covered by same-declaration replacement tests, including rollback, supersession,
+  and never-settling descendant replacement cases.
+
+- **Redirect and local recovery during descendant registration churn**.
+  Redirects and error recovery can invalidate one candidate branch and register
+  another. Those flows need to preserve the destination chosen by the active
+  transaction rather than whichever branch registry notifications happen to
+  re-run first.
+  Covered by redirect regressions, local recovery regressions, and teardown
+  regressions that assert no extra route churn is introduced while stopping.
+
+- **Deferred deactivation interacting with repeated or conditional routes**.
+  Repeated `au-route` declarations and conditional child routes can remove the
+  outgoing branch while the incoming one is still becoming visible. The tree
+  must not end up with both siblings inactive or with the old sibling revived
+  by a stale refresh.
+  Covered by repeated nested sibling regressions, conditional/group discovery
+  tests, and in-flight `au-router` current-path supersession cases.
+
+- **Tear-down after a successful navigation**.
+  Fixture disposal and application stop should not observe a half-finalized
+  transaction. If stop/dispose runs after route commit but before all route-owned
+  view work is quiescent, Aurelia lifecycle teardown can fail or hang.
+  Covered by explicit teardown regressions after redirect commit and local
+  recovery commit.
+
+- **Commit-only browser effects observing pre-commit tree state**.
+  Title, scroll, focus, and transition settlement are designed to be commit-only.
+  They should continue to read the finalized branch, not an intermediate tree
+  caused by registry callbacks, late rollback, or superseded descendant work.
+  Indirectly covered by existing title, scroll, focus, and transition-settlement
+  suites. Keep this item as an ongoing watch point whenever commit ordering changes.
+
+### Audit coverage summary
+
+- Implemented regressions currently cover:
+  repeated sibling replacement, nested lifecycle ordering, replacement rollback
+  and supersession, redirect settlement, local error recovery, conditional route
+  churn, and teardown after successful redirect or recovery.
+
+- Remaining audit value is mostly in combination growth rather than a single
+  missing invariant:
+  whenever commit ordering, deferred deactivation, or route-owned teardown
+  changes, rerun and extend the above clusters before adding new features on top.
+
 ## Non-goals
 
 The coordinator is not:

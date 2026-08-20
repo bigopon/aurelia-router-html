@@ -9,6 +9,7 @@ import {
   IRendering,
   IRenderLocation,
   ISyntheticView,
+  State,
   IViewFactory,
 } from '@aurelia/runtime-html';
 import {
@@ -223,9 +224,11 @@ export class AuRoute implements ICustomElementViewModel {
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
     this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
+    const isIndexPath = (path.trim() === '.' || path.trim() === './') && parentContext.parent != null;
 
     this.context = parentContext.createChild(path, {
       exact,
+      index: isIndexPath,
       fallback,
       group,
       guardFailure,
@@ -287,7 +290,6 @@ export class AuRoute implements ICustomElementViewModel {
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
     this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
-    (this.context as RouteContext)._setRegistered(true);
     this.updateErrorHandler();
     if (this.pathExpression != null) {
       const expression = this.expressionParser.parse(this.pathExpression, 'None');
@@ -296,13 +298,14 @@ export class AuRoute implements ICustomElementViewModel {
     this.loadingAst ??= this.loadingExpression == null ? null : this.expressionParser.parse(this.loadingExpression, 'None');
     this.loadedAst ??= this.loadedExpression == null ? null : this.expressionParser.parse(this.loadedExpression, 'None');
     this.updatePath(this.path);
+    (this.context as RouteContext)._setRegistered(true);
     const prepared = this.ensureDiscoveryView();
     const update = onResolve(prepared, () => {
       this.updateRequestedViewActive();
       this.tryRedirect();
       return this.queueViewUpdate();
     });
-    return isPromise(update) ? update : undefined;
+    return isPromise(update) ? Promise.resolve(update) : undefined;
   }
 
   public bound(): void {
@@ -362,7 +365,10 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private updateGuards(): void {
     const context = this.context as RouteContext;
-    context._setGuards(this.canLoad, this.canUnload);
+    context._setGuards(
+      ensureRouteGuardCallback('can-load', this.canLoad),
+      ensureRouteGuardCallback('can-unload', this.canUnload),
+    );
     context._setTransitionPolicy(
       this.transitionOn,
       this.transitionPlan,
@@ -412,9 +418,19 @@ export class AuRoute implements ICustomElementViewModel {
     this.scope = void 0;
     this.lifecycleScope = void 0;
     this.lifecycleOverrideContext.$lifecycle = undefined;
-    (this.context as RouteContext)._setRegistered(false);
+    let parentStopping = true;
+    let controller: IHydratedController | null = _parent;
+    while (controller != null) {
+      if ((controller.state & (State.deactivating | State.deactivated | State.disposed)) === 0) {
+        parentStopping = false;
+        break;
+      }
+      controller = controller.parent;
+    }
+    (this.context as RouteContext)._setRegistered(false, parentStopping);
     this.requestedViewActive = false;
-    return this.queueViewUpdate();
+    const update = this.queueViewUpdate();
+    return isPromise(update) ? Promise.resolve(update) : undefined;
   }
 
   public dispose(): void {
@@ -640,7 +656,10 @@ export class AuRoute implements ICustomElementViewModel {
             try {
               ready = onResolve(activation, () => {
                 this.coordinator._assertNavigationSignal(lifecycle.signal);
-                return this.runLoaded(lifecycle);
+                return onResolve(this.notifyDescendantVisibilityChange(), () => {
+                  this.coordinator._assertNavigationSignal(lifecycle.signal);
+                  return this.runLoaded(lifecycle);
+                });
               });
             } catch (error) {
               return this.failViewActivation(error, finishSettlement);
@@ -858,6 +877,8 @@ export class AuRoute implements ICustomElementViewModel {
       this.settlement.begin();
       candidateSettling = true;
       await this.coordinator._runRoutePhase('activation', () => candidateView!.activate(candidateView!, this.$controller, scope));
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      await this.notifyDescendantVisibilityChange();
       this.coordinator._assertNavigationSignal(lifecycle.signal);
       await this.runLoaded(lifecycle);
       this.coordinator._assertNavigationSignal(lifecycle.signal);
@@ -1433,6 +1454,19 @@ function parseTransitionPlan(value: string | null): RouteTransitionPlan {
     throw new Error(`Invalid au-route transition-plan value "${plan}". Expected "replace", "rerun", or "none".`);
   }
   return plan;
+}
+
+function ensureRouteGuardCallback<T extends RouteCanLoadCallback | RouteCanUnloadCallback>(
+  name: 'can-load' | 'can-unload',
+  value: T | null | undefined,
+): T | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'function') {
+    return value;
+  }
+  throw new Error(`Invalid au-route ${name} value. Expected a function but received ${typeof value}.`);
 }
 
 function paramsEqual(

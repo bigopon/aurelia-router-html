@@ -184,10 +184,18 @@ export class RouteCoordinator implements IRouteCoordinator {
     if (root instanceof RouteContext) {
       root._setNavigator((path, options) => this.load(path, options));
       this.stopRegistryListening = root._subscribeRegistry(() => {
-        if (!this.started || this.transaction != null) {
+        if (!this.started) {
           return;
         }
-        this.root.apply(this.currentLocation.pathname, this.currentLocation);
+        const transaction = this.transaction;
+        if (transaction == null) {
+          this.root.apply(this.currentLocation.pathname, this.currentLocation);
+          return;
+        }
+        if (!transaction.committing && !transaction.finalizing) {
+          return;
+        }
+        this.root.apply(transaction.location.pathname, transaction.location);
       });
     } else {
       this.stopRegistryListening = null;
@@ -227,7 +235,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     });
   }
 
-  public stop(): void {
+  public stop(): void | Promise<void> {
     if (!this.started) {
       return;
     }
@@ -253,7 +261,7 @@ export class RouteCoordinator implements IRouteCoordinator {
             this.stopping = null;
           }
         });
-        return;
+        return stopping;
       }
     }
     finish();
@@ -811,9 +819,6 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.finalized = true;
     transaction.finalizing = false;
     transaction.committing = false;
-    if (this.transaction === transaction) {
-      this.transaction = null;
-    }
     this.commitViewTransactions(transaction);
     if (this.root instanceof RouteContext) {
       this.root._commitNavigationTransaction();
@@ -831,6 +836,9 @@ export class RouteCoordinator implements IRouteCoordinator {
     }
     this.currentLocation = transaction.location;
     this.currentPath = transaction.location.pathname;
+    if (this.transaction === transaction) {
+      this.transaction = null;
+    }
     this.notify();
     const navigation = transaction.options.scrollNavigation
       ?? (transaction.options.replace === true ? 'replace' : 'push');

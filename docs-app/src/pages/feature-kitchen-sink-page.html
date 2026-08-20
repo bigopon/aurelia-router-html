@@ -11,22 +11,28 @@
   <div class="feature-details">
     <section>
       <h3>Syntax</h3>
-      <pre class="code-block" syntax-html>&lt;template repeat.for="room of rooms"&gt;
-  &lt;au-route path.bind="room.path"&gt;
-    &lt;let greeting.bind="'Welcome to ' + room.name"&gt;&lt;/let&gt;
-    &lt;room-shell room.bind="room"&gt;
-      &lt;strong au-slot="title"&gt;${greeting}&lt;/strong&gt;
-    &lt;/room-shell&gt;
-  &lt;/au-route&gt;
-&lt;/template&gt;</pre>
+      <pre class="code-block" syntax-html>&lt;au-route path="workspace" can-load.bind="requireSession()"&gt;
+  &lt;let sessionLabel.bind="currentUser.name + ' · ' + currentUser.role"&gt;&lt;/let&gt;
+  &lt;workspace-shell&gt;
+    &lt;strong au-slot="title"&gt;Aurora Ops workspace&lt;/strong&gt;
+    &lt;span au-slot="subtitle"&gt;${sessionLabel}&lt;/span&gt;
+
+    &lt;template repeat.for="user of users"&gt;
+      &lt;au-route path.bind="'users/' + user.id" exact&gt;
+        ...
+      &lt;/au-route&gt;
+    &lt;/template&gt;
+  &lt;/workspace-shell&gt;
+&lt;/au-route&gt;</pre>
     </section>
     <section>
       <h3>Meaning</h3>
-      <p>Routes use the same scopes as the surrounding Aurelia template. Repeat items, <code>&lt;let&gt;</code> variables, VM properties, bindings, and projected slots remain available inside matched branches.</p>
+      <p>This example treats Router HTML as normal application structure rather than a narrow routing demo. A mock in-memory database, sign-in state, nested routes, repeated route declarations, CRUD forms, route guards, and slotted shells all share the same Aurelia scope.</p>
+      <p>Repeat items, <code>&lt;let&gt;</code> variables, VM properties, projected slots, and form bindings remain available inside matched branches, so the routed app still reads like ordinary Aurelia markup.</p>
     </section>
     <section>
       <h3>Apply it</h3>
-      <p>Keep each route beside the markup it controls. Generate routes from data when the choices come from a list, and use ordinary slotted components for reusable page shells.</p>
+      <p>Use this style when you want the route tree to stay close to real product markup. Keep each route beside the form, list, or shell it controls; use repeated routes when records come from data; and let the view-model own application state such as sessions, drafts, and mock persistence.</p>
     </section>
   </div>
 

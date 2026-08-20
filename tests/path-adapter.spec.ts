@@ -12,6 +12,7 @@ import { RouteContext } from '../router/route-context';
 import { parseRouteLocation } from '../router/route-location';
 import { BrowserRouteScrollService } from '../router/scroll';
 import { RouteViewSettlement } from '../router/settlement';
+import { BrowserRouteTitleService } from '../router/title';
 
 describe('route view settlement', function () {
   it('waits for every pending view and coalesces callbacks', async function () {
@@ -69,6 +70,38 @@ describe('route view settlement', function () {
     await Promise.resolve();
     await tasksSettled();
     assert.deepStrictEqual(events, ['waited', 'callback']);
+  });
+});
+
+describe('route title service', function () {
+  it('publishes the latest committed branch when route state changes before settlement flushes', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><title>Fallback</title><body></body>').window.document;
+    const root = new RouteContext(null, '*');
+    const products = root.createChild('/products') as RouteContext;
+    products._setTitle('Products');
+    const camera = products.createChild('/camera', { exact: true }) as RouteContext;
+    camera._setTitle('Camera');
+    const plain = root.createChild('/plain', { exact: true }) as RouteContext;
+    plain._setTitle('Plain');
+    const titles = new BrowserRouteTitleService(root, document, settlement, { fallback: 'Fallback', separator: ' | ' });
+
+    try {
+      titles.start();
+      settlement.begin();
+      root.apply('/products/camera');
+      titles.requestUpdate();
+      root.apply('/plain');
+      titles.requestUpdate();
+      await tasksSettled();
+      assert.strictEqual(document.title, 'Fallback');
+
+      settlement.end();
+      await tasksSettled();
+      assert.strictEqual(document.title, 'Plain');
+    } finally {
+      titles.stop();
+    }
   });
 });
 
@@ -182,6 +215,36 @@ describe('route hash scrolling', function () {
     } finally {
       scrolling.stop();
       target.remove();
+    }
+  });
+
+  it('uses the latest fragment when a newer navigation replaces a pending scroll target', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const stale = document.createElement('section');
+    const latest = document.createElement('section');
+    stale.id = 'stale';
+    latest.id = 'latest';
+    const calls: string[] = [];
+    stale.scrollIntoView = () => { calls.push('stale'); };
+    latest.scrollIntoView = () => { calls.push('latest'); };
+    document.body.append(stale, latest);
+    const scrolling = new BrowserRouteScrollService(document, settlement, { restoration: 'preserve' });
+
+    try {
+      settlement.begin();
+      scrolling.afterNavigation(parseRouteLocation('/products#stale'));
+      scrolling.afterNavigation(parseRouteLocation('/products#latest'));
+      await tasksSettled();
+      assert.deepStrictEqual(calls, []);
+
+      settlement.end();
+      await tasksSettled();
+      assert.deepStrictEqual(calls, ['latest']);
+    } finally {
+      scrolling.stop();
+      stale.remove();
+      latest.remove();
     }
   });
 });
@@ -337,6 +400,33 @@ describe('route focus management', function () {
     focus.afterNavigation('push');
     await tasksSettled();
     assert.notStrictEqual(document.activeElement, heading);
+    focus.stop();
+  });
+
+  it('focuses only the latest navigation candidate when a newer navigation replaces the pending one', async function () {
+    const settlement = new RouteViewSettlement();
+    const document = new JSDOM('<!doctype html><body><main></main></body>').window.document;
+    const stale = document.createElement('h1');
+    const latest = document.createElement('h2');
+    document.querySelector('main')!.append(stale, latest);
+    const focus = new BrowserRouteFocusService(document, settlement);
+
+    focus.start();
+    settlement.begin();
+    focus.beforeNavigation(true);
+    focus.register(stale);
+    focus.afterNavigation('push');
+
+    focus.beforeNavigation(true);
+    focus.register(latest);
+    focus.afterNavigation('push');
+    await tasksSettled();
+    assert.notStrictEqual(document.activeElement, stale);
+    assert.notStrictEqual(document.activeElement, latest);
+
+    settlement.end();
+    await tasksSettled();
+    assert.strictEqual(document.activeElement, latest);
     focus.stop();
   });
 });

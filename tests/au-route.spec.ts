@@ -1618,6 +1618,31 @@ describe('au-route redirects', function () {
     }
   });
 
+  it('tears down cleanly after a redirect commits', async function () {
+    const adapter = new MemoryPathAdapter('/home');
+    let fixture: Awaited<ReturnType<typeof createFixture>> | null = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="legacy" redirect-to="workspace"></au-route>
+      <au-route path="workspace" exact><span data-workspace>Workspace</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/legacy');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace');
+      assert.strictEqual(fixture.appHost.querySelector('[data-workspace]')?.textContent, 'Workspace');
+
+      await fixture.tearDown();
+      fixture = null;
+    } finally {
+      await fixture?.tearDown();
+    }
+  });
+
   it('follows a three-hop redirect chain while preserving parameters and one history entry', async function () {
     class RecordingAdapter extends MemoryPathAdapter {
       public readonly replaced: string[] = [];
@@ -4234,6 +4259,30 @@ describe('au-route navigation guards', function () {
   });
 
   for (const testCase of [
+    { attribute: 'can-load.bind="isAllowed"', expected: /Invalid au-route can-load value\. Expected a function but received boolean\./ },
+    { attribute: 'can-unload.bind="isAllowed"', expected: /Invalid au-route can-unload value\. Expected a function but received boolean\./ },
+  ]) {
+    it(`rejects a non-function ${testCase.attribute}`, function () {
+      class App {
+        public isAllowed: boolean = true;
+      }
+
+      let error: unknown = null;
+      try {
+        createFixture(
+          `<au-route path="private" exact ${testCase.attribute}>Private</au-route>`,
+          App,
+          [Routing],
+        );
+      } catch (caught) {
+        error = caught;
+      }
+
+      assert.match(String(error), testCase.expected);
+    });
+  }
+
+  for (const testCase of [
     {
       position: 'first',
       routes: `<au-route path="private" exact can-load.bind="() => canOpen()"><h1 data-private>Private</h1></au-route>
@@ -4582,6 +4631,56 @@ describe('au-route navigation guards', function () {
 });
 
 describe('au-route error recovery', function () {
+  it('tears down cleanly after local recovery commits without warning again', async function () {
+    const warnings: unknown[][] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    const failure = new Error('Reports unavailable');
+    class App {
+      public loadReports(): never {
+        throw failure;
+      }
+
+      public recover() {
+        return { recover: 'local' } as const;
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/home');
+    let fixture: Awaited<ReturnType<typeof createFixture>> | null = null;
+    try {
+      fixture = await createFixture(
+        `<au-route path="home" exact><h1 data-home>Home</h1></au-route>
+        <au-route path="workspace">
+          <au-route
+            path="reports"
+            exact
+            loading.bind="loadReports()"
+            on-error.bind="() => recover()">
+            <h2 data-reports>Reports</h2>
+          </au-route>
+          <au-route path="*" fallback><h2 data-recovery>Recovered</h2></au-route>
+        </au-route>`,
+        App,
+        [Routing.customize({ adapter })],
+      ).started;
+
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/workspace/reports');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-recovery]')?.textContent, 'Recovered');
+      const warningsBeforeTearDown = warnings.length;
+
+      await fixture.tearDown();
+      fixture = null;
+      assert.strictEqual(warnings.length, warningsBeforeTearDown);
+    } finally {
+      console.warn = originalWarn;
+      await fixture?.tearDown();
+    }
+  });
+
   it('lets the failing route recover locally through its parent fallback', async function () {
     const failure = new Error('Reports unavailable');
     let observed: RouteFailure | null = null;
@@ -5123,6 +5222,72 @@ describe('au-route document titles', function () {
       assert.strictEqual(fixture.appHost.ownerDocument.title, 'Async page');
     } finally {
       finishAttaching();
+      await fixture.tearDown();
+    }
+  });
+});
+
+describe('au-route repeated nested siblings', function () {
+  it('navigates from one repeated nested branch to another without stalling', async function () {
+    class App {
+      public readonly users = [
+        { id: 'ada', name: 'Ada', role: 'admin' },
+        { id: 'mina', name: 'Mina', role: 'member' },
+      ];
+
+      public readonly projects = [
+        { id: 'aurora', name: 'Aurora', ownerId: 'ada', status: 'active' },
+        { id: 'canvas', name: 'Canvas', ownerId: 'mina', status: 'draft' },
+      ];
+    }
+
+    const adapter = new MemoryPathAdapter('/workspace/users');
+    const fixture = await createFixture(
+      `<au-route path="workspace">
+        <au-route path="users">
+          <span data-users-shell>Users</span>
+          <a repeat.for="user of users" au-link.bind="user.id">\${user.name}</a>
+          <template repeat.for="user of users">
+            <au-route path.bind="user.id" exact>
+              <span data-user>\${user.name}</span>
+            </au-route>
+          </template>
+          <au-route path="*" fallback>
+            <span data-users-index>Users index</span>
+          </au-route>
+        </au-route>
+
+        <au-route path="projects">
+          <span data-projects-shell>Projects</span>
+          <a repeat.for="project of projects" au-link.bind="project.id">\${project.name}</a>
+          <template repeat.for="project of projects">
+            <au-route path.bind="project.id" exact>
+              <span data-project>\${project.name}</span>
+            </au-route>
+          </template>
+          <au-route path="*" fallback>
+            <span data-projects-index>Projects index</span>
+          </au-route>
+        </au-route>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const initial = router.load('/workspace/users');
+      assert.strictEqual(initial instanceof Promise ? await initial : initial, true);
+      await tasksSettled();
+
+      const navigation = router.load('/workspace/projects');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+
+      assert.strictEqual(adapter.getCurrentPath(), '/workspace/projects');
+      assert.strictEqual(fixture.appHost.querySelector('[data-projects-shell]')?.textContent, 'Projects');
+      assert.strictEqual(fixture.appHost.querySelector('[data-users-shell]'), null);
+    } finally {
       await fixture.tearDown();
     }
   });
