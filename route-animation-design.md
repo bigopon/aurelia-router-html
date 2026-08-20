@@ -206,26 +206,23 @@ does mean the router should make the safe path easy:
 
 ## Real completion and fallback timing
 
-One reason to prefer a richer normalized model is that route settlement needs a
-reliable completion point.
-
-The future contract should prefer actual completion semantics:
+Route settlement needs a reliable completion point, and the current
+implementation now prefers actual completion semantics:
 
 - `transitionend` / `animationend` for CSS-driven transitions;
 - promise completion for callback-driven transitions.
 
-But it should still keep a bounded fallback when browser completion events do
-not arrive. That fallback remains important because CSS events can be skipped or
-lost when transitions are interrupted or elements detach early.
+It still keeps a bounded fallback when browser completion events do not arrive.
+That fallback remains important because CSS events can be skipped or lost when
+transitions are interrupted or elements detach early.
 
-For the immediate implementation slice, cancellation also needs to be part of
-the contract:
+Cancellation is also part of the contract:
 
-- when a navigation is superseded, route animation work must stop participating
-  in the old settlement path;
-- callback animation should receive an `AbortSignal`;
-- CSS-based settlement should also stop waiting on an obsolete transition once
-  that navigation has been cancelled or replaced.
+- when a navigation is superseded, route animation work stops participating in
+  the old settlement path;
+- callback animation receives an `AbortSignal`;
+- CSS-based settlement also stops waiting on an obsolete transition once that
+  navigation has been cancelled or replaced.
 
 ## Recommendation for later work
 
@@ -235,5 +232,5 @@ When roadmap item 9 is picked up:
 - preserve today's CSS class workflow;
 - add callback and object forms through normalization, not parallel APIs;
 - include reduced-motion support in the router-owned transition contract;
-- make final settlement depend on real completion semantics, with bounded
-  fallback only as a safety net.
+- keep final settlement on real completion semantics, with bounded fallback only
+  as a safety net.

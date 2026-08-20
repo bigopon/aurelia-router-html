@@ -17,6 +17,15 @@ export interface RouteAnimationContext {
 
 export type RouteAnimationCallback = (context: RouteAnimationContext) => void | Promise<void>;
 
+export interface RouteTransitionEndContext {
+  readonly direction: 'enter' | 'leave';
+  readonly route: IRouteContext;
+  readonly navigationId: number;
+  readonly animated: boolean;
+}
+
+export type RouteTransitionEndCallback = (context: RouteTransitionEndContext) => void;
+
 export interface RouteAnimationConfig {
   kind?: 'css' | 'js';
   name?: string;

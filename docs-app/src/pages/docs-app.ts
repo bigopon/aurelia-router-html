@@ -26,6 +26,7 @@ import { FeatureSegmentConstraintsPage } from './feature-segment-constraints-pag
 import { FeatureRedirectsPage } from './feature-redirects-page';
 import { FeatureSharedStatePage } from './feature-shared-state-page';
 import { FeatureSwapPage } from './feature-swap-page';
+import { FeatureTransitionEndPage } from './feature-transition-end-page';
 import { FeatureTitlesPage } from './feature-titles-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
 import { FeatureWildcardPage } from './feature-wildcard-page';
@@ -74,6 +75,7 @@ export class DocsApp {
       FeatureMatchingPage,
       FeatureWildcardPage,
       FeatureSwapPage,
+      FeatureTransitionEndPage,
       FeatureAnimationPage,
       FeatureSharedStatePage,
       FeatureKitchenSinkPage,

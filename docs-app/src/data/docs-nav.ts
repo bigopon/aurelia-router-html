@@ -218,6 +218,13 @@ export const docNav: DocNavItem[] = [
     badge: 'S2',
   },
   {
+    id: 'transition-end',
+    title: 'Transition End',
+    path: '/features/transition-end',
+    summary: 'Route-owned transition settlement without depending on DOM root events.',
+    badge: 'S2',
+  },
+  {
     id: 'shared-state',
     title: 'Shared State',
     path: '/features/shared-state',

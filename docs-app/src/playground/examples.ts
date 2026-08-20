@@ -1979,6 +1979,128 @@ export class App {
 }`,
   }),
   routerExample({
+    id: 'route-animations-transition-end',
+    title: 'Transition-end settlement',
+    description: 'Log navigation intent and the route-owned transition-end callback timing to make route settlement visible.',
+    initialPath: '/rooms/sunny',
+    initialFile: '/src/app.html',
+    appTs: `export class App {
+  public readonly log: string[] = ['Waiting for the next route change.'];
+
+  public logIntent(target: string): void {
+    this.pushLog('navigate', target);
+  }
+
+  public onTransitionEnd = ({ direction, route, animated }) => {
+    const name = route.$path.split('/').filter(Boolean).at(-1) ?? 'root';
+    this.pushLog(\`transition-end (\${direction}, animated=\${animated})\`, name);
+  }
+
+  private pushLog(phase: string, name: string): void {
+    const stamp = new Date().toLocaleTimeString([], {
+      hour12: false,
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const next = \`\${stamp}.\${String(new Date().getMilliseconds()).padStart(3, '0')} | \${phase} | \${name}\`;
+    this.log.unshift(next);
+    this.log.splice(6);
+  }
+}`,
+    appHtml: `<au-route path="rooms" swap-order="parallel">
+  <nav>
+    <a au-link="sunny" click.trigger="logIntent('sunny')">Sunny room</a>
+    <a au-link="moon" click.trigger="logIntent('moon')">Moon room</a>
+  </nav>
+
+  <p class="timing-note">Click a route, then compare the navigation timestamp with the later router-owned <code>transition-end.bind</code> timestamp below the stage.</p>
+
+  <div class="stage settlement-stage">
+    <au-route path="sunny" animate transition-end.bind="onTransitionEnd">
+      <article class="room sunny">
+        <h1>Sunny room</h1>
+      </article>
+    </au-route>
+    <au-route path="moon" animate transition-end.bind="onTransitionEnd">
+      <article class="room moon">
+        <h1>Moon room</h1>
+      </article>
+    </au-route>
+  </div>
+
+  <section class="timing-log">
+    <h2>Transition log</h2>
+    <ul>
+      <li repeat.for="entry of log">\${entry}</li>
+    </ul>
+  </section>
+</au-route>`,
+    appCss: `.settlement-stage {
+  display: grid;
+  min-height: 180px;
+}
+
+.settlement-stage > * {
+  grid-area: 1 / 1;
+}
+
+.settlement-stage > .au-route-enter-active,
+.settlement-stage > .au-route-leave-active {
+  transition: opacity 720ms ease, transform 720ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.settlement-stage > .au-route-enter-from {
+  opacity: 0;
+  transform: translateY(18px) scale(.985);
+}
+
+.settlement-stage > .au-route-leave-active {
+  opacity: 0;
+  transform: translateY(-18px) scale(.985);
+}
+
+.timing-note {
+  margin: 0 0 14px;
+  color: #47635e;
+}
+
+.timing-log {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #cbdad7;
+  border-radius: 18px;
+  background: #f8fbfa;
+}
+
+.timing-log h2 {
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+.timing-log ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: #27443f;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: .92rem;
+}
+
+.room {
+  padding: 28px;
+  border-radius: 18px;
+}
+
+.sunny {
+  background: #fff1b8;
+}
+
+.moon {
+  background: #dce5ff;
+}`,
+  }),
+  routerExample({
     id: 'route-animations-slide',
     title: 'Carousel animation',
     description: 'Use the same animate opt-in for a horizontal carousel-style route transition.',

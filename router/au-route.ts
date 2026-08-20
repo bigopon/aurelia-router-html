@@ -19,6 +19,8 @@ import {
   IRouteAnimationOptions,
   normalizeRouteAnimationValue,
   type RouteAnimationDescriptor,
+  type RouteTransitionEndCallback,
+  type RouteTransitionEndContext,
   type RouteAnimationValue,
 } from './animation';
 import { IRouteCoordinator, RouteCoordinator } from './coordinator';
@@ -43,7 +45,7 @@ export class AuRoute implements ICustomElementViewModel {
     name: 'au-route',
     containerless: true,
     template: null,
-    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError', 'animate'],
+    bindables: ['path', 'redirectTo', 'title', 'canLoad', 'canUnload', 'onError', 'animate', 'transitionEnd'],
     processContent: (node, _, data) => {
       const group = node.hasAttribute('group');
       const path = node.getAttribute('path');
@@ -144,6 +146,7 @@ export class AuRoute implements ICustomElementViewModel {
   public redirectTo: string | null = null;
   public title: string | null = null;
   public animate: RouteAnimationValue = false;
+  public transitionEnd: RouteTransitionEndCallback | null = null;
   public canLoad: RouteCanLoadCallback | null = null;
   public canUnload: RouteCanUnloadCallback | null = null;
   public onError: RouteErrorHandler | null = null;
@@ -647,7 +650,7 @@ export class AuRoute implements ICustomElementViewModel {
                 () => {
                   this.coordinator._assertNavigationSignal(lifecycle.signal);
                   finishSettlement();
-                  return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
+                  return this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
                 },
                 error => this.failViewActivation(error, finishSettlement),
               );
@@ -655,7 +658,7 @@ export class AuRoute implements ICustomElementViewModel {
               return settled;
             }
             finishSettlement();
-            return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
+            return this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
           },
         ),
       ),
@@ -721,13 +724,13 @@ export class AuRoute implements ICustomElementViewModel {
         () => {
           this.coordinator._assertNavigationSignal(lifecycle.signal);
           finishSettlement();
-          return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
+          return this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
         },
         error => this.failViewActivation(error, finishSettlement),
       );
     }
     finishSettlement();
-    return this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
+    return this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
   }
 
   /** @internal */
@@ -837,7 +840,7 @@ export class AuRoute implements ICustomElementViewModel {
     };
     const registered = this.coordinator._registerViewTransaction(commit, rollback);
     try {
-      await this.runViewAnimation('leave');
+      await this.runRouteTransition('leave');
       this.coordinator._assertNavigationSignal(lifecycle.signal);
       this.viewActive = false;
       let finishPreviousDeactivation!: () => void;
@@ -863,7 +866,7 @@ export class AuRoute implements ICustomElementViewModel {
       if (!registered) {
         commit();
       }
-      this.coordinator._runEnterAnimation(() => this.runViewAnimation('enter'));
+      this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
     } catch (error) {
       finishCandidateSettlement();
       try {
@@ -965,14 +968,14 @@ export class AuRoute implements ICustomElementViewModel {
 
     const view = this.view;
     if (this.isGroup && this.discoveryActive) {
-      return onResolve(this.runViewAnimation('leave'), () => {
+      return onResolve(this.runRouteTransition('leave'), () => {
         this.viewActive = false;
         view.nodes.remove();
         void this.notifyDescendantVisibilityChange();
         this.titleService.requestUpdate();
       });
     }
-    return onResolve(this.runViewAnimation('leave'), () => {
+    return onResolve(this.runRouteTransition('leave'), () => {
       this.viewActive = false;
       return onResolve(view.deactivate(view, this.$controller), () => {
         this.clearViewLocation();
@@ -1029,6 +1032,20 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   /** @internal */
+  private runRouteTransition(direction: 'enter' | 'leave'): void | Promise<void> {
+    const animated = this.animationDescriptor.kind !== 'none'
+      && this.view != null
+      && this.getAnimationElements().length > 0;
+    const result = this.runViewAnimation(direction);
+    return onResolve(result, () => this.notifyTransitionEnd({
+      direction,
+      route: this.context,
+      navigationId: this.coordinator.navigation.id,
+      animated,
+    }));
+  }
+
+  /** @internal */
   private runViewAnimation(direction: 'enter' | 'leave'): void | Promise<void> {
     if (this.animationDescriptor.kind === 'none' || this.view == null) {
       return;
@@ -1067,13 +1084,9 @@ export class AuRoute implements ICustomElementViewModel {
       element.classList.remove(...classes.from);
     }
 
-    const duration = Math.max(
-      this.animationDescriptor.fallbackMs,
-      ...elements.map(element => this.getElementAnimationDuration(element)),
-    );
-
-    if (duration > 0) {
-      await this.waitForAnimationDelay(duration + 34, signal);
+    const profile = this.getCssAnimationProfile(elements);
+    if (profile.fallbackMs > 0) {
+      await this.waitForCssAnimation(elements, profile, signal);
     }
 
     if (runId !== this.animationRunId || signal.aborted) {
@@ -1107,20 +1120,6 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   /** @internal */
-  private getElementAnimationDuration(element: HTMLElement): number {
-    const style = this.platform.globalThis.getComputedStyle(element);
-    const transitionDurations = parseTimeList(style.transitionDuration);
-    const transitionDelays = parseTimeList(style.transitionDelay);
-    const animationDurations = parseTimeList(style.animationDuration);
-    const animationDelays = parseTimeList(style.animationDelay);
-
-    const transitionTotal = transitionDurations.reduce((max, duration, index) => Math.max(max, duration + (transitionDelays[index] ?? transitionDelays[0] ?? 0)), 0);
-    const animationTotal = animationDurations.reduce((max, duration, index) => Math.max(max, duration + (animationDelays[index] ?? animationDelays[0] ?? 0)), 0);
-
-    return Math.max(transitionTotal, animationTotal, 0);
-  }
-
-  /** @internal */
   private nextFrame(): Promise<void> {
     return new Promise(resolve => {
       this.platform.requestAnimationFrame(() => {
@@ -1148,6 +1147,94 @@ export class AuRoute implements ICustomElementViewModel {
       signal.addEventListener('abort', abort, { once: true });
       void task.then(finish, finish);
     });
+  }
+
+  /** @internal */
+  private waitForCssAnimation(
+    elements: readonly HTMLElement[],
+    profile: CssAnimationProfile,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (signal.aborted || profile.fallbackMs <= 0) {
+      return Promise.resolve();
+    }
+    const task = queueAsyncTask(() => {}, { delay: profile.fallbackMs + 34 });
+    return new Promise(resolve => {
+      let pending = profile.pendingEvents;
+      let finished = false;
+      const cleanups: Array<() => void> = [];
+      const finish = (): void => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        task.cancel();
+        signal.removeEventListener('abort', finish);
+        for (const cleanup of cleanups) {
+          cleanup();
+        }
+        resolve();
+      };
+      const consume = (): void => {
+        if (pending <= 0) {
+          return;
+        }
+        pending--;
+        if (pending === 0) {
+          finish();
+        }
+      };
+      signal.addEventListener('abort', finish, { once: true });
+      for (const element of elements) {
+        const expected = getCssAnimationEventCount(this.platform.globalThis.getComputedStyle(element));
+        if (expected === 0) {
+          continue;
+        }
+        const onTransitionEnd = (event: Event): void => {
+          if (event.target === element) {
+            consume();
+          }
+        };
+        const onTransitionCancel = (event: Event): void => {
+          if (event.target === element) {
+            consume();
+          }
+        };
+        const onAnimationEnd = (event: Event): void => {
+          if (event.target === element) {
+            consume();
+          }
+        };
+        const onAnimationCancel = (event: Event): void => {
+          if (event.target === element) {
+            consume();
+          }
+        };
+        element.addEventListener('transitionend', onTransitionEnd);
+        element.addEventListener('transitioncancel', onTransitionCancel);
+        element.addEventListener('animationend', onAnimationEnd);
+        element.addEventListener('animationcancel', onAnimationCancel);
+        cleanups.push(() => {
+          element.removeEventListener('transitionend', onTransitionEnd);
+          element.removeEventListener('transitioncancel', onTransitionCancel);
+          element.removeEventListener('animationend', onAnimationEnd);
+          element.removeEventListener('animationcancel', onAnimationCancel);
+        });
+      }
+      void task.then(finish, finish);
+    });
+  }
+
+  /** @internal */
+  private getCssAnimationProfile(elements: readonly HTMLElement[]): CssAnimationProfile {
+    let fallbackMs = this.animationDescriptor.fallbackMs;
+    let pendingEvents = 0;
+    for (const element of elements) {
+      const style = this.platform.globalThis.getComputedStyle(element);
+      fallbackMs = Math.max(fallbackMs, getCssAnimationDuration(style));
+      pendingEvents += getCssAnimationEventCount(style);
+    }
+    return { fallbackMs, pendingEvents };
   }
 
   /** @internal */
@@ -1243,6 +1330,16 @@ export class AuRoute implements ICustomElementViewModel {
       delete element.dataset.auRouteTransition;
     }
   }
+
+  /** @internal */
+  private notifyTransitionEnd(context: RouteTransitionEndContext): void {
+    this.transitionEnd?.(context);
+  }
+}
+
+interface CssAnimationProfile {
+  readonly fallbackMs: number;
+  readonly pendingEvents: number;
 }
 
 function parseTimeList(value: string): number[] {
@@ -1256,6 +1353,54 @@ function parseTimeList(value: string): number[] {
     }
     return 0;
   });
+}
+
+function parseList(value: string): string[] {
+  return value.split(',').map(part => part.trim());
+}
+
+function getCssAnimationDuration(style: CSSStyleDeclaration): number {
+  const transitionDurations = parseTimeList(style.transitionDuration);
+  const transitionDelays = parseTimeList(style.transitionDelay);
+  const animationDurations = parseTimeList(style.animationDuration);
+  const animationDelays = parseTimeList(style.animationDelay);
+
+  const transitionTotal = transitionDurations.reduce((max, duration, index) => Math.max(max, duration + (transitionDelays[index] ?? transitionDelays[0] ?? 0)), 0);
+  const animationTotal = animationDurations.reduce((max, duration, index) => Math.max(max, duration + (animationDelays[index] ?? animationDelays[0] ?? 0)), 0);
+
+  return Math.max(transitionTotal, animationTotal, 0);
+}
+
+function getCssAnimationEventCount(style: CSSStyleDeclaration): number {
+  const transitionDurations = parseTimeList(style.transitionDuration);
+  const transitionDelays = parseTimeList(style.transitionDelay);
+  const transitionProperties = parseList(style.transitionProperty);
+  const animationDurations = parseTimeList(style.animationDuration);
+  const animationDelays = parseTimeList(style.animationDelay);
+  const animationNames = parseList(style.animationName);
+
+  let count = 0;
+  const transitionEntries = Math.max(transitionDurations.length, transitionProperties.length);
+  for (let index = 0; index < transitionEntries; index++) {
+    const property = transitionProperties[index] ?? transitionProperties[0] ?? 'all';
+    const duration = transitionDurations[index] ?? transitionDurations[0] ?? 0;
+    const delay = transitionDelays[index] ?? transitionDelays[0] ?? 0;
+    if (property !== 'none' && duration + delay > 0) {
+      count++;
+    }
+  }
+
+  const animationEntries = Math.max(animationDurations.length, animationNames.length);
+  for (let index = 0; index < animationEntries; index++) {
+    const name = animationNames[index] ?? animationNames[0] ?? 'none';
+    const duration = animationDurations[index] ?? animationDurations[0] ?? 0;
+    const delay = animationDelays[index] ?? animationDelays[0] ?? 0;
+    if (name !== 'none' && duration + delay > 0) {
+      count++;
+    }
+  }
+
+  return count;
 }
 
 function parseTransitionOn(value: string | null): ReadonlySet<RouteTransitionTrigger> {

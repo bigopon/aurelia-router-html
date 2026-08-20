@@ -38,6 +38,8 @@ export type {
   RouteAnimationConfig,
   RouteAnimationCallback,
   RouteAnimationContext,
+  RouteTransitionEndCallback,
+  RouteTransitionEndContext,
 } from './animation';
 export { BrowserRouteTitleService, IRouteTitleService } from './title';
 export type { RouteTitleOptions } from './title';

@@ -1,0 +1,42 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2>Transition End</h2>
+      <p class="page-copy">Observe when a route transition has actually settled through a route-owned callback, without depending on template-root DOM events.</p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Current surface</h3>
+      <pre class="code-block" syntax-html>&lt;au-route
+  path="details/:id"
+  animate
+  transition-end.bind="onTransitionEnd"&gt;
+  ...
+&lt;/au-route&gt;</pre>
+      <p><code>transition-end.bind</code> is a route-level callback. It fires once per route transition, even when the route renders multiple root elements.</p>
+    </section>
+
+    <section>
+      <h3>What it means</h3>
+      <p>This is not the browser's raw <code>transitionend</code> event. It is the router's own transition-settlement signal for that route.</p>
+      <p>Internally, CSS-driven routes may still use browser <code>transitionend</code> and <code>animationend</code> events as completion sources, while callback-driven routes settle from the returned promise. <code>transition-end.bind</code> abstracts over those implementation details.</p>
+    </section>
+
+    <section>
+      <h3>Callback shape</h3>
+      <pre class="code-block" syntax-typescript>public onTransitionEnd = ({ direction, route, navigationId, animated }) =&gt; {
+  console.log(direction, route.$path, navigationId, animated);
+};</pre>
+      <p>The callback receives the transition direction, the route context, the navigation id, and whether an animation path actually ran for that route.</p>
+    </section>
+
+    <section>
+      <h3>Compared with loaded</h3>
+      <p><code>loaded</code> is a lifecycle/data signal. <code>transition-end.bind</code> is a visual transition settlement signal. A route can finish <code>loaded</code> before its transition settles.</p>
+    </section>
+  </div>
+
+  <playground-page example-id="route-animations-transition-end" embedded.bind="true"></playground-page>
+</section>

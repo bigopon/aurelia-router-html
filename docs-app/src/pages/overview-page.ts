@@ -188,6 +188,13 @@ export class OverviewPage {
       syntax: '<au-route path="panel" animate>Animated panel</au-route>',
     },
     {
+      title: 'Transition End',
+      summary: 'Observe route-owned transition settlement without coupling to template-root DOM events.',
+      path: '/features/transition-end',
+      playgroundId: 'route-animations-transition-end',
+      syntax: '<au-route\n  path="panel"\n  animate\n  transition-end.bind="onTransitionEnd">\n  Panel\n</au-route>',
+    },
+    {
       title: 'Shared State',
       summary: 'Bind routed views to the same application state without route-specific plumbing.',
       path: '/features/shared-state',

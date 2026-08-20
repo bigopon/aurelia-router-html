@@ -1827,6 +1827,102 @@ describe('au-route animation scheduling', function () {
     }
   });
 
+  it('settles css animation from transitionend before the fallback timer elapses', async function () {
+    const fixture = await createFixture(
+      '<au-route path="/animated" animate><span data-animated style="transition-property: opacity; transition-duration: 1s; transition-delay: 0s;">Animated route</span></au-route>',
+      class App {},
+      [Routing.customize({ animations: { fallbackMs: 1000 } })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/animated');
+      const platform = fixture.container.get(IPlatform) as IPlatform & {
+        requestAnimationFrame: typeof requestAnimationFrame;
+      };
+      await new Promise<void>(resolve => {
+        platform.requestAnimationFrame(() => {
+          platform.requestAnimationFrame(() => resolve());
+        });
+      });
+
+      const element = fixture.appHost.querySelector<HTMLElement>('[data-animated]');
+      assert.strictEqual(element?.dataset.auRouteTransition, 'enter');
+      const transitionEnd = fixture.appHost.ownerDocument.createEvent('Event');
+      transitionEnd.initEvent('transitionend', true, false);
+      element?.dispatchEvent(transitionEnd);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await Promise.resolve();
+
+      assert.strictEqual(element?.dataset.auRouteTransition, undefined);
+      assert.strictEqual(element?.classList.contains('au-route-enter-active'), false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('invokes transition-end once per route after all animated roots settle', async function () {
+    class App {
+      public readonly transitions: Array<{ direction: string; navigationId: number; animated: boolean }> = [];
+
+      public readonly onTransitionEnd = (context: { direction: 'enter' | 'leave'; navigationId: number; animated: boolean }): void => {
+        this.transitions.push({
+          direction: context.direction,
+          navigationId: context.navigationId,
+          animated: context.animated,
+        });
+      };
+    }
+
+    const fixture = await createFixture(
+      `<au-route
+        path="/animated"
+        animate
+        transition-end.bind="onTransitionEnd">
+        <span data-first style="transition-property: opacity; transition-duration: 1s; transition-delay: 0s;">First</span>
+        <span data-second style="transition-property: opacity; transition-duration: 1s; transition-delay: 0s;">Second</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ animations: { fallbackMs: 1000 } })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/animated');
+      const platform = fixture.container.get(IPlatform) as IPlatform & {
+        requestAnimationFrame: typeof requestAnimationFrame;
+      };
+      await new Promise<void>(resolve => {
+        platform.requestAnimationFrame(() => {
+          platform.requestAnimationFrame(() => resolve());
+        });
+      });
+
+      const first = fixture.appHost.querySelector<HTMLElement>('[data-first]');
+      const second = fixture.appHost.querySelector<HTMLElement>('[data-second]');
+      assert.strictEqual(fixture.component.transitions.length, 0);
+
+      const firstTransitionEnd = fixture.appHost.ownerDocument.createEvent('Event');
+      firstTransitionEnd.initEvent('transitionend', true, false);
+      first?.dispatchEvent(firstTransitionEnd);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      assert.strictEqual(fixture.component.transitions.length, 0);
+
+      const secondTransitionEnd = fixture.appHost.ownerDocument.createEvent('Event');
+      secondTransitionEnd.initEvent('transitionend', true, false);
+      second?.dispatchEvent(secondTransitionEnd);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      assert.deepStrictEqual(fixture.component.transitions, [{
+        direction: 'enter',
+        navigationId: router.navigation.id,
+        animated: true,
+      }]);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('awaits callback-based leave animation completion before removing the route view', async function () {
     let finishLeave!: () => void;
     let leaveSignal!: AbortSignal;
