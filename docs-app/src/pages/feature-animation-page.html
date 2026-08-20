@@ -8,39 +8,28 @@
 
   <div class="feature-details">
     <section>
-      <h3>Current surface</h3>
+      <h3>Syntax</h3>
       <pre class="code-block" syntax-html>&lt;au-route path="details" animate&gt;
   ...
 &lt;/au-route&gt;</pre>
-      <p><code>animate</code> is now one route-level animation entry point. Bare <code>animate</code> preserves the existing CSS-class workflow, while string, callback, and object forms normalize into the same internal descriptor.</p>
+      <p><code>animate</code> is route-level animation entry point. Bare <code>animate</code> attributes signals default CSS-class based animation, while other strings, callback, and object forms get normalized into internal descriptor.</p>
     </section>
 
     <section>
-      <h3>Implemented foundation</h3>
+      <h3>Value shapes</h3>
       <pre class="code-block" syntax-html>&lt;au-route path="a" animate&gt;
 &lt;au-route path="b" animate="fade"&gt;
 &lt;au-route path="c" animate.bind="animateRoute"&gt;
 &lt;au-route path="d" animate.bind="{ kind: 'css', name: 'fade' }"&gt;
 &lt;au-route path="e" animate.bind="{ kind: 'js', run: animateRoute }"&gt;</pre>
-      <p>The implemented foundation is one route-level <code>animate</code> property with multiple value shapes. CSS remains the low-friction path; callback animation is the stronger primitive for exact completion and cancellation.</p>
+      <p>One route-level <code>animate</code> property accepts multiple value shapes. CSS remains the low-friction path; callback animation is the stronger primitive for exact completion and cancellation.</p>
       <p>CSS-driven routes now settle from real <code>transitionend</code> and <code>animationend</code> events, with a bounded fallback timer only as the safety net when the browser never delivers those events.</p>
-      <p>The broader design note currently lives in <code>route-animation-design.md</code> in the repository root, while the shipped route-settlement callback has its own guide in the docs app.</p>
+      <p>The route-owned settlement callback lives on its own page as <code>transition-end.bind</code>, because settlement is related to animation but is not itself an animation strategy.</p>
     </section>
 
     <section>
-      <h3>Related capability</h3>
-      <p><code>animate</code> controls how a route transitions. The route-owned completion callback now lives on its own page as <code>transition-end.bind</code>, because it is a transition-settlement capability rather than an animation strategy.</p>
-    </section>
-
-    <section>
-      <h3>Next implementation slice</h3>
-      <ol>
-        <li>Normalize <code>animate</code> into one internal animation descriptor.</li>
-        <li>Keep today's CSS-class behavior working through that normalized descriptor.</li>
-        <li>Add callback-based animation completion.</li>
-        <li>Thread abort and supersession cancellation through the same contract.</li>
-      </ol>
-      <p>This foundation is now in place, including real CSS end-event settlement with bounded fallback. The remaining work in roadmap item 9 can build on it without re-splitting the route animation API.</p>
+      <h3>Settlement</h3>
+      <p>Route animation settlement is part of the shipped contract. Callback animation settles from the returned promise, CSS animation settles from real end events, stale work aborts when navigation is superseded, and bounded fallback timing prevents a route from hanging forever when completion signals never arrive.</p>
     </section>
 
     <section>
@@ -71,7 +60,7 @@
     transform: none;
   }
 }</pre>
-      <p>With the current CSS-based surface, reduced-motion support is expressed through ordinary CSS. If callback animation is added later, the callback context should expose the reduced-motion preference directly.</p>
+      <p>Reduced motion is part of the router-supported transition story. CSS can still express the visual variant directly, and callback-based animation can branch on the same reduced-motion-aware contract.</p>
     </section>
   </div>
 

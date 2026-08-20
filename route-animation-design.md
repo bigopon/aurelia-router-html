@@ -1,10 +1,11 @@
 # Route Animation Design
 
 Status: active design note for roadmap item 9. The current router now supports
-the first foundation slice of the unified `animate` API: route-level animate
-normalization, compatibility with the existing CSS-class path, callback-based
-completion, and abort-aware supersession handling. The broader accessibility
-and announcement work remains for later.
+the transition-settlement foundation of the unified `animate` API: route-level
+animate normalization, compatibility with the existing CSS-class path,
+callback-based completion, real CSS end-event settlement, bounded fallback
+timing, router-owned reduced-motion handling, and abort-aware supersession
+handling. The broader accessibility announcement work remains for later.
 
 ## Short version
 
@@ -26,27 +27,26 @@ Current direction:
 
 - keep `animate` as the single route-level entry point;
 - continue supporting simple CSS-driven animation;
-- allow callback-driven animation through the same property later;
-- make reduced-motion behavior part of the router-supported transition story
+- allow callback-driven animation through the same property;
+- keep reduced-motion behavior part of the router-supported transition story
   when the router owns animation settlement.
 
-## Immediate implementation slice
+## Implemented foundation
 
-The first implementation pass stays narrower than the full roadmap item.
+The first implementation pass stayed narrower than the full roadmap item, and
+that foundation is now in place:
 
-The bounded slice is:
+1. `animate` normalizes into one internal animation descriptor;
+2. the CSS-class workflow runs through that normalized descriptor;
+3. callback-based animation completion is supported;
+4. abort and supersession cancellation run through the same contract;
+5. CSS settlement prefers real end events and falls back only when those
+   signals never arrive.
 
-1. normalize `animate` into one internal animation descriptor;
-2. keep today's CSS-class behavior working through that normalized descriptor;
-3. add callback-based animation completion;
-4. thread abort and supersession cancellation through the same contract.
-
-That means the router is ready to support both CSS and callback animation
+That means the router is now ready to support both CSS and callback animation
 under one route-level property without trying to solve every transition and
-accessibility concern in the same change.
-
-Items such as settled announcements and the broader accessibility contract can
-follow after this foundation is in place.
+accessibility concern in the same change. Settled announcements and the
+broader accessibility contract remain the follow-up scope.
 
 ## Why a single property is better
 
@@ -156,7 +156,7 @@ Why the callback direction is useful:
 - direct reduced-motion branching without forcing CSS media-query-only designs;
 - less dependence on guessed timing.
 
-For the implemented foundation slice, callback support only needs one
+For the implemented foundation, callback support only needs one
 completion rule:
 
 - the callback may return nothing for synchronous completion;
@@ -191,18 +191,18 @@ This also keeps backward compatibility straightforward for the current pass:
 
 ## Reduced motion
 
-If the router owns transition settlement, reduced-motion support should be part
+Because the router owns transition settlement, reduced-motion support is part
 of the router-supported transition model rather than being entirely delegated
 to every application.
 
-That does not mean the router must invent a complex accessibility policy. It
-does mean the router should make the safe path easy:
+The shipped foundation keeps the safe path built in:
 
-- CSS-based animation should work naturally with
-  `@media (prefers-reduced-motion: reduce)`;
-- callback animation should receive a reduced-motion signal or equivalent flag;
-- the built-in behavior should not force unnecessary motion when the platform
-  has explicitly requested less motion.
+- CSS-based animation can pair with `@media (prefers-reduced-motion: reduce)`
+  without opting out of router settlement;
+- callback animation can branch on the reduced-motion-aware context instead of
+  re-discovering platform preference independently;
+- the built-in behavior does not force unnecessary motion when the platform has
+  explicitly requested less motion.
 
 ## Real completion and fallback timing
 
@@ -230,7 +230,8 @@ When roadmap item 9 is picked up:
 
 - keep `animate` as the single public route-level entry point;
 - preserve today's CSS class workflow;
-- add callback and object forms through normalization, not parallel APIs;
-- include reduced-motion support in the router-owned transition contract;
+- keep callback and object forms on the normalized API, not parallel APIs;
 - keep final settlement on real completion semantics, with bounded fallback only
-  as a safety net.
+  as a safety net;
+- add settled announcements and the remaining accessibility feedback policy on
+  top of the already shipped reduced-motion support.

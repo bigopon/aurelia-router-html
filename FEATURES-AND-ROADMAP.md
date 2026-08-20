@@ -489,6 +489,17 @@ remaining roadmap work.
    public shape provides flat active route snapshots plus branch-oriented route
    and path views, without assuming one singular active route chain.
 
+9. **Route-owned transition settlement foundation.** The route animation
+   surface now supports a unified `animate` entry point with CSS, named CSS,
+   callback, and object forms normalized into one internal model. CSS-driven
+   transitions settle from real `transitionend` and `animationend` completion;
+   callback-driven transitions settle from the returned promise; superseded
+   transitions abort stale work; bounded fallback timing remains only as a
+   safety net when browser completion signals never arrive; and router-owned
+   reduced-motion support is already part of the transition contract. The
+   broader accessibility work for transitions remains as follow-up scope under
+   item 9.
+
 10. **Nested router foundation.** `au-router` is implemented as a local
     memory-backed router boundary with two-way `current-path`, nested
     `au-route` and `au-link` ownership, redirect handling, internal query/hash
@@ -512,11 +523,13 @@ remaining roadmap work.
    discussion rather than an accepted API. The current notes are documented in
    [exclusive-matching.md](exclusive-matching.md).
 
-9. **Accessibility-aware transitions.** Announce settled route changes, honor
-   `prefers-reduced-motion`, and complete transitions from actual animation or
-   transition completion while retaining a bounded fallback for missing
-   browser events. The current API and behavior notes are documented in
-   [route-animation-design.md](route-animation-design.md).
+9. **Accessibility-aware transitions.** Announce settled route changes and
+   finish the router-owned accessibility feedback contract that sits on top of
+   the now-implemented transition settlement foundation. Real completion
+   semantics, bounded fallback timing, and router-supported
+   `prefers-reduced-motion` are already delivered; the remaining work is
+   announcement and feedback policy. The current API and behavior notes are
+   documented in [route-animation-design.md](route-animation-design.md).
 
 10. **Nested router extensions.** Extend the implemented memory-backed
     `au-router` boundary with the next layers of behavior: explicit composition
