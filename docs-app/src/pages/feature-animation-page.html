@@ -24,7 +24,7 @@
 &lt;au-route path="e" animate.bind="{ kind: 'js', run: animateRoute }"&gt;</pre>
       <p>The implemented foundation is one route-level <code>animate</code> property with multiple value shapes. CSS remains the low-friction path; callback animation is the stronger primitive for exact completion and cancellation.</p>
       <p>CSS-driven routes now settle from real <code>transitionend</code> and <code>animationend</code> events, with a bounded fallback timer only as the safety net when the browser never delivers those events.</p>
-      <p>The broader design note currently lives in <code>route-animation-design.md</code> in the repository root.</p>
+      <p>The broader design note currently lives in <code>route-animation-design.md</code> in the repository root, while the shipped route-settlement callback has its own guide in the docs app.</p>
     </section>
 
     <section>
@@ -73,6 +73,13 @@
 }</pre>
       <p>With the current CSS-based surface, reduced-motion support is expressed through ordinary CSS. If callback animation is added later, the callback context should expose the reduced-motion preference directly.</p>
     </section>
+  </div>
+
+  <div class="overview-links">
+    <a class="example-jump" au-link="/features/transition-end">See transition settlement callbacks</a>
+    <a class="example-jump" au-link="/features/focus">See focus waiting for route transitions</a>
+    <a class="example-jump" au-link="/features/hash-scrolling">See scroll behavior after settled route views</a>
+    <a class="example-jump" au-link="/features/lifecycle">See loaded versus visual transition settlement</a>
   </div>
 
   <playground-page example-id="route-animations" embedded.bind="true"></playground-page>

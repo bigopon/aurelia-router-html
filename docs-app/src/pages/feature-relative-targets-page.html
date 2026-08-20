@@ -66,6 +66,13 @@ const active = this.route.isActive('../compare/:otherId', {
     </section>
   </div>
 
+  <div class="overview-links">
+    <a class="example-jump" au-link="/features/redirects">See relative redirect targets</a>
+    <a class="example-jump" au-link="/features/programmatic">See the same rules through route context APIs</a>
+    <a class="example-jump" au-link="/features/nested-router">See nested router target scoping</a>
+    <a class="example-jump" au-link="/features/active-links">See active-link checks with relative targets</a>
+  </div>
+
   <playground-page example-id="relative-targets" embedded.bind="true"></playground-page>
   <playground-page example-id="relative-targets-nested-router" embedded.bind="true"></playground-page>
 </section>
