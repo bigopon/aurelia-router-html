@@ -1,0 +1,70 @@
+<section class="docs-search-shell" ref="searchShell" focusout.trigger="onShellFocusOut($event)" aria-label="Search documentation">
+  <button
+    if.bind="isExpanded"
+    class="docs-search-backdrop"
+    type="button"
+    tabindex="-1"
+    aria-hidden="true"
+    click.trigger="dismissSearch()">
+  </button>
+  <label class="docs-search-label" for="docs-search-input">Search docs</label>
+  <div class="docs-search-field">
+    <input
+      id="docs-search-input"
+      class="docs-search-input"
+      ref="searchInput"
+      type="search"
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+      placeholder="Search docs"
+      value.bind="searchQuery"
+      focus.trigger="openSearch()"
+      input.trigger="onInput()"
+      keydown.trigger="onKeyDown($event)">
+    <span if.bind="searchQuery.length === 0" class="docs-search-shortcut" aria-hidden="true">${shortcutHint}</span>
+    <button
+      if.bind="searchQuery.length > 0"
+      class="docs-search-clear"
+      type="button"
+      aria-label="Clear search"
+      click.trigger="clearSearch()">
+      Clear
+    </button>
+  </div>
+
+  <section if.bind="isExpanded && (loading || statusMessage.length > 0 || results.length > 0)" class="docs-search-results-shell">
+    <p if.bind="loading" class="docs-search-status" role="status">Searching...</p>
+    <p if.bind="!loading && statusMessage.length > 0" class="docs-search-status" role="status">${statusMessage}</p>
+
+    <ol if.bind="results.length > 0" class="docs-search-results" ref="resultsList">
+      <li repeat.for="result of results" class="docs-search-result">
+        <a
+          class.bind="$index === focusedIndex ? 'docs-search-link is-focused' : 'docs-search-link'"
+          au-link.bind="result.url"
+          ref="resultLinks[$index]"
+          tabindex.bind="$index === focusedIndex ? '0' : '-1'"
+          click.trigger="onResultClick($event, result)">
+          <span class="docs-search-title">${result.title}</span>
+          <span if.bind="result.section.length > 0" class="docs-search-section">${result.section}</span>
+          <span if.bind="result.excerpt.length > 0" class="docs-search-excerpt" innerhtml.bind="result.excerpt"></span>
+          <code class="docs-search-path">${result.url}</code>
+        </a>
+      </li>
+    </ol>
+
+    <div if.bind="loadingMoreMessage.length > 0" class="docs-search-loading-overlay" role="status" aria-live="polite">
+      <div class="docs-search-loading-card">${loadingMoreMessage}</div>
+    </div>
+
+    <div if.bind="hasOverflowResults" class="docs-search-actions">
+      <p class="docs-search-overflow-note">
+        Showing ${results.length} of ${totalResults}. Arrow down near the end to load more, or press End to jump to the expanded list.
+      </p>
+    </div>
+  </section>
+
+  <p if.bind="indexUnavailable" class="docs-search-note">
+    Search index is unavailable in this environment. Run the docs build once to generate <code>/pagefind</code> assets for local search.
+  </p>
+</section>

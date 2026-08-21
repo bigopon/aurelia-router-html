@@ -5,6 +5,7 @@ import { DocsApp } from './pages/docs-app';
 import { SyntaxHtml } from './resources/syntax-html';
 import { SyntaxCss } from './resources/syntax-css';
 import { SyntaxTypeScript } from './resources/syntax-typescript';
+import { DocsSearch } from './resources/docs-search';
 import './main.css';
 
 export interface DocsAppOptions {
@@ -16,6 +17,7 @@ export function createDocsApp(host: HTMLElement, options: DocsAppOptions = {}): 
   const routing = options.adapter == null
     ? Routing.customize({
       animations: false,
+      focus: true,
       titles: {
         fallback: 'Aurelia Router HTML',
         compose: titles => `${titles[0]} | Aurelia Router HTML`,
@@ -35,6 +37,7 @@ export function createDocsApp(host: HTMLElement, options: DocsAppOptions = {}): 
       SyntaxHtml,
       SyntaxCss,
       SyntaxTypeScript,
+      DocsSearch,
       ...(options.resources ?? []),
     )
     .app({

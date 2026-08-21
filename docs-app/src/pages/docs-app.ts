@@ -1,3 +1,5 @@
+import { resolve } from 'aurelia';
+import { IRouteContext, type IRouteContext as IRouteContextType } from '../../../router/route-context';
 import { docNav } from '../data/docs-nav';
 import { ApiCheatSheetPage } from './api-cheat-sheet-page';
 import { FeatureAdaptersPage } from './feature-adapters-page';
@@ -33,11 +35,13 @@ import { FeatureWildcardPage } from './feature-wildcard-page';
 import { OverviewPage } from './overview-page';
 import { WhyRouterHtmlPage } from './why-router-html-page';
 import { PrivacyPage } from './privacy-page';
+import type { DocsSearchSelectDetail } from '../resources/docs-search';
 import { enableAnalytics, getAnalyticsConsent, saveAnalyticsConsent, type AnalyticsConsent } from '../analytics';
 import template from './docs-app.html?raw';
 
 type Theme = 'light' | 'dark';
 const themeKey = 'router-html-theme';
+const focusRequestEvent = 'docs-search-focus-request';
 
 export class DocsApp {
   public static readonly $au = {
@@ -87,7 +91,24 @@ export class DocsApp {
   public scrolled: boolean = false;
   public theme: Theme = getTheme();
   public analyticsConsent: AnalyticsConsent = getAnalyticsConsent();
+  private readonly route = resolve(IRouteContext) as IRouteContextType;
   private readonly onPrivacyChoices = () => this.showPrivacyChoices();
+  private readonly onSearchSelect = (event: Event) => {
+    const customEvent = event as CustomEvent<DocsSearchSelectDetail>;
+    void this.route.load(customEvent.detail.result.url);
+  };
+  private readonly onGlobalKeyDown = (event: KeyboardEvent) => {
+    if (shouldIgnoreSearchShortcut(event)) {
+      return;
+    }
+    const isFocusShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+    const isSlashShortcut = !event.metaKey && !event.ctrlKey && !event.altKey && event.key === '/';
+    if (!isFocusShortcut && !isSlashShortcut) {
+      return;
+    }
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent(focusRequestEvent));
+  };
   private readonly onScroll = () => {
     this.scrolled = window.scrollY > 8;
   };
@@ -95,6 +116,8 @@ export class DocsApp {
 
   public constructor() {
     this.applyTheme();
+    window.addEventListener('docs-search-select', this.onSearchSelect as EventListener);
+    window.addEventListener('keydown', this.onGlobalKeyDown);
     window.addEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
     window.addEventListener('scroll', this.onScroll, { passive: true });
     this.onScroll();
@@ -106,6 +129,8 @@ export class DocsApp {
   public unbinding(): void {
     this.navObserver?.disconnect();
     this.navObserver = null;
+    window.removeEventListener('docs-search-select', this.onSearchSelect as EventListener);
+    window.removeEventListener('keydown', this.onGlobalKeyDown);
     window.removeEventListener('router-html:show-privacy-choices', this.onPrivacyChoices);
     window.removeEventListener('scroll', this.onScroll);
   }
@@ -174,4 +199,20 @@ function getTheme(): Theme {
   } catch {
     return 'light';
   }
+}
+
+function shouldIgnoreSearchShortcut(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented) {
+    return true;
+  }
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement;
 }
