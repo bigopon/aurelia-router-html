@@ -1,4 +1,4 @@
-<section class="docs-search-shell" ref="searchShell" focusout.trigger="onShellFocusOut($event)" aria-label="Search documentation">
+<section class.bind="isKeyboardNavigating ? 'docs-search-shell is-keyboard-nav' : 'docs-search-shell'" ref="searchShell" focusout.trigger="onShellFocusOut($event)" aria-label="Search documentation">
   <button
     if.bind="isExpanded"
     class="docs-search-backdrop"
@@ -33,9 +33,12 @@
     </button>
   </div>
 
-  <section if.bind="isExpanded && (loading || statusMessage.length > 0 || results.length > 0)" class="docs-search-results-shell">
+  <section if.bind="isExpanded && (loading || statusMessage.length > 0 || results.length > 0 || indexUnavailable)" class="docs-search-results-shell">
     <p if.bind="loading" class="docs-search-status" role="status">Searching...</p>
     <p if.bind="!loading && statusMessage.length > 0" class="docs-search-status" role="status">${statusMessage}</p>
+    <p if.bind="indexUnavailable" class="docs-search-note">
+      Search index is unavailable in this environment. Run the docs build once to generate <code>/pagefind</code> assets for local search.
+    </p>
 
     <ol if.bind="results.length > 0" class="docs-search-results" ref="resultsList">
       <li repeat.for="result of results" class="docs-search-result">
@@ -44,6 +47,8 @@
           au-link.bind="result.url"
           ref="resultLinks[$index]"
           tabindex.bind="$index === focusedIndex ? '0' : '-1'"
+          aria-selected.bind="$index === focusedIndex ? 'true' : 'false'"
+          mouseenter.trigger="onResultPointerEnter($index)"
           click.trigger="onResultClick($event, result)">
           <span class="docs-search-title">${result.title}</span>
           <span if.bind="result.section.length > 0" class="docs-search-section">${result.section}</span>
@@ -63,8 +68,4 @@
       </p>
     </div>
   </section>
-
-  <p if.bind="indexUnavailable" class="docs-search-note">
-    Search index is unavailable in this environment. Run the docs build once to generate <code>/pagefind</code> assets for local search.
-  </p>
 </section>

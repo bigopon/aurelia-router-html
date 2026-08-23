@@ -62,6 +62,7 @@ export class DocsSearch {
   public totalResults: number = 0;
   public focusedIndex: number = -1;
   public isExpanded: boolean = false;
+  public isKeyboardNavigating: boolean = false;
   public readonly shortcutHint: string = navigator.platform.toLowerCase().includes('mac') ? 'Cmd K or /' : 'Ctrl K or /';
   public searchShell: HTMLElement | null = null;
   public searchInput: HTMLInputElement | null = null;
@@ -87,6 +88,8 @@ export class DocsSearch {
   private resultDataCache: Promise<SearchResult>[] = [];
   /** @internal */
   private focusRequestToken: number = 0;
+  /** @internal */
+  private pendingFocusedIndex: number = -1;
 
   public attached(): void {
     window.addEventListener(focusRequestEvent, this.onFocusRequest);
@@ -109,6 +112,7 @@ export class DocsSearch {
 
   public onInput(): void {
     this.isExpanded = true;
+    this.isKeyboardNavigating = false;
     this.syncOverlayState();
     if (this.searchTimeout != null) {
       clearTimeout(this.searchTimeout);
@@ -125,6 +129,7 @@ export class DocsSearch {
 
   public openSearch(): void {
     this.isExpanded = true;
+    this.isKeyboardNavigating = false;
     this.syncOverlayState();
   }
 
@@ -138,6 +143,8 @@ export class DocsSearch {
   public dismissSearch(): void {
     this.isExpanded = false;
     this.focusedIndex = -1;
+    this.pendingFocusedIndex = -1;
+    this.isKeyboardNavigating = false;
     this.syncOverlayState();
     this.searchInput?.blur();
   }
@@ -151,16 +158,24 @@ export class DocsSearch {
   }
 
   public onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.dismissSearch();
+      return;
+    }
+
     if (this.results.length === 0) {
       return;
     }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
+      this.isKeyboardNavigating = true;
       void this.moveFocus(1);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
+      this.isKeyboardNavigating = true;
       if (this.focusedIndex <= 0) {
         this.focusedIndex = -1;
         return;
@@ -178,6 +193,7 @@ export class DocsSearch {
     }
     if (event.key === 'End' && this.hasOverflowResults) {
       event.preventDefault();
+      this.isKeyboardNavigating = true;
       void this.showMoreResults(true);
     }
   }
@@ -190,8 +206,14 @@ export class DocsSearch {
 
   public onResultClick(event: MouseEvent, result: SearchResult): void {
     event.preventDefault();
+    this.isKeyboardNavigating = false;
     this.concludeSearch();
     this.dispatchSelect(result, 'pointer');
+  }
+
+  public onResultPointerEnter(index: number): void {
+    this.isKeyboardNavigating = false;
+    this.focusedIndex = index;
   }
 
   public async showMoreResults(focusLastResult: boolean = false): Promise<void> {
@@ -229,6 +251,7 @@ export class DocsSearch {
     this.loadingMoreMessage = '';
     this.statusMessage = '';
     this.focusedIndex = -1;
+    this.pendingFocusedIndex = -1;
     this.resultLinks.length = 0;
     this.visibleResults = initialVisibleResults;
     this.hydratedResults = [];
@@ -295,6 +318,10 @@ export class DocsSearch {
       : this.totalResults > this.results.length
         ? `Showing ${this.results.length} of ${this.totalResults} results for "${term}".`
         : `${this.totalResults} result${this.totalResults === 1 ? '' : 's'} for "${term}".`;
+
+    if (this.pendingFocusedIndex < 0 && this.focusedIndex >= 0 && this.focusedIndex < this.results.length) {
+      void this.scheduleResultVisibility(this.focusedIndex, ++this.focusRequestToken);
+    }
   }
 
   /** @internal */
@@ -315,57 +342,135 @@ export class DocsSearch {
   /** @internal */
   private focusResult(index: number): void {
     this.focusedIndex = index;
-    void this.scheduleResultScroll(index, ++this.focusRequestToken);
+    void this.scheduleResultVisibility(index, ++this.focusRequestToken);
   }
 
   /** @internal */
-  private async scheduleResultScroll(index: number, token: number): Promise<void> {
-    for (let attempt = 0; attempt < 6; attempt++) {
+  private async scheduleResultVisibility(index: number, token: number): Promise<void> {
+    let stableFrames = 0;
+    let previousScrollHeight = -1;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
       if (token !== this.focusRequestToken) {
         return;
       }
+
       await waitForFrame();
-      const link = this.resultLinks[index];
+
       const list = this.resultsList;
-      if (link != null && link.isConnected && list != null && list.isConnected) {
-        this.scrollResultIntoView(list, link);
-        return;
+      const link = this.getSelectedResultLink(index);
+      if (link == null || !link.isConnected || list == null || !list.isConnected) {
+        continue;
       }
+
+      this.ensureResultVisible(list, link);
+
+      if (!this.isResultFullyVisible(list, link)) {
+        stableFrames = 0;
+        previousScrollHeight = list.scrollHeight;
+        continue;
+      }
+
+      if (list.scrollHeight === previousScrollHeight) {
+        stableFrames++;
+        if (stableFrames >= 2) {
+          return;
+        }
+      } else {
+        stableFrames = 0;
+      }
+
+      previousScrollHeight = list.scrollHeight;
     }
   }
 
   /** @internal */
-  private scrollResultIntoView(list: HTMLOListElement, link: HTMLAnchorElement): void {
-    const scrollMargin = 10;
-    const listRect = list.getBoundingClientRect();
-    const linkRect = link.getBoundingClientRect();
-    const topDelta = linkRect.top - listRect.top;
-    const bottomDelta = linkRect.bottom - listRect.bottom;
+  private ensureResultVisible(list: HTMLOListElement, link: HTMLAnchorElement): void {
+    const { itemTop, itemBottom, viewportTop, viewportBottom } = this.getVisibilityState(list, link);
 
-    if (topDelta < scrollMargin) {
-      list.scrollTop = Math.max(0, list.scrollTop + topDelta - scrollMargin);
+    if (itemTop < viewportTop) {
+      link.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+      });
       return;
     }
 
-    if (bottomDelta > -scrollMargin) {
-      list.scrollTop = list.scrollTop + bottomDelta + scrollMargin;
+    if (itemBottom > viewportBottom) {
+      link.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+      });
     }
+  }
+
+  /** @internal */
+  private isResultFullyVisible(list: HTMLOListElement, link: HTMLAnchorElement): boolean {
+    const { itemTop, itemBottom, viewportTop, viewportBottom } = this.getVisibilityState(list, link);
+
+    return itemTop >= viewportTop && itemBottom <= viewportBottom;
+  }
+
+  /** @internal */
+  private getVisibilityState(list: HTMLOListElement, link: HTMLAnchorElement): {
+    itemTop: number;
+    itemBottom: number;
+    viewportTop: number;
+    viewportBottom: number;
+  } {
+    const scrollMargin = getScrollMargin(link);
+    const visibilityBuffer = 4;
+    const listRect = list.getBoundingClientRect();
+    const linkRect = link.getBoundingClientRect();
+    const itemTop = list.scrollTop + (linkRect.top - listRect.top) - scrollMargin.start - visibilityBuffer;
+    const itemBottom = list.scrollTop + (linkRect.bottom - listRect.top) + scrollMargin.end + visibilityBuffer;
+    const viewportTop = list.scrollTop;
+    const viewportBottom = viewportTop + list.clientHeight;
+
+    return {
+      itemTop,
+      itemBottom,
+      viewportTop,
+      viewportBottom,
+    };
+  }
+
+  /** @internal */
+  private getSelectedResultLink(index: number): HTMLAnchorElement | null {
+    const selectedLink = this.resultsList?.querySelector<HTMLAnchorElement>('.docs-search-link.is-focused');
+    if (selectedLink != null) {
+      return selectedLink;
+    }
+
+    return this.resultLinks[index] ?? null;
   }
 
   /** @internal */
   private async moveFocus(delta: number): Promise<void> {
+    if (this.loadingMoreResults && this.pendingFocusedIndex >= 0) {
+      return;
+    }
+
     const nextIndex = Math.min(this.focusedIndex + delta, this.results.length - 1);
     const needsMoreResults = delta > 0
       && nextIndex >= this.results.length - 2
       && this.hasOverflowResults;
 
     if (needsMoreResults) {
+      const targetIndex = Math.min(this.focusedIndex + delta, this.totalResults - 1);
+      this.focusedIndex = targetIndex;
+      this.pendingFocusedIndex = targetIndex;
       const previousLength = this.results.length;
       await this.showMoreResults();
       if (this.results.length > previousLength) {
-        this.focusResult(Math.min(this.focusedIndex + delta, this.results.length - 1));
+        const resolvedIndex = Math.min(targetIndex, this.results.length - 1);
+        this.pendingFocusedIndex = -1;
+        this.focusResult(resolvedIndex);
         return;
       }
+
+      this.pendingFocusedIndex = -1;
+      this.focusedIndex = Math.min(targetIndex - 1, this.results.length - 1);
     }
 
     this.focusResult(nextIndex);
@@ -379,6 +484,8 @@ export class DocsSearch {
     this.results = [];
     this.totalResults = 0;
     this.focusedIndex = -1;
+    this.pendingFocusedIndex = -1;
+    this.isKeyboardNavigating = false;
     this.resultLinks.length = 0;
     this.resultsList = null;
     this.visibleResults = initialVisibleResults;
@@ -419,4 +526,23 @@ export class DocsSearch {
 
 function waitForFrame(): Promise<void> {
   return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
+function getScrollMargin(element: HTMLElement): { start: number; end: number } {
+  const style = getComputedStyle(element);
+  return {
+    start: readPx(style.scrollMarginTop, style.scrollMarginBlockStart),
+    end: readPx(style.scrollMarginBottom, style.scrollMarginBlockEnd),
+  };
+}
+
+function readPx(...values: string[]): number {
+  for (const value of values) {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
 }

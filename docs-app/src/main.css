@@ -387,6 +387,12 @@ docs-search {
   display: block;
   width: min(320px, 38vw);
   transition: width 180ms ease;
+  order: 1;
+}
+
+.desktop-theme-switch {
+  order: 2;
+  flex: 0 0 auto;
 }
 
 docs-search:focus-within,
@@ -507,6 +513,7 @@ docs-search:has(.docs-search-results) {
   color: inherit;
   text-decoration: none;
   background: var(--panel-soft);
+  scroll-margin-block: 10px;
 }
 
 .docs-search-link:hover,
@@ -515,7 +522,18 @@ docs-search:has(.docs-search-results) {
   outline: 0;
 }
 
+.docs-search-shell.is-keyboard-nav .docs-search-link:hover {
+  border-color: var(--line);
+  background: var(--panel-soft);
+}
+
 .docs-search-link.is-focused {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--panel-soft) 70%, var(--brand) 30%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 60%, transparent);
+}
+
+.docs-search-shell.is-keyboard-nav .docs-search-link.is-focused:hover {
   border-color: var(--brand);
   background: color-mix(in srgb, var(--panel-soft) 70%, var(--brand) 30%);
 }
@@ -1660,8 +1678,17 @@ button.primary,
   }
 
   docs-search {
-    width: auto;
+    width: 100%;
     margin: 0;
+  }
+
+  docs-search:focus-within,
+  docs-search:has(.docs-search-results) {
+    width: 100%;
+  }
+
+  .docs-search-shortcut {
+    display: none;
   }
 
   .main-panel .page-header {
@@ -1678,10 +1705,13 @@ button.primary,
   }
 
   .docs-search-results-shell {
-    right: -88px;
-    left: -48px;
-    width: auto;
+    position: fixed;
+    top: 62px;
+    right: 0;
+    left: 0;
+    width: 100vw;
     min-width: 0;
+    border-radius: 0 0 18px 18px;
   }
 
   .docs-search-actions {
