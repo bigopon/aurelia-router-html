@@ -1,0 +1,331 @@
+<style>
+  .org-demo-page {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    color: #e8f3ef;
+    user-select: none;
+    -webkit-user-select: none;
+    background:
+      radial-gradient(circle at top left, rgba(66, 153, 129, 0.18), transparent 30%),
+      radial-gradient(circle at top right, rgba(24, 119, 242, 0.16), transparent 28%),
+      linear-gradient(180deg, #091714 0%, #0e221d 100%);
+  }
+
+  .org-demo-page .canvas-toolbar button,
+  .org-demo-page .node-action,
+  .org-demo-page .tooltip-button {
+    border: 1px solid rgba(193, 226, 215, 0.18);
+    border-radius: 999px;
+    color: #e8f3ef;
+    background: rgba(12, 31, 26, 0.86);
+    backdrop-filter: blur(14px);
+  }
+
+  .org-demo-page .canvas-toolbar button,
+  .org-demo-page .node-action {
+    padding: 6px 9px;
+  }
+
+  .org-demo-page .canvas-toolbar {
+    position: absolute;
+    z-index: 20;
+    top: 4px;
+    right: 4px;
+    display: flex;
+  }
+
+  .org-demo-page .back-link {
+    position: absolute;
+    z-index: 20;
+    top: 4px;
+    left: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 9px;
+    border: 1px solid rgba(193, 226, 215, 0.18);
+    border-radius: 12px;
+    color: #d8ece6;
+    text-decoration: none;
+    background: rgba(10, 26, 22, 0.82);
+    backdrop-filter: blur(14px);
+    cursor: pointer;
+  }
+
+  .org-demo-page .toolbar-group,
+  .org-demo-page .path-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 9px;
+    border: 1px solid rgba(193, 226, 215, 0.18);
+    border-radius: 12px;
+    color: #d8ece6;
+    background: rgba(10, 26, 22, 0.82);
+    backdrop-filter: blur(14px);
+  }
+
+  .org-demo-page .toolbar-group strong {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8fb4a8;
+  }
+
+  .org-demo-page .toolbar-group span,
+  .org-demo-page .path-chip span {
+    font-size: 0.78rem;
+  }
+
+  .org-demo-page .path-chip {
+    position: absolute;
+    z-index: 20;
+    left: 4px;
+    bottom: 4px;
+  }
+
+  .org-demo-page .path-chip code {
+    color: #f4fbf8;
+    font-size: 0.72rem;
+  }
+
+  .org-demo-page .canvas-viewport {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .org-demo-page .canvas-viewport.is-dragging {
+    cursor: grabbing;
+  }
+
+  .org-demo-page .canvas-surface {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max-content;
+    min-width: 100%;
+    min-height: 100%;
+    padding: 40px 120px 240px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    transform-origin: 0 0;
+  }
+
+  .org-demo-page .org-tree,
+  .org-demo-page .org-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .org-demo-page .org-tree {
+    display: flex;
+    justify-content: center;
+  }
+
+  .org-demo-page .org-tree ul {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 40px;
+    padding-top: 64px;
+  }
+
+  .org-demo-page .org-tree ul::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: calc(50% - 1px);
+    width: 2px;
+    height: 40px;
+    background: rgba(150, 202, 186, 0.34);
+  }
+
+  .org-demo-page .org-tree ul::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    width: calc(100% - 152px);
+    height: 2px;
+    background: rgba(150, 202, 186, 0.34);
+    transform: translateX(-50%);
+  }
+
+  .org-demo-page .org-tree li {
+    position: relative;
+    display: grid;
+    justify-items: center;
+  }
+
+  .org-demo-page .org-tree li::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    width: 2px;
+    height: 32px;
+    background: rgba(150, 202, 186, 0.34);
+    transform: translateX(-50%);
+  }
+
+  .org-demo-page .org-tree > li::before,
+  .org-demo-page .org-tree > li > ul::before,
+  .org-demo-page .org-tree > li > ul::after {
+    display: none;
+  }
+
+  .org-demo-page .node-shell {
+    position: relative;
+    display: grid;
+    width: 208px;
+  }
+
+  .org-demo-page .node-card {
+    width: 100%;
+    display: grid;
+    gap: 7px;
+    padding: 13px 14px 12px;
+    border: 1px solid rgba(179, 222, 207, 0.18);
+    border-radius: 18px;
+    color: #effaf6;
+    background: linear-gradient(180deg, rgba(15, 37, 32, 0.96), rgba(9, 24, 21, 0.94));
+    box-shadow:
+      0 18px 40px rgba(3, 10, 9, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .org-demo-page .node-shell.is-active > .node-card {
+    border-color: rgba(100, 230, 191, 0.72);
+    box-shadow:
+      0 22px 54px rgba(3, 10, 9, 0.34),
+      0 0 0 1px rgba(100, 230, 191, 0.25);
+  }
+
+  .org-demo-page .node-shell.is-selected > .node-card {
+    background: linear-gradient(180deg, rgba(13, 93, 74, 0.96), rgba(8, 53, 42, 0.96));
+  }
+
+  .org-demo-page .node-card strong,
+  .org-demo-page .node-card span,
+  .org-demo-page .node-card p {
+    margin: 0;
+  }
+
+  .org-demo-page .node-role {
+    color: #83cdb6;
+    font-size: 0.84rem;
+  }
+
+  .org-demo-page .node-path {
+    color: #9ebcb2;
+    font-size: 0.74rem;
+  }
+
+  .org-demo-page .node-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .org-demo-page .node-action {
+    cursor: pointer;
+    position: relative;
+    z-index: 3;
+  }
+
+  .org-demo-page .tooltip-button {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    font-size: 0.8rem;
+    cursor: pointer;
+    z-index: 4;
+  }
+
+  .org-demo-page .tooltip-panel {
+    position: absolute;
+    z-index: 5;
+    top: 34px;
+    right: 0;
+    width: 190px;
+    padding: 10px 12px;
+    border: 1px solid rgba(193, 226, 215, 0.16);
+    border-radius: 14px;
+    color: #d6ece5;
+    background: rgba(7, 18, 15, 0.96);
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
+  }
+
+  .org-demo-page .tooltip-panel p,
+  .org-demo-page .node-note,
+  .org-demo-page .collapsed-note {
+    margin: 0;
+  }
+
+  .org-demo-page .node-note {
+    margin-top: 10px;
+    color: #aac6bc;
+    font-size: 0.84rem;
+  }
+
+  .org-demo-page .collapsed-note {
+    margin-top: 12px;
+    color: #91afa5;
+    font-size: 0.82rem;
+    text-align: center;
+  }
+</style>
+
+<section class="org-demo-page">
+  <a class="back-link" href="/features/org-chart">
+    Back to docs
+  </a>
+
+  <aside class="canvas-toolbar">
+    <div class="toolbar-group">
+      <strong>Canvas</strong>
+      <button click.trigger="zoomOut()">-</button>
+      <span>${Math.round(scale * 100)}%</span>
+      <button click.trigger="zoomIn()">+</button>
+      <button click.trigger="resetView()">Reset</button>
+    </div>
+  </aside>
+
+  <div class="path-chip">
+    <span>Active</span>
+    <code>${activePathLabel}</code>
+  </div>
+
+  <div
+    class.bind="dragging ? 'canvas-viewport is-dragging' : 'canvas-viewport'"
+    ref="viewport"
+    wheel.trigger="onViewportWheel($event)"
+    pointerdown.trigger="onViewportPointerDown($event)"
+    pointermove.trigger="onViewportPointerMove($event)"
+    pointerup.trigger="onViewportPointerUp($event)"
+    pointercancel.trigger="onViewportPointerUp($event)"
+    pointerleave.trigger="onViewportPointerUp()">
+    <div class="canvas-surface" ref="surface" style.bind="'transform: ' + canvasTransform">
+      <ul class="org-tree">
+        <li>
+          <org-chart-demo-node employee-id.bind="rootId" lineage.bind="rootId" chart.bind="this"></org-chart-demo-node>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>

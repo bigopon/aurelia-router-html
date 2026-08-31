@@ -1,0 +1,61 @@
+<section class="route-stack">
+  <header class="page-header">
+    <div>
+      <h2 au-route-focus>Recursive Org Chart</h2>
+      <p class="page-copy">
+        Use nested route segments to grow a connected org chart one manager at a time while the same component keeps rendering each branch level.
+      </p>
+    </div>
+  </header>
+
+  <div class="feature-details">
+    <section>
+      <h3>Syntax</h3>
+      <pre class="code-block" syntax-html>&lt;au-route path="org/:employeeId"&gt;
+  &lt;org-node employee-id.bind="$params.employeeId"&gt;&lt;/org-node&gt;
+&lt;/au-route&gt;
+
+&lt;!-- Inside org-node.html --&gt;
+&lt;au-route repeat.for="report of reports" path.bind="report.id"&gt;
+  &lt;org-node employee-id.bind="report.id"&gt;&lt;/org-node&gt;
+&lt;/au-route&gt;</pre>
+    </section>
+
+    <section>
+      <h3>Meaning</h3>
+      <p>The outer route selects the current employee from the first dynamic segment. Each rendered node registers child routes for its direct reports, and those children point back to the same <code>org-node</code> component. The tree depth therefore comes from data, not from a fixed number of view-models.</p>
+      <p>The route remains the source of truth for the visible branch, so a copied URL can reopen the exact management chain someone is inspecting.</p>
+    </section>
+
+    <section>
+      <h3>Apply it</h3>
+      <p>Use this pattern for org charts, category trees, decision maps, workflow drill-downs, or any hierarchy where one segment chooses the next node and the same UI contract repeats.</p>
+      <p>Keep each node's component responsible for rendering its own card, the connected child choices, and the nested route outlet below that selection.</p>
+    </section>
+  </div>
+
+  <div class="feature-details">
+    <section>
+      <h3>Why this works well here</h3>
+      <pre class="code-block" syntax-html>&lt;a
+  repeat.for="report of reports"
+  au-link.bind="report.id"
+  active-class="selected"&gt;
+  ${report.name}
+&lt;/a&gt;</pre>
+      <p>Each child link is relative to the current node, so selecting a direct report appends exactly one more segment to the current branch. Active-state styling then highlights the chosen edge without reconstructing the whole URL manually.</p>
+    </section>
+
+    <section>
+      <h3>Full-screen playground</h3>
+      <p>The embedded demo is useful for quick inspection, but this example is easier to explore in the standalone playground where the preview and code editor can take over the full docs panel.</p>
+      <div class="overview-links">
+        <a class="example-jump" au-link="/playground/recursive-org-chart">Open the full-screen org chart playground</a>
+        <a class="example-jump" au-link="/demo/orgchart">Open the app-only org chart demo</a>
+        <a class="example-jump" au-link="/features/nested">Back to nested route basics</a>
+      </div>
+    </section>
+  </div>
+
+  <playground-page example-id="recursive-org-chart" embedded.bind="true"></playground-page>
+</section>

@@ -43,6 +43,13 @@ export const docNav: DocNavItem[] = [
     badge: 'A1',
   },
   {
+    id: 'org-chart',
+    title: 'Recursive Org Chart',
+    path: '/features/org-chart',
+    summary: 'Drive a block-and-edge org chart from nested route segments that keep activating the same component.',
+    badge: 'Demo',
+  },
+  {
     id: 'nested-router',
     title: 'Nested Routers',
     path: '/features/nested-router',

@@ -1,4 +1,8 @@
-<div class.bind="scrolled ? 'docs-shell is-scrolled' : 'docs-shell'">
+<au-route path="demo/orgchart/**" title="Org Chart Demo">
+  <org-chart-demo-page lineage.bind="$params['**']"></org-chart-demo-page>
+</au-route>
+
+<div if.bind="!route.$path.startsWith('/demo/')" class.bind="scrolled ? 'docs-shell is-scrolled' : 'docs-shell'">
   <button
     class.bind="mobileMenuOpen ? 'mobile-menu-toggle is-menu-open' : 'mobile-menu-toggle'"
     type="button"
@@ -50,6 +54,10 @@
 
       <au-route path="features/nested" title="Nested Routes">
         <feature-nested-page></feature-nested-page>
+      </au-route>
+
+      <au-route path="features/org-chart" title="Recursive Org Chart">
+        <feature-org-chart-page></feature-org-chart-page>
       </au-route>
 
       <au-route path="features/nested-router" title="Nested Routers">

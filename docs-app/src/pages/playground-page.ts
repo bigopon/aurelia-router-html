@@ -43,6 +43,8 @@ export class PlaygroundPage {
   public currentPreviewPath = this.project.initialPath;
   public previewTitle = '';
   public viewMode: PlaygroundViewMode = 'split';
+  public fullscreen = false;
+  public panelHost!: HTMLElement;
   public editorHost!: HTMLElement;
   public previewHost!: HTMLElement;
   public autoRunProgress!: HTMLElement;
@@ -52,6 +54,10 @@ export class PlaygroundPage {
   private iframe: HTMLIFrameElement | null = null;
   private runtimeSource: Promise<string> | null = null;
   private autoRunTimer: number | null = null;
+  private readonly onFullscreenChange = (): void => {
+    this.fullscreen = document.fullscreenElement === this.panelHost;
+    requestAnimationFrame(() => this.editors.get(this.selectedFile)?.requestMeasure());
+  };
 
   public binding(): void {
     this.viewMode = this.readViewMode();
@@ -70,6 +76,7 @@ export class PlaygroundPage {
     this.worker.addEventListener('message', this.onCompileMessage);
     this.worker.addEventListener('error', this.onWorkerError);
     window.addEventListener('message', this.onPreviewMessage);
+    document.addEventListener('fullscreenchange', this.onFullscreenChange);
     void this.run();
   }
 
@@ -80,6 +87,7 @@ export class PlaygroundPage {
     this.worker?.terminate();
     this.worker = null;
     window.removeEventListener('message', this.onPreviewMessage);
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     this.iframe?.remove();
     this.iframe = null;
     for (const editor of this.editors.values()) {
@@ -150,6 +158,18 @@ export class PlaygroundPage {
     } catch {
       this.status = 'Clipboard access was unavailable';
     }
+  }
+
+  public async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement === this.panelHost) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (typeof this.panelHost.requestFullscreen !== 'function') {
+      this.status = 'Fullscreen was unavailable';
+      return;
+    }
+    await this.panelHost.requestFullscreen();
   }
 
   public run(): void {

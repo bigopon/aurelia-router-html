@@ -1,4 +1,4 @@
-<section class="route-stack playground-page ${embedded ? 'is-embedded' : ''}" data-e2e="playground">
+<section class="route-stack playground-page ${embedded ? 'is-embedded' : ''}" data-e2e="playground" ref="panelHost">
   <header if.bind="!embedded" class="page-header playground-header">
     <div>
       <h2 au-route-focus>Router HTML Playground</h2>
@@ -15,6 +15,7 @@
         <span>Initial route</span>
         <input value.bind="project.initialPath" input.trigger="queueRun()">
       </label>
+      <button click.trigger="toggleFullscreen()">${fullscreen ? 'Exit full screen' : 'Full screen'}</button>
       <button click.trigger="copyProject()">Copy project</button>
       <button click.trigger="reset()">Reset</button>
       <button class="primary" disabled.bind="compiling" click.trigger="run()">${compiling ? 'Compiling…' : 'Run'}</button>
@@ -31,6 +32,7 @@
         <span>Initial route</span>
         <input value.bind="project.initialPath" input.trigger="queueRun()">
       </label>
+      <button click.trigger="toggleFullscreen()">${fullscreen ? 'Exit full screen' : 'Full screen'}</button>
       <button click.trigger="reset()">Reset</button>
       <button class="primary" disabled.bind="compiling" click.trigger="run()">${compiling ? 'Compiling…' : 'Run'}</button>
     </div>

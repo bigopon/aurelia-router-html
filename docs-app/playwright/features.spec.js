@@ -205,4 +205,22 @@ test.describe('router HTML docs features', () => {
     await expect(frame.getByRole('heading', { name: 'Edit Ada Lovelace' })).toBeVisible();
     await expect(playground.locator('.console-entry.error')).toHaveCount(0);
   });
+
+  test('standalone org chart demo updates the URL and can return to docs', async ({ page }) => {
+    await page.goto('/demo/orgchart');
+
+    await expect(page).toHaveURL(/\/demo\/orgchart\/ceo$/);
+    await expect(page.locator('.path-chip code')).toHaveText('/demo/orgchart/ceo');
+
+    await page.getByRole('button', { name: 'Expand reports' }).first().click();
+    await page.getByRole('button', { name: 'Expand reports' }).nth(1).click();
+    await page.getByText('Sara Patel').click();
+
+    await expect(page).toHaveURL(/\/demo\/orgchart\/ceo\/head-product$/);
+    await expect(page.locator('.path-chip code')).toHaveText('/demo/orgchart/ceo/head-product');
+
+    await page.getByRole('link', { name: 'Back to docs' }).click();
+    await expect(page).toHaveURL(/\/features\/org-chart$/);
+    await expect(page.getByRole('heading', { name: 'Recursive Org Chart', exact: true })).toBeVisible();
+  });
 });

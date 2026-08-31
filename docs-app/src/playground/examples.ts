@@ -193,7 +193,839 @@ const featureExamples: PlaygroundExample[] = [
     <h2>Security</h2>
     <p>Review your sign-in settings.</p>
   </au-route>
-  </au-route>`,
+</au-route>`,
+  }),
+  routerExample({
+    id: 'recursive-org-chart',
+    title: 'Recursive org chart',
+    description: 'Drive a zoomable org canvas from the URL while recursive node components expand deeper reporting lines.',
+    initialPath: '/org/ceo/head-product/design-manager/frontend-lead',
+    appTs: `export class App {}`,
+    appHtml: `<import from="./org-chart"></import>
+<au-route path="/" exact redirect-to="/org/ceo"></au-route>
+
+<au-route path="org/**" exact>
+  <org-chart lineage.bind="$params['**']"></org-chart>
+</au-route>`,
+    appCss: `:root {
+  color: #e8f3ef;
+  background:
+    radial-gradient(circle at top left, rgba(66, 153, 129, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(24, 119, 242, 0.16), transparent 28%),
+    linear-gradient(180deg, #091714 0%, #0e221d 100%);
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.canvas-toolbar button,
+.node-action,
+.tooltip-button {
+  border: 1px solid rgba(193, 226, 215, 0.18);
+  border-radius: 999px;
+  color: #e8f3ef;
+  background: rgba(12, 31, 26, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.canvas-toolbar button,
+.node-action {
+  padding: 6px 9px;
+  text-decoration: none;
+}
+
+.canvas-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(55, 136, 111, 0.14), transparent 42%),
+    repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(151, 197, 183, 0.06) 31px, rgba(151, 197, 183, 0.06) 32px),
+    repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(151, 197, 183, 0.06) 31px, rgba(151, 197, 183, 0.06) 32px);
+}
+
+.canvas-toolbar {
+  position: absolute;
+  z-index: 20;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  justify-items: end;
+}
+
+.toolbar-group,
+.path-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid rgba(193, 226, 215, 0.18);
+  border-radius: 12px;
+  color: #d8ece6;
+  background: rgba(10, 26, 22, 0.82);
+  backdrop-filter: blur(14px);
+}
+
+.toolbar-group strong {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fb4a8;
+}
+
+.toolbar-group span,
+.path-chip span {
+  font-size: 0.78rem;
+}
+
+.path-chip code {
+  color: #f4fbf8;
+  font-size: 0.72rem;
+}
+
+.path-chip {
+  position: absolute;
+  z-index: 20;
+  left: 4px;
+  bottom: 4px;
+}
+
+.canvas-toolbar button {
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.canvas-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.canvas-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.canvas-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: 40px 120px 240px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  transform-origin: 0 0;
+}
+
+.org-tree,
+.org-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.org-tree {
+  display: flex;
+  justify-content: center;
+}
+
+.org-tree ul {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 40px;
+  padding-top: 64px;
+}
+
+.org-tree ul::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 40px;
+  background: rgba(150, 202, 186, 0.34);
+}
+
+.org-tree ul::after {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  width: calc(100% - 152px);
+  height: 2px;
+  background: rgba(150, 202, 186, 0.34);
+  transform: translateX(-50%);
+}
+
+.org-tree li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+
+.org-tree li::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  width: 2px;
+  height: 32px;
+  background: rgba(150, 202, 186, 0.34);
+  transform: translateX(-50%);
+}
+
+.org-tree > li::before,
+.org-tree > li > ul::before,
+.org-tree > li > ul::after {
+  display: none;
+}
+
+.node-shell {
+  position: relative;
+  display: grid;
+  width: 208px;
+}
+
+.node-card {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  padding: 13px 14px 12px;
+  border: 1px solid rgba(179, 222, 207, 0.18);
+  border-radius: 18px;
+  color: #effaf6;
+  background: linear-gradient(180deg, rgba(15, 37, 32, 0.96), rgba(9, 24, 21, 0.94));
+  box-shadow:
+    0 18px 40px rgba(3, 10, 9, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.node-shell.is-active > .node-card {
+  border-color: rgba(100, 230, 191, 0.72);
+  box-shadow:
+    0 22px 54px rgba(3, 10, 9, 0.34),
+    0 0 0 1px rgba(100, 230, 191, 0.25);
+}
+
+.node-shell.is-selected > .node-card {
+  background: linear-gradient(180deg, rgba(13, 93, 74, 0.96), rgba(8, 53, 42, 0.96));
+}
+
+.node-card strong,
+.node-card span,
+.node-card p {
+  margin: 0;
+}
+
+.node-role {
+  color: #83cdb6;
+  font-size: 0.84rem;
+}
+
+.node-path {
+  color: #9ebcb2;
+  font-size: 0.74rem;
+}
+
+.node-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.node-action {
+  cursor: pointer;
+  position: relative;
+  z-index: 3;
+}
+
+.tooltip-button {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.tooltip-panel {
+  position: absolute;
+  z-index: 5;
+  top: 34px;
+  right: 0;
+  width: 190px;
+  padding: 10px 12px;
+  border: 1px solid rgba(193, 226, 215, 0.16);
+  border-radius: 14px;
+  color: #d6ece5;
+  background: rgba(7, 18, 15, 0.96);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
+}
+
+.tooltip-panel p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.node-note {
+  margin-top: 10px;
+  color: #aac6bc;
+  font-size: 0.84rem;
+}
+
+.collapsed-note {
+  margin-top: 12px;
+  color: #91afa5;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .canvas-toolbar {
+    top: 4px;
+    right: 4px;
+    left: auto;
+  }
+
+  .toolbar-group,
+  .path-chip {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .path-chip {
+    left: 4px;
+    right: auto;
+    bottom: 4px;
+  }
+}`,
+    extraFiles: {
+      '/src/org-data.ts': `export interface Person {
+  id: string;
+  name: string;
+  title: string;
+  blurb: string;
+  reports: readonly string[];
+}
+
+export const rootId = 'ceo';
+
+export const people: Record<string, Person> = {
+  ceo: {
+    id: 'ceo',
+    name: 'Mina Shah',
+    title: 'Chief Executive Officer',
+    blurb: 'Owns the company strategy and the top-level route into the org graph.',
+    reports: ['head-people', 'head-product', 'cfo'],
+  },
+  'head-people': {
+    id: 'head-people',
+    name: 'Noah Kim',
+    title: 'Head of People',
+    blurb: 'Leads hiring, onboarding, and manager enablement.',
+    reports: ['recruiting-lead', 'enablement-lead'],
+  },
+  'head-product': {
+    id: 'head-product',
+    name: 'Sara Patel',
+    title: 'Head of Product',
+    blurb: 'Owns product strategy and the design plus platform branches.',
+    reports: ['platform-director', 'design-manager'],
+  },
+  cfo: {
+    id: 'cfo',
+    name: 'Jonas Berg',
+    title: 'Chief Financial Officer',
+    blurb: 'Manages planning, capital, and finance operations.',
+    reports: ['controller'],
+  },
+  'recruiting-lead': {
+    id: 'recruiting-lead',
+    name: 'Priya Nair',
+    title: 'Recruiting Lead',
+    blurb: 'Runs hiring pipelines across engineering and go-to-market.',
+    reports: [],
+  },
+  'enablement-lead': {
+    id: 'enablement-lead',
+    name: 'Leo Martin',
+    title: 'Manager Enablement Lead',
+    blurb: 'Builds training and internal playbooks for new managers.',
+    reports: [],
+  },
+  'platform-director': {
+    id: 'platform-director',
+    name: 'Ava Chen',
+    title: 'Platform Director',
+    blurb: 'Owns developer platform, CI, and shared services.',
+    reports: ['data-platform-lead'],
+  },
+  'design-manager': {
+    id: 'design-manager',
+    name: 'Marta Silva',
+    title: 'Design Manager',
+    blurb: 'Coordinates product design, systems, and UX research.',
+    reports: ['frontend-lead', 'brand-lead'],
+  },
+  controller: {
+    id: 'controller',
+    name: 'Owen Scott',
+    title: 'Controller',
+    blurb: 'Closes the books and maintains financial reporting controls.',
+    reports: [],
+  },
+  'data-platform-lead': {
+    id: 'data-platform-lead',
+    name: 'Eli Walker',
+    title: 'Data Platform Lead',
+    blurb: 'Maintains event pipelines, warehousing, and analytics tooling.',
+    reports: [],
+  },
+  'frontend-lead': {
+    id: 'frontend-lead',
+    name: 'Tara Brooks',
+    title: 'Frontend Lead',
+    blurb: 'Leads the design-system and application-shell teams.',
+    reports: ['staff-ui-engineer'],
+  },
+  'brand-lead': {
+    id: 'brand-lead',
+    name: 'Diego Ruiz',
+    title: 'Brand Design Lead',
+    blurb: 'Owns visual identity and campaign design systems.',
+    reports: [],
+  },
+  'staff-ui-engineer': {
+    id: 'staff-ui-engineer',
+    name: 'Nina Lopez',
+    title: 'Staff UI Engineer',
+    blurb: 'Leaf node. This branch stops here because there are no more direct reports.',
+    reports: [],
+  },
+};
+
+const firstNames = ['Mina', 'Noah', 'Sara', 'Jonas', 'Priya', 'Leo', 'Ava', 'Marta', 'Owen', 'Eli', 'Tara', 'Diego', 'Nina', 'Ivy', 'Caleb', 'Rhea', 'Amir', 'Lena', 'Milo', 'Sonia'];
+const lastNames = ['Shah', 'Kim', 'Patel', 'Berg', 'Nair', 'Martin', 'Chen', 'Silva', 'Scott', 'Walker', 'Brooks', 'Ruiz', 'Lopez', 'Stone', 'Young', 'Park', 'Diaz', 'Cole', 'Singh', 'Nguyen'];
+const teamNames = ['Platform', 'Design', 'Growth', 'Revenue', 'Data', 'Security', 'Support', 'Operations', 'Talent', 'Research'];
+
+populateOrg(people, 200);
+
+export function getPerson(id: string): Person | null {
+  return people[id] ?? null;
+}
+
+function populateOrg(store: Record<string, Person>, targetSize: number): void {
+  const depths = calculateDepths(store);
+  const queue = Object.keys(store).sort((left, right) => (depths.get(left) ?? 0) - (depths.get(right) ?? 0));
+  let counter = 1;
+  while (Object.keys(store).length < targetSize && queue.length > 0) {
+    const parentId = queue.shift()!;
+    const parent = store[parentId];
+    const depth = depths.get(parentId) ?? 0;
+    const maxReports = depth < 1 ? 4 : depth < 3 ? 3 : depth < 5 ? 2 : 1;
+    while (parent.reports.length < maxReports && Object.keys(store).length < targetSize) {
+      const childId = \`person-\${String(counter++).padStart(3, '0')}\`;
+      const childDepth = depth + 1;
+      store[childId] = {
+        id: childId,
+        name: \`\${firstNames[counter % firstNames.length]} \${lastNames[(counter + childDepth) % lastNames.length]}\`,
+        title: titleForDepth(childDepth, counter),
+        blurb: \`Owns the \${teamNames[(counter + childDepth) % teamNames.length].toLowerCase()} scope inside the \${parent.title.toLowerCase()} branch.\`,
+        reports: [],
+      };
+      parent.reports = [...parent.reports, childId];
+      depths.set(childId, childDepth);
+      queue.push(childId);
+    }
+  }
+}
+
+function calculateDepths(store: Record<string, Person>): Map<string, number> {
+  const depths = new Map<string, number>([[rootId, 0]]);
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const person = store[id];
+    const depth = depths.get(id) ?? 0;
+    for (const reportId of person?.reports ?? []) {
+      if (!depths.has(reportId)) {
+        depths.set(reportId, depth + 1);
+        queue.push(reportId);
+      }
+    }
+  }
+  return depths;
+}
+
+function titleForDepth(depth: number, index: number): string {
+  if (depth <= 1) return ['Chief of Staff', 'Chief Architect', 'Chief Growth Officer', 'Chief Delivery Officer'][index % 4];
+  if (depth === 2) return \`Vice President of \${teamNames[index % teamNames.length]}\`;
+  if (depth === 3) return \`Director of \${teamNames[index % teamNames.length]}\`;
+  if (depth === 4) return \`\${teamNames[index % teamNames.length]} Manager\`;
+  if (depth === 5) return \`Lead \${teamNames[index % teamNames.length]} Partner\`;
+  return \`Senior \${teamNames[index % teamNames.length]} Specialist\`;
+}
+`,
+      '/src/org-chart.ts': `import { resolve } from 'aurelia';
+import { IRouteContext, type IRouteContext as IRouteContextType } from 'aurelia-router-html';
+import { rootId } from './org-data';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export class OrgChart {
+  public lineage: string | null | undefined = '';
+  public readonly rootId = rootId;
+  public selectedLineage = rootId;
+  public scale = 0.9;
+  public panX = 0;
+  public panY = 0;
+  public dragging = false;
+  public openInfoId: string | null = null;
+  public viewport!: HTMLElement;
+  public surface!: HTMLElement;
+  private hasCenteredInitialSelection = false;
+  private readonly expanded = new Set<string>([rootId, 'head-product', 'head-people']);
+  private readonly route = resolve(IRouteContext) as IRouteContextType;
+  private dragPointerId: number | null = null;
+  private dragOriginX = 0;
+  private dragOriginY = 0;
+  private dragStartX = 0;
+  private dragStartY = 0;
+
+  public binding(): void {
+    this.syncFromLineage();
+  }
+
+  public attached(): void {
+    this.resetView();
+    this.centerSelectedNode(true);
+  }
+
+  public lineageChanged(): void {
+    this.syncFromLineage();
+  }
+
+  public get canvasTransform(): string {
+    return \`translate(\${this.panX}px, \${this.panY}px) scale(\${this.scale})\`;
+  }
+
+  public get activePathLabel(): string {
+    return \`/org/\${this.selectedLineage}\`;
+  }
+
+  public isSelected(lineage: string): boolean {
+    return this.selectedLineage === lineage;
+  }
+
+  public isActiveBranch(lineage: string): boolean {
+    return this.selectedLineage === lineage || this.selectedLineage.startsWith(\`\${lineage}/\`);
+  }
+
+  public isExpanded(id: string): boolean {
+    return this.expanded.has(id);
+  }
+
+  public shouldShowChildren(lineage: string, id: string): boolean {
+    return this.isExpanded(id);
+  }
+
+  public isInfoOpen(id: string): boolean {
+    return this.openInfoId === id;
+  }
+
+  public readonly toggleExpanded = (id: string, lineage: string, event?: Event): void => {
+    event?.stopPropagation();
+    if (this.expanded.has(id)) {
+      this.expanded.delete(id);
+      if (this.selectedLineage === lineage || this.selectedLineage.startsWith(\`\${lineage}/\`)) {
+        this.selectedLineage = lineage;
+        void this.route.load(\`/org/\${lineage}\`);
+      }
+      this.openInfoId = null;
+    } else {
+      this.expanded.add(id);
+    }
+  };
+
+  public readonly toggleInfo = (id: string, event?: Event): void => {
+    event?.stopPropagation();
+    this.openInfoId = this.openInfoId === id ? null : id;
+  };
+
+  public readonly selectLineage = async (lineage: string, event?: Event): Promise<void> => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.selectedLineage = lineage;
+    this.expandLineage(lineage);
+    await this.route.load(\`/org/\${lineage}\`);
+  };
+
+  public readonly zoomIn = (): void => {
+    this.scale = clamp(this.scale * 1.12, 0.35, 1.8);
+  };
+
+  public readonly zoomOut = (): void => {
+    this.scale = clamp(this.scale / 1.12, 0.35, 1.8);
+  };
+
+  public readonly resetView = (): void => {
+    this.scale = 0.9;
+    this.panX = 0;
+    this.panY = 0;
+  };
+
+  public readonly onViewportPointerDown = (event: PointerEvent): void => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.node-card, .node-action, .tooltip-button, .tooltip-panel')) {
+      return;
+    }
+    this.dragging = true;
+    this.dragPointerId = event.pointerId;
+    this.dragOriginX = this.panX;
+    this.dragOriginY = this.panY;
+    this.dragStartX = event.clientX;
+    this.dragStartY = event.clientY;
+    (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
+  };
+
+  public readonly onViewportPointerMove = (event: PointerEvent): void => {
+    if (!this.dragging || this.dragPointerId !== event.pointerId) {
+      return;
+    }
+    this.panX = this.dragOriginX + (event.clientX - this.dragStartX);
+    this.panY = this.dragOriginY + (event.clientY - this.dragStartY);
+  };
+
+  public readonly onViewportPointerUp = (event?: PointerEvent): void => {
+    if (event != null && this.dragPointerId != null) {
+      (event.currentTarget as HTMLElement | null)?.releasePointerCapture(this.dragPointerId);
+    }
+    this.dragging = false;
+    this.dragPointerId = null;
+  };
+
+  public readonly onViewportWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    const viewport = event.currentTarget as HTMLElement | null;
+    if (viewport == null) {
+      return;
+    }
+    const rect = viewport.getBoundingClientRect();
+    const pivotX = event.clientX - rect.left;
+    const pivotY = event.clientY - rect.top;
+    const nextScale = clamp(this.scale * (event.deltaY < 0 ? 1.08 : 0.92), 0.35, 1.8);
+    const ratio = nextScale / this.scale;
+    this.panX = pivotX - (pivotX - this.panX) * ratio;
+    this.panY = pivotY - (pivotY - this.panY) * ratio;
+    this.scale = nextScale;
+  };
+
+  private syncFromLineage(): void {
+    const lineage = this.lineage ?? '';
+    this.selectedLineage = lineage === '' ? rootId : lineage;
+    this.expandLineage(this.selectedLineage);
+  }
+
+  private expandLineage(lineage: string): void {
+    for (const segment of lineage.split('/')) {
+      if (segment !== '') {
+        this.expanded.add(segment);
+      }
+    }
+  }
+
+  private centerSelectedNode(force: boolean = false): void {
+    if (!force && this.hasCenteredInitialSelection) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const viewport = this.viewport;
+      const surface = this.surface;
+      const selected = surface?.querySelector<HTMLElement>('.node-shell.is-selected > .node-card');
+      if (viewport == null || surface == null || selected == null) {
+        return;
+      }
+      const viewportRect = viewport.getBoundingClientRect();
+      const selectedRect = selected.getBoundingClientRect();
+      const currentScale = this.scale;
+      const selectedX = (selectedRect.left - viewportRect.left - this.panX) / currentScale;
+      const selectedY = (selectedRect.top - viewportRect.top - this.panY) / currentScale;
+      const selectedWidth = selectedRect.width / currentScale;
+      const selectedHeight = selectedRect.height / currentScale;
+      this.panX = viewportRect.width * 0.5 - (selectedX + selectedWidth / 2) * currentScale;
+      this.panY = viewportRect.height * 0.5 - (selectedY + selectedHeight / 2) * currentScale;
+      this.hasCenteredInitialSelection = true;
+    });
+  }
+}
+`,
+      '/src/org-chart.html': `<template bindable="lineage">
+<import from="./org-node"></import>
+<section class="canvas-page">
+  <aside class="canvas-toolbar">
+    <div class="toolbar-group">
+      <strong>Canvas</strong>
+      <button click.trigger="zoomOut()">-</button>
+      <span>\${Math.round(scale * 100)}%</span>
+      <button click.trigger="zoomIn()">+</button>
+      <button click.trigger="resetView()">Reset</button>
+    </div>
+  </aside>
+
+  <div class="path-chip">
+    <span>Active</span>
+    <code>\${activePathLabel}</code>
+  </div>
+
+  <div
+    class.bind="dragging ? 'canvas-viewport is-dragging' : 'canvas-viewport'"
+    ref="viewport"
+    wheel.trigger="onViewportWheel($event)"
+    pointerdown.trigger="onViewportPointerDown($event)"
+    pointermove.trigger="onViewportPointerMove($event)"
+    pointerup.trigger="onViewportPointerUp($event)"
+    pointercancel.trigger="onViewportPointerUp($event)"
+    pointerleave.trigger="onViewportPointerUp()">
+    <div class="canvas-surface" ref="surface" style.bind="'transform: ' + canvasTransform">
+      <ul class="org-tree">
+        <li>
+          <org-node employee-id.bind="rootId" lineage.bind="rootId" chart.bind="this"></org-node>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>`,
+      '/src/org-node.ts': `import { getPerson, type Person } from './org-data';
+
+interface OrgChartLike {
+  isSelected(lineage: string): boolean;
+  isActiveBranch(lineage: string): boolean;
+  isExpanded(id: string): boolean;
+  shouldShowChildren(lineage: string, id: string): boolean;
+  isInfoOpen(id: string): boolean;
+  toggleExpanded(id: string, lineage: string, event?: Event): void;
+  toggleInfo(id: string, event?: Event): void;
+  selectLineage(lineage: string, event?: Event): Promise<void>;
+}
+
+export class OrgNode {
+  public employeeId = '';
+  public lineage = '';
+  public chart!: OrgChartLike;
+
+  public get employee(): Person | null {
+    return getPerson(this.employeeId);
+  }
+
+  public get reports(): readonly Person[] {
+    const employee = this.employee;
+    return employee == null
+      ? []
+      : employee.reports
+        .map(id => getPerson(id))
+        .filter((person): person is Person => person != null);
+  }
+
+  public childLineage(reportId: string): string {
+    return \`\${this.lineage}/\${reportId}\`;
+  }
+
+  public async select(event?: Event): Promise<void> {
+    await this.chart.selectLineage(this.lineage, event);
+  }
+
+  public toggleInfo(event?: Event): void {
+    this.chart.toggleInfo(this.employeeId, event);
+  }
+
+  public toggleExpanded(event?: Event): void {
+    this.chart.toggleExpanded(this.employeeId, this.lineage, event);
+  }
+
+  public get selected(): boolean {
+    return this.chart.isSelected(this.lineage);
+  }
+
+  public get activeBranch(): boolean {
+    return this.chart.isActiveBranch(this.lineage);
+  }
+
+  public get showChildren(): boolean {
+    return this.chart.shouldShowChildren(this.lineage, this.employeeId);
+  }
+
+  public get infoOpen(): boolean {
+    return this.chart.isInfoOpen(this.employeeId);
+  }
+}
+`,
+      '/src/org-node.html': `<template bindable="employeeId,lineage,chart">
+  <template if.bind="employee !== null">
+    <article class="node-shell \${selected ? 'is-selected' : ''} \${activeBranch ? 'is-active' : ''}">
+      <button class="tooltip-button" type="button" click.trigger="toggleInfo($event)">i</button>
+
+      <div class="node-card" role="button" tabindex="0" click.trigger="select($event)" keydown.trigger="($event.key === 'Enter' || $event.key === ' ') && select($event)">
+        <strong>\${employee.name}</strong>
+        <span class="node-role">\${employee.title}</span>
+        <p class="node-path">/org/\${lineage}</p>
+      </div>
+
+      <div class="tooltip-panel" if.bind="infoOpen">
+        <p>\${employee.blurb}</p>
+      </div>
+
+      <div class="node-actions" if.bind="reports.length">
+        <button class="node-action" type="button" click.trigger="toggleExpanded($event)">
+          \${showChildren ? 'Collapse reports' : 'Expand reports'}
+        </button>
+      </div>
+
+      <p class="node-note" if.bind="reports.length === 0">Leaf node</p>
+    </article>
+
+    <ul if.bind="reports.length && showChildren">
+      <li repeat.for="report of reports">
+        <org-node employee-id.bind="report.id" lineage.bind="childLineage(report.id)" chart.bind="chart"></org-node>
+      </li>
+    </ul>
+
+    <p class="collapsed-note" if.bind="reports.length && !showChildren">
+      \${reports.length} direct reports hidden
+    </p>
+  </template>
+</template>`,
+    },
   }),
   routerExample({
     id: 'nested-router-memory',

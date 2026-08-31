@@ -1181,6 +1181,66 @@ button.primary,
   min-width: 0;
 }
 
+.playground-page:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.playground-page:fullscreen .playground-workspace {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+.playground-page:fullscreen .playground-editor-panel,
+.playground-page:fullscreen .playground-preview-panel {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+}
+
+.playground-page:fullscreen .playground-editor-panel {
+  resize: none;
+}
+
+.playground-page:fullscreen .code-editor,
+.playground-page:fullscreen .code-editor .cm-editor,
+.playground-page:fullscreen .code-editor .cm-scroller,
+.playground-page:fullscreen .playground-preview-panel,
+.playground-page:fullscreen .preview-host,
+.playground-page:fullscreen .preview-host iframe {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+}
+
+.playground-page:fullscreen .playground-output-grid {
+  max-height: 18vh;
+  overflow: auto;
+  padding-bottom: 8px;
+}
+
+.playground-page:fullscreen .playground-header,
+.playground-page:fullscreen .playground-embedded-header,
+.playground-page:fullscreen .playground-status {
+  align-items: center;
+  gap: 10px;
+}
+
+.playground-page:fullscreen .playground-header .page-copy,
+.playground-page:fullscreen .playground-embedded-header p {
+  margin-top: 4px;
+}
+
 .playground-header {
   align-items: flex-start;
   gap: 18px;

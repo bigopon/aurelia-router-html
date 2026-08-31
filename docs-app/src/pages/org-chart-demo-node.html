@@ -1,0 +1,35 @@
+<template bindable="employeeId,lineage,chart">
+  <template if.bind="employee !== null">
+    <article class="node-shell ${selected ? 'is-selected' : ''} ${activeBranch ? 'is-active' : ''}">
+      <button class="tooltip-button" type="button" click.trigger="toggleInfo($event)">i</button>
+
+      <div class="node-card" role="button" tabindex="0" click.trigger="select($event)" keydown.trigger="($event.key === 'Enter' || $event.key === ' ') && select($event)">
+        <strong>${employee.name}</strong>
+        <span class="node-role">${employee.title}</span>
+        <p class="node-path">/demo/orgchart/${lineage}</p>
+      </div>
+
+      <div class="tooltip-panel" if.bind="infoOpen">
+        <p>${employee.blurb}</p>
+      </div>
+
+      <div class="node-actions" if.bind="reports.length">
+        <button class="node-action" type="button" click.trigger="toggleExpanded($event)">
+          ${showChildren ? 'Collapse reports' : 'Expand reports'}
+        </button>
+      </div>
+
+      <p class="node-note" if.bind="reports.length === 0">Leaf node</p>
+    </article>
+
+    <ul if.bind="reports.length && showChildren">
+      <li repeat.for="report of reports">
+        <org-chart-demo-node employee-id.bind="report.id" lineage.bind="childLineage(report.id)" chart.bind="chart"></org-chart-demo-node>
+      </li>
+    </ul>
+
+    <p class="collapsed-note" if.bind="reports.length && !showChildren">
+      ${reports.length} direct reports hidden
+    </p>
+  </template>
+</template>

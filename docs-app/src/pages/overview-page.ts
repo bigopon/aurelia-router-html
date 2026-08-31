@@ -32,6 +32,13 @@ export class OverviewPage {
       syntax: '<au-route path="account">\n  <au-route path="profile">Profile</au-route>\n</au-route>',
     },
     {
+      title: 'Recursive Org Chart',
+      summary: 'Activate the same route-owned component for every nested report in a URL-addressable org tree.',
+      path: '/features/org-chart',
+      playgroundId: 'recursive-org-chart',
+      syntax: '<au-route path="org/:employeeId">\n  <org-node employee-id.bind="$params.employeeId"></org-node>\n</au-route>',
+    },
+    {
       title: 'Route Groups',
       summary: 'Share layout or route policy across descendants without adding another URL segment.',
       path: '/features/groups',

@@ -19,6 +19,7 @@ import { FeatureLifecyclePage } from './feature-lifecycle-page';
 import { FeatureMatchingPage } from './feature-matching-page';
 import { FeatureGroupsPage } from './feature-groups-page';
 import { FeatureNestedPage } from './feature-nested-page';
+import { FeatureOrgChartPage } from './feature-org-chart-page';
 import { FeatureNestedRouterPage } from './feature-nested-router-page';
 import { FeatureParamsPage } from './feature-params-page';
 import { FeatureProgrammaticPage } from './feature-programmatic-page';
@@ -32,6 +33,7 @@ import { FeatureTransitionEndPage } from './feature-transition-end-page';
 import { FeatureTitlesPage } from './feature-titles-page';
 import { FeatureUrlStatePage } from './feature-url-state-page';
 import { FeatureWildcardPage } from './feature-wildcard-page';
+import { OrgChartDemoPage } from './org-chart-demo-page';
 import { OverviewPage } from './overview-page';
 import { WhyRouterHtmlPage } from './why-router-html-page';
 import { PrivacyPage } from './privacy-page';
@@ -58,6 +60,7 @@ export class DocsApp {
       FeatureBasePathPage,
       FeatureBasicPage,
       FeatureNestedPage,
+      FeatureOrgChartPage,
       FeatureNestedRouterPage,
       FeatureGroupsPage,
       FeatureParamsPage,
@@ -83,6 +86,7 @@ export class DocsApp {
       FeatureAnimationPage,
       FeatureSharedStatePage,
       FeatureKitchenSinkPage,
+      OrgChartDemoPage,
     ],
   } as const;
 
@@ -91,7 +95,7 @@ export class DocsApp {
   public scrolled: boolean = false;
   public theme: Theme = getTheme();
   public analyticsConsent: AnalyticsConsent = getAnalyticsConsent();
-  private readonly route = resolve(IRouteContext) as IRouteContextType;
+  public readonly route = resolve(IRouteContext) as IRouteContextType;
   private readonly onPrivacyChoices = () => this.showPrivacyChoices();
   private readonly onSearchSelect = (event: Event) => {
     const customEvent = event as CustomEvent<DocsSearchSelectDetail>;
