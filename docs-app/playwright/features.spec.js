@@ -221,6 +221,6 @@ test.describe('router HTML docs features', () => {
 
     await page.getByRole('link', { name: 'Back to docs' }).click();
     await expect(page).toHaveURL(/\/features\/org-chart$/);
-    await expect(page.getByRole('heading', { name: 'Recursive Org Chart', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Example: Org Chart', exact: true })).toBeVisible();
   });
 });

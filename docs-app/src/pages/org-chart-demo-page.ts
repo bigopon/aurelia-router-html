@@ -18,7 +18,8 @@ export class OrgChartDemoPage {
   public lineage: string | null | undefined = '';
   public readonly rootId = rootId;
   public selectedLineage = rootId;
-  public scale = 0.9;
+  public currentPath = `/${rootId}`;
+  public scale = 0.7;
   public panX = 0;
   public panY = 0;
   public dragging = false;
@@ -85,6 +86,7 @@ export class OrgChartDemoPage {
       this.expanded.delete(id);
       if (this.selectedLineage === lineage || this.selectedLineage.startsWith(`${lineage}/`)) {
         this.selectedLineage = lineage;
+        this.currentPath = `/${lineage}`;
         this.updateLocation(lineage, true);
       }
       this.openInfoId = null;
@@ -102,6 +104,7 @@ export class OrgChartDemoPage {
     event?.preventDefault();
     event?.stopPropagation();
     this.selectedLineage = lineage;
+    this.currentPath = `/${lineage}`;
     this.expandLineage(lineage);
     this.updateLocation(lineage);
   };
@@ -115,7 +118,7 @@ export class OrgChartDemoPage {
   };
 
   public readonly resetView = (): void => {
-    this.scale = 0.9;
+    this.scale = 0.7;
     this.panX = 0;
     this.panY = 0;
   };
@@ -167,15 +170,16 @@ export class OrgChartDemoPage {
   };
 
   private syncFromLineage(): void {
-    const lineages = [this.lineage, this.readLineageFromLocation()];
-    const lineage = lineages.find(candidate => candidate != null && candidate !== '') ?? rootId;
+    const lineage = this.lineage == null || this.lineage === '' ? rootId : this.lineage;
     this.selectedLineage = lineage;
+    this.currentPath = `/${lineage}`;
     this.expandLineage(this.selectedLineage);
   }
 
   private syncFromLocation(): void {
     const lineage = this.readLineageFromLocation();
     this.selectedLineage = lineage === '' ? rootId : lineage;
+    this.currentPath = `/${this.selectedLineage}`;
     this.expandLineage(this.selectedLineage);
   }
 
@@ -192,6 +196,7 @@ export class OrgChartDemoPage {
     if (lineage === '') {
       this.updateLocation(rootId, true);
       this.selectedLineage = rootId;
+      this.currentPath = `/${rootId}`;
       this.expandLineage(rootId);
     }
   }
@@ -202,8 +207,7 @@ export class OrgChartDemoPage {
     if (!path.startsWith(prefix)) {
       return '';
     }
-    const suffix = path.slice(prefix.length).replace(/^\/+/, '');
-    return suffix;
+    return path.slice(prefix.length).replace(/^\/+/, '');
   }
 
   private updateLocation(lineage: string, replace: boolean = false): void {
@@ -223,22 +227,42 @@ export class OrgChartDemoPage {
       return;
     }
     requestAnimationFrame(() => {
-      const viewport = this.viewport;
-      const surface = this.surface;
-      const selected = surface?.querySelector<HTMLElement>('.node-shell.is-selected > .node-card');
-      if (viewport == null || surface == null || selected == null) {
-        return;
-      }
-      const viewportRect = viewport.getBoundingClientRect();
-      const selectedRect = selected.getBoundingClientRect();
-      const currentScale = this.scale;
-      const selectedX = (selectedRect.left - viewportRect.left - this.panX) / currentScale;
-      const selectedY = (selectedRect.top - viewportRect.top - this.panY) / currentScale;
-      const selectedWidth = selectedRect.width / currentScale;
-      const selectedHeight = selectedRect.height / currentScale;
-      this.panX = viewportRect.width * 0.5 - (selectedX + selectedWidth / 2) * currentScale;
-      this.panY = viewportRect.height * 0.5 - (selectedY + selectedHeight / 2) * currentScale;
-      this.hasCenteredInitialSelection = true;
+      requestAnimationFrame(() => {
+        const viewport = this.viewport;
+        const surface = this.surface;
+        const selected = surface?.querySelector<HTMLElement>('.node-shell.is-selected > .node-card');
+        const tree = surface?.querySelector<HTMLElement>('.org-tree');
+        if (viewport == null || surface == null || selected == null || tree == null) {
+          return;
+        }
+        const viewportRect = viewport.getBoundingClientRect();
+        const surfaceRect = surface.getBoundingClientRect();
+        const treeRect = tree.getBoundingClientRect();
+        const fitScale = Math.min(
+          0.9,
+          Math.max(
+            0.45,
+            Math.min(
+              (viewportRect.width - 160) / treeRect.width,
+              (viewportRect.height - 180) / treeRect.height,
+            ),
+          ),
+        );
+        this.scale = fitScale;
+        const scaledSurfaceRect = surface.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        const currentScale = this.scale;
+        const surfaceOffsetX = scaledSurfaceRect.left - surfaceRect.left;
+        const surfaceOffsetY = scaledSurfaceRect.top - surfaceRect.top;
+        const selectedX = (selectedRect.left - viewportRect.left - this.panX - surfaceOffsetX) / currentScale;
+        const selectedY = (selectedRect.top - viewportRect.top - this.panY - surfaceOffsetY) / currentScale;
+        const selectedWidth = selectedRect.width / currentScale;
+        const selectedHeight = selectedRect.height / currentScale;
+        const targetCenterY = Math.max(120, viewportRect.height * 0.24);
+        this.panX = viewportRect.width * 0.5 - (selectedX + selectedWidth / 2) * currentScale;
+        this.panY = targetCenterY - (selectedY + selectedHeight / 2) * currentScale;
+        this.hasCenteredInitialSelection = true;
+      });
     });
   }
 }

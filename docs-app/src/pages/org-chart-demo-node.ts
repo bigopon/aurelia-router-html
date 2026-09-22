@@ -40,6 +40,14 @@ export class OrgChartDemoNode {
     return `${this.lineage}/${reportId}`;
   }
 
+  public isChildActive(reportId: string): boolean {
+    return this.chart.isActiveBranch(this.childLineage(reportId));
+  }
+
+  public async selectChild(reportId: string, event?: Event): Promise<void> {
+    await this.chart.selectLineage(this.childLineage(reportId), event);
+  }
+
   public async select(event?: Event): Promise<void> {
     await this.chart.selectLineage(this.lineage, event);
   }

@@ -124,6 +124,14 @@
     padding: 0;
   }
 
+  .org-demo-page org-chart-demo-node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+  }
+
   .org-demo-page .org-tree {
     display: flex;
     justify-content: center;
@@ -134,58 +142,100 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    gap: 40px;
-    padding-top: 64px;
+    width: max-content;
+    margin: 0 auto;
+    padding-top: 0;
   }
 
   .org-demo-page .org-tree ul::before {
     content: '';
     position: absolute;
-    top: 24px;
+    top: 0;
     left: calc(50% - 1px);
     width: 2px;
-    height: 40px;
+    height: 26px;
     background: rgba(150, 202, 186, 0.34);
   }
 
-  .org-demo-page .org-tree ul::after {
-    content: '';
-    position: absolute;
-    top: 24px;
-    left: 50%;
-    width: calc(100% - 152px);
-    height: 2px;
-    background: rgba(150, 202, 186, 0.34);
-    transform: translateX(-50%);
+  .org-demo-page .org-tree ul.is-active-branch::before {
+    background: rgba(100, 230, 191, 0.62);
+    box-shadow: 0 0 10px rgba(100, 230, 191, 0.18);
   }
 
   .org-demo-page .org-tree li {
     position: relative;
-    display: grid;
-    justify-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+    padding: 52px 20px 0;
   }
 
   .org-demo-page .org-tree li::before {
     content: '';
     position: absolute;
-    top: 24px;
-    left: 50%;
-    width: 2px;
-    height: 32px;
+    top: 26px;
+    right: 50%;
+    width: 50%;
+    height: 2px;
     background: rgba(150, 202, 186, 0.34);
-    transform: translateX(-50%);
   }
 
+  .org-demo-page .org-tree li::after {
+    content: '';
+    position: absolute;
+    top: 26px;
+    left: 50%;
+    width: 50%;
+    height: 2px;
+    background: rgba(150, 202, 186, 0.34);
+  }
+
+  .org-demo-page .org-tree li.is-active-branch::before,
+  .org-demo-page .org-tree li.is-active-branch::after {
+    background: rgba(100, 230, 191, 0.62);
+    box-shadow: 0 0 10px rgba(100, 230, 191, 0.18);
+  }
+
+  .org-demo-page .org-tree li:first-child::before,
+  .org-demo-page .org-tree li:last-child::after,
+  .org-demo-page .org-tree li:only-child::before,
+  .org-demo-page .org-tree li:only-child::after,
   .org-demo-page .org-tree > li::before,
-  .org-demo-page .org-tree > li > ul::before,
-  .org-demo-page .org-tree > li > ul::after {
+  .org-demo-page .org-tree > li::after,
+  .org-demo-page .org-tree > li > ul::before {
     display: none;
+  }
+
+  .org-demo-page .org-tree > li {
+    padding-top: 0;
   }
 
   .org-demo-page .node-shell {
     position: relative;
     display: grid;
     width: 208px;
+    justify-items: center;
+  }
+
+  .org-demo-page .org-tree li > org-chart-demo-node::before {
+    content: '';
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    width: 2px;
+    height: 26px;
+    background: rgba(150, 202, 186, 0.34);
+    transform: translateX(-50%);
+  }
+
+  .org-demo-page .org-tree li > org-chart-demo-node.is-active-branch::before {
+    background: rgba(100, 230, 191, 0.62);
+    box-shadow: 0 0 10px rgba(100, 230, 191, 0.18);
+  }
+
+  .org-demo-page .org-tree > li > org-chart-demo-node::before {
+    display: none;
   }
 
   .org-demo-page .node-card {
@@ -206,14 +256,20 @@
   }
 
   .org-demo-page .node-shell.is-active > .node-card {
-    border-color: rgba(100, 230, 191, 0.72);
+    border-color: rgba(100, 230, 191, 0.46);
+    background: linear-gradient(180deg, rgba(16, 58, 48, 0.96), rgba(10, 31, 26, 0.95));
     box-shadow:
       0 22px 54px rgba(3, 10, 9, 0.34),
-      0 0 0 1px rgba(100, 230, 191, 0.25);
+      0 0 0 1px rgba(100, 230, 191, 0.14);
   }
 
   .org-demo-page .node-shell.is-selected > .node-card {
+    border-color: rgba(100, 230, 191, 0.76);
     background: linear-gradient(180deg, rgba(13, 93, 74, 0.96), rgba(8, 53, 42, 0.96));
+    box-shadow:
+      0 24px 58px rgba(3, 10, 9, 0.36),
+      0 0 0 1px rgba(100, 230, 191, 0.3),
+      0 0 26px rgba(100, 230, 191, 0.18);
   }
 
   .org-demo-page .node-card strong,
@@ -236,6 +292,7 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
+    justify-content: center;
   }
 
   .org-demo-page .node-action {
@@ -321,11 +378,15 @@
     pointercancel.trigger="onViewportPointerUp($event)"
     pointerleave.trigger="onViewportPointerUp()">
     <div class="canvas-surface" ref="surface" style.bind="'transform: ' + canvasTransform">
-      <ul class="org-tree">
-        <li>
-          <org-chart-demo-node employee-id.bind="rootId" lineage.bind="rootId" chart.bind="this"></org-chart-demo-node>
-        </li>
-      </ul>
+      <au-router current-path.bind="currentPath">
+        <ul class="org-tree">
+          <li>
+            <au-route path=":employeeId">
+              <org-chart-demo-node employee-id.bind="$params.employeeId" lineage.bind="$params.employeeId" chart.bind="this"></org-chart-demo-node>
+            </au-route>
+          </li>
+        </ul>
+      </au-router>
     </div>
   </div>
 </section>

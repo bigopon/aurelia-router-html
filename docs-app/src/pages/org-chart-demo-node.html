@@ -22,9 +22,43 @@
       <p class="node-note" if.bind="reports.length === 0">Leaf node</p>
     </article>
 
-    <ul if.bind="reports.length && showChildren">
-      <li repeat.for="report of reports">
-        <org-chart-demo-node employee-id.bind="report.id" lineage.bind="childLineage(report.id)" chart.bind="chart"></org-chart-demo-node>
+    <ul class="${activeBranch ? 'is-active-branch' : ''}" if.bind="reports.length && showChildren">
+      <li class="${isChildActive(report.id) ? 'is-active-branch' : ''}" repeat.for="report of reports">
+        <template if.bind="!isChildActive(report.id)">
+          <article class="node-shell">
+            <button class="tooltip-button" type="button" click.trigger="chart.toggleInfo(report.id, $event)">i</button>
+
+            <div class="node-card" role="button" tabindex="0" click.trigger="selectChild(report.id, $event)" keydown.trigger="($event.key === 'Enter' || $event.key === ' ') && selectChild(report.id, $event)">
+              <strong>${report.name}</strong>
+              <span class="node-role">${report.title}</span>
+              <p class="node-path">/demo/orgchart/${childLineage(report.id)}</p>
+            </div>
+
+            <div class="tooltip-panel" if.bind="chart.isInfoOpen(report.id)">
+              <p>${report.blurb}</p>
+            </div>
+
+            <div class="node-actions" if.bind="report.reports.length">
+              <button class="node-action" type="button" click.trigger="selectChild(report.id, $event)">
+                Expand reports
+              </button>
+            </div>
+
+            <p class="node-note" if.bind="report.reports.length === 0">Leaf node</p>
+          </article>
+
+          <p class="collapsed-note" if.bind="report.reports.length">
+            ${report.reports.length} direct reports hidden
+          </p>
+        </template>
+
+        <au-route path.bind="report.id">
+          <org-chart-demo-node
+            class="${isChildActive(report.id) ? 'is-active-branch' : ''}"
+            employee-id.bind="report.id"
+            lineage.bind="childLineage(report.id)"
+            chart.bind="chart"></org-chart-demo-node>
+        </au-route>
       </li>
     </ul>
 
