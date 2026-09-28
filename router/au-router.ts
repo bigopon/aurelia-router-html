@@ -14,6 +14,7 @@ import {
 import { IInstruction, HydrateElementInstruction } from '@aurelia/template-compiler';
 import { IContainer } from '@aurelia/kernel';
 import { IRouteCoordinator, RouteCoordinator, type RouteNavigationState } from './coordinator';
+import { emptyRouteViewDefinition } from './empty-view';
 import { noRouteFocusService, IRouteFocusService } from './focus';
 import { MemoryPathAdapter } from './memory-path-adapter';
 import { IPathAdapter } from './path-adapter';
@@ -90,7 +91,7 @@ export class AuRouter implements ICustomElementViewModel {
       Registration.instance(IRouteTitleService, noRouteTitleService),
     );
 
-    this.factory = rendering.getViewFactory(routerContentDefinition, childContainer);
+    this.factory = rendering.getViewFactory(routerContentDefinition ?? emptyRouteViewDefinition, childContainer);
     this.navigationSubscription = this.coordinator.subscribeNavigation(state => {
       this.handleNavigationStateChange(state);
     });

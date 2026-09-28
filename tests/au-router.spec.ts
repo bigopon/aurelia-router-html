@@ -8,6 +8,26 @@ import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { IRouteContext } from '../router/route-context';
 
 describe('au-router memory routing', function () {
+  it('starts with no projected content', async function () {
+    class App {
+      public routerVm!: AuRouter;
+    }
+
+    const fixture = await createFixture(
+      '<au-router component.ref="routerVm"></au-router>',
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      await tasksSettled();
+      assert.strictEqual(fixture.component.routerVm.currentPath, '/');
+      assert.strictEqual(fixture.component.routerVm._coordinator.navigation.pending, false);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('uses current-path as the initial nested location and responds to external writes', async function () {
     class App {
       public panelPath: string = '/detail/7';

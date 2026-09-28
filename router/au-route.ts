@@ -28,6 +28,7 @@ import { IRouteCoordinator, RouteCoordinator } from './coordinator';
 import type { RouteCanLoadCallback, RouteCanUnloadCallback, RouteGuardFailure } from './guard';
 import type { RouteLifecycleContext, RouteTransitionCause, RouteTransitionPlan, RouteTransitionTrigger, RouteValueSnapshot } from './lifecycle';
 import type { RouteErrorHandler } from './error';
+import { emptyRouteViewDefinition } from './empty-view';
 import { IRouteContext, RouteContext, type RouteState, type SwapOrder } from './route-context';
 import { IRouteTitleService } from './title';
 import { IRouteViewSettlement } from './settlement';
@@ -223,7 +224,7 @@ export class AuRoute implements ICustomElementViewModel {
     const { projections, data: { animate, exact, fallback, group, guardFailure, isRedirect, loadedExpression, loadingExpression, path, pathExpression, redirectMode, redirectTo, swapOrder, title, transitionOn, transitionPlan } } = instruction;
     const { default: routeComponentDefinition } = projections ?? {};
     const childContainer = container.createChild();
-    this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition, childContainer);
+    this.factory = isRedirect ? null : rendering.getViewFactory(routeComponentDefinition ?? emptyRouteViewDefinition, childContainer);
     const isIndexPath = (path.trim() === '.' || path.trim() === './') && parentContext.parent != null;
 
     this.context = parentContext.createChild(path, {

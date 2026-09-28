@@ -89,6 +89,29 @@ describe('au-route dynamic path binding', function () {
   });
 });
 
+describe('au-route empty content', function () {
+  it('starts and matches a route with no projected view', async function () {
+    const adapter = new MemoryPathAdapter('/empty');
+    const fixture = await createFixture(
+      `<au-route path="empty" exact>
+      </au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      await tasksSettled();
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(router.currentPath, '/empty');
+      assert.strictEqual(router.root.children[0].active, true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-link active state', function () {
   it('applies active classes for the initial committed route when links attach after navigation', async function () {
     const fixture = await createFixture(
