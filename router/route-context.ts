@@ -112,6 +112,30 @@ export const IRouteContext = DI.createInterface<IRouteContext>('IRouteContext');
 
 let routeContextId = 0;
 
+interface RouteContextLookup {
+  version: number;
+  indexedVersion: number;
+  contexts: readonly RouteContext[];
+  readonly byFullPath: Map<string, RouteContext>;
+}
+
+const emptyRouteContexts: readonly RouteContext[] = [];
+const routeContextLookups = new WeakMap<RouteContext, RouteContextLookup>();
+
+function getRouteContextLookup(root: RouteContext): RouteContextLookup {
+  let lookup = routeContextLookups.get(root);
+  if (lookup == null) {
+    lookup = {
+      version: 0,
+      indexedVersion: -1,
+      contexts: emptyRouteContexts,
+      byFullPath: new Map(),
+    };
+    routeContextLookups.set(root, lookup);
+  }
+  return lookup;
+}
+
 export class RouteContext implements IRouteContext {
   public readonly children: RouteContext[] = [];
   public active: boolean = false;
@@ -630,6 +654,10 @@ export class RouteContext implements IRouteContext {
     const matcher = compilePattern(normalizedPattern, this._exact || this._index, this.parent === null);
     this.pattern = normalizedPattern;
     this._matcher = matcher;
+    const parent = this.parent;
+    if (parent == null || parent instanceof RouteContext && parent.children.includes(this)) {
+      this._markStructureChanged();
+    }
   }
 
   /** @internal */
@@ -638,6 +666,7 @@ export class RouteContext implements IRouteContext {
       return;
     }
     this._registered = value;
+    this._markStructureChanged();
     if (!value) {
       this._deactivateBranch('/__inactive__', this.$query, this.$hash);
     }
@@ -784,6 +813,7 @@ export class RouteContext implements IRouteContext {
       hrefFormatter: this._hrefFormatter,
     });
     this.children.push(child);
+    this._markStructureChanged();
     if (this.active) {
       this.refresh();
     } else {
@@ -826,8 +856,11 @@ export class RouteContext implements IRouteContext {
       const index = parent.children.indexOf(this);
       if (index >= 0) {
         parent.children.splice(index, 1);
+        parent._markStructureChanged();
         parent._notifyRegistryChanged();
       }
+    } else {
+      this._markStructureChanged();
     }
   }
 
@@ -927,9 +960,9 @@ export class RouteContext implements IRouteContext {
       ? this.root
       : this;
     const normalizedPattern = normalizePattern(resolveRouteTarget(baseContext.fullPath, target.path));
-    const contexts = (this.root as RouteContext)._getContexts();
-    return contexts.find(context => context._registered && context.fullPath === normalizedPattern)
-      ?? contexts.find(context => context._registered && context.pattern === normalizedPattern)
+    const lookup = (this.root as RouteContext)._getContextLookup();
+    return lookup.byFullPath.get(normalizedPattern)
+      ?? lookup.contexts.find(context => context.pattern === normalizedPattern)
       ?? null;
   }
 
@@ -955,6 +988,35 @@ export class RouteContext implements IRouteContext {
       contexts.push(...contexts[index].children);
     }
     return contexts;
+  }
+
+  /** @internal */
+  private _markStructureChanged(): void {
+    const root = this.root as RouteContext;
+    const lookup = getRouteContextLookup(root);
+    lookup.version++;
+    lookup.contexts = emptyRouteContexts;
+    lookup.byFullPath.clear();
+  }
+
+  /** @internal */
+  private _getContextLookup(): RouteContextLookup {
+    const lookup = getRouteContextLookup(this);
+    if (lookup.indexedVersion === lookup.version) {
+      return lookup;
+    }
+
+    const contexts = this._getContexts().filter(context => context._registered);
+    lookup.contexts = contexts;
+    lookup.byFullPath.clear();
+    for (const context of contexts) {
+      const fullPath = context.fullPath;
+      if (!lookup.byFullPath.has(fullPath)) {
+        lookup.byFullPath.set(fullPath, context);
+      }
+    }
+    lookup.indexedVersion = lookup.version;
+    return lookup;
   }
 
   /** @internal */

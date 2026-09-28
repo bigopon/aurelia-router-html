@@ -311,6 +311,62 @@ run('A4 route registry changes notify link subscribers', () => {
   assert.equal(notifications, 2);
 });
 
+run('A4 route lookup caches full paths and invalidates structural changes', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(RouteContext.prototype, 'fullPath');
+  assert.notEqual(descriptor?.get, undefined);
+  const originalGet = descriptor!.get!;
+  let fullPathEvaluations = 0;
+  Object.defineProperty(RouteContext.prototype, 'fullPath', {
+    ...descriptor,
+    get: function (this: RouteContext): string {
+      fullPathEvaluations++;
+      return originalGet.call(this) as string;
+    },
+  });
+
+  try {
+    const root = new RouteContext(null, '*');
+    for (let index = 0; index < 100; index++) {
+      root.createChild(`/route-${index}`);
+    }
+
+    root.href('/route-99');
+    const warmedEvaluations = fullPathEvaluations;
+    for (let index = 0; index < 10; index++) {
+      root.href('/route-99');
+    }
+    assert.equal(fullPathEvaluations - warmedEvaluations, 20);
+
+    const dynamic = root.createChild('/before/:id') as RouteContext;
+    assert.equal(root.href('/before/:id', { id: 'one' }), '/before/one');
+    dynamic.usePattern('/after/:id');
+    assert.throws(() => root.href('/before/:id', { id: 'two' }), /No route matching/);
+    assert.equal(root.href('/after/:id', { id: 'three' }), '/after/three');
+
+    const parent = root.createChild('/parent') as RouteContext;
+    parent.createChild('/child/:id');
+    assert.equal(root.href('/parent/child/:id', { id: 'one' }), '/parent/child/one');
+    parent.usePattern('/renamed');
+    assert.throws(() => root.href('/parent/child/:id', { id: 'two' }), /No route matching/);
+    assert.equal(root.href('/renamed/child/:id', { id: 'three' }), '/renamed/child/three');
+
+    const registered = root.createChild('/registered/:id') as RouteContext;
+    assert.equal(root.href('/registered/:id', { id: 'one' }), '/registered/one');
+    registered._setRegistered(false);
+    assert.throws(() => root.href('/registered/:id', { id: 'two' }), /No route matching/);
+    registered._setRegistered(true);
+    assert.equal(root.href('/registered/:id', { id: 'three' }), '/registered/three');
+    registered.dispose();
+    assert.throws(() => root.href('/registered/:id', { id: 'four' }), /No route matching/);
+
+    assert.equal(root.href('/after/:id', { id: 'five' }), '/after/five');
+    root.dispose();
+    assert.throws(() => root.href('/after/:id', { id: 'six' }), /No route matching/);
+  } finally {
+    Object.defineProperty(RouteContext.prototype, 'fullPath', descriptor!);
+  }
+});
+
 run('A4 link targets distinguish context-relative and root-absolute paths', () => {
   const root = new RouteContext(null, '*');
   root.createChild('/product');
