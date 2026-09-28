@@ -1123,6 +1123,181 @@ describe('au-route pathless route groups', function () {
     }
   });
 
+  it('updates a group $route.active guard when inactive discovery selects the group', async function () {
+    let attached = 0;
+    let detached = 0;
+    const GuardedGroupContent = CustomElement.define(
+      { name: 'guarded-group-content', template: 'Guarded content' },
+      class {
+        public attached(): void {
+          attached++;
+        }
+
+        public detaching(): void {
+          detached++;
+        }
+      },
+    );
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route group>
+        <guarded-group-content if.bind="$route.active"></guarded-group-content>
+        <au-route path="inside" exact><span data-inside>Inside route</span></au-route>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter }), GuardedGroupContent],
+    ).started;
+
+    try {
+      assert.strictEqual(attached, 0);
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(await navigate(router, '/inside'), true);
+      assert.strictEqual(fixture.appHost.querySelector('[data-inside]')?.textContent, 'Inside route');
+      assert.strictEqual(attached, 1);
+
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      assert.strictEqual(detached, 1);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('deactivates an inactive group discovery view when its au-route unbinds', async function () {
+    const events: string[] = [];
+    class App {
+      public showGroup: boolean = true;
+    }
+    const DiscoveryProbe = CustomElement.define(
+      { name: 'group-discovery-probe', template: 'Discovery probe' },
+      class {
+        public binding(): void {
+          events.push('binding');
+        }
+
+        public attached(): void {
+          events.push('attached');
+        }
+
+        public detaching(): void {
+          events.push('detaching');
+        }
+
+        public unbinding(): void {
+          events.push('unbinding');
+        }
+      },
+    );
+    const adapter = new MemoryPathAdapter('/outside');
+    const fixture = await createFixture(
+      `<au-route if.bind="showGroup" group>
+        <group-discovery-probe></group-discovery-probe>
+        <au-route path="inside" exact>Inside</au-route>
+      </au-route>
+      <au-route path="outside" exact>Outside</au-route>`,
+      App,
+      [Routing.customize({ adapter }), DiscoveryProbe],
+    ).started;
+
+    try {
+      assert.deepStrictEqual(events, ['binding', 'attached']);
+      fixture.component.showGroup = false;
+      await tasksSettled();
+      assert.deepStrictEqual(events, ['binding', 'attached', 'detaching', 'unbinding']);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('discovers a group descendant route declared inside a child component', async function () {
+    const discoveryEvents: string[] = [];
+    let guardedAttached = 0;
+    let guardedDetached = 0;
+    class App {
+      public showRoutes: boolean = false;
+    }
+    const ComponentDiscoveryProbe = CustomElement.define(
+      { name: 'component-group-discovery-probe', template: 'Discovery probe' },
+      class {
+        public binding(): void {
+          discoveryEvents.push('binding');
+        }
+
+        public attached(): void {
+          discoveryEvents.push('attached');
+        }
+
+        public detaching(): void {
+          discoveryEvents.push('detaching');
+        }
+
+        public unbinding(): void {
+          discoveryEvents.push('unbinding');
+        }
+      },
+    );
+    const ComponentGuardedContent = CustomElement.define(
+      { name: 'component-group-guarded-content', template: 'Guarded content' },
+      class {
+        public attached(): void {
+          guardedAttached++;
+        }
+
+        public detaching(): void {
+          guardedDetached++;
+        }
+      },
+    );
+    const ComponentRouteHost = CustomElement.define(
+      {
+        name: 'component-route-host',
+        template: `<component-group-discovery-probe></component-group-discovery-probe>
+        <au-route path="component-child" exact>
+          <span data-component-child>Component child</span>
+        </au-route>`,
+      },
+      class {},
+    );
+    const adapter = new MemoryPathAdapter('/component-child');
+    const fixture = await createFixture(
+      `<au-route if.bind="showRoutes" group>
+        <component-group-guarded-content if.bind="$route.active"></component-group-guarded-content>
+        <component-route-host></component-route-host>
+      </au-route>
+      <au-route path="outside" exact><span data-outside>Outside</span></au-route>
+      <au-route path="*" fallback><span data-fallback>Fallback</span></au-route>`,
+      App,
+      [
+        Routing.customize({ adapter }),
+        ComponentDiscoveryProbe,
+        ComponentGuardedContent,
+        ComponentRouteHost,
+      ],
+    ).started;
+
+    try {
+      assert.deepStrictEqual(discoveryEvents, []);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Fallback');
+
+      fixture.component.showRoutes = true;
+      await tasksSettled();
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.deepStrictEqual(discoveryEvents, ['binding', 'attached']);
+      assert.strictEqual(fixture.appHost.querySelector('[data-component-child]')?.textContent, 'Component child');
+      assert.strictEqual(guardedAttached, 1);
+
+      assert.strictEqual(await navigate(router, '/outside'), true);
+      assert.strictEqual(guardedDetached, 1);
+
+      fixture.component.showRoutes = false;
+      await tasksSettled();
+      assert.deepStrictEqual(discoveryEvents, ['binding', 'attached', 'detaching', 'unbinding']);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('resolves child redirects through the unchanged group URL base', async function () {
     const adapter = new MemoryPathAdapter('/outside');
     const fixture = await createFixture(

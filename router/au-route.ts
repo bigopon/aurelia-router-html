@@ -202,6 +202,10 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private discoveryActive: boolean = false;
   /** @internal */
+  private discoveryActivating: boolean = false;
+  /** @internal */
+  private discoveryUpdateRequested: boolean = false;
+  /** @internal */
   private requestedViewActive: boolean = false;
   /** @internal */
   private viewTransition: Promise<void> | null = null;
@@ -431,7 +435,8 @@ export class AuRoute implements ICustomElementViewModel {
     (this.context as RouteContext)._setRegistered(false, parentStopping);
     this.requestedViewActive = false;
     const update = this.queueViewUpdate();
-    return isPromise(update) ? Promise.resolve(update) : undefined;
+    const cleanup = onResolve(update, () => this.deactivateDiscoveryView());
+    return isPromise(cleanup) ? Promise.resolve(cleanup) : undefined;
   }
 
   public dispose(): void {
@@ -461,6 +466,10 @@ export class AuRoute implements ICustomElementViewModel {
 
   /** @internal */
   private queueViewUpdate(): void | Promise<void> {
+    if (this.discoveryActivating) {
+      this.discoveryUpdateRequested = true;
+      return;
+    }
     const update = this.viewTransition == null
       ? this.updateView()
       : this.viewTransition.then(() => this.updateView());
@@ -503,18 +512,51 @@ export class AuRoute implements ICustomElementViewModel {
 
   /** @internal */
   private ensureDiscoveryView(): void | Promise<void> {
-    if (!this.isGroup || this.factory == null || this.scope == null || this.discoveryActive) {
+    if (!this.isGroup || this.factory == null || this.scope == null || this.discoveryActive || this.discoveryActivating) {
       return;
     }
-    const fragment = this.platform.globalThis.document.createDocumentFragment();
-    const view = this.view ??= this.factory.create().setHost(fragment);
-    const activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, this.scope!));
+    this.discoveryActivating = true;
+    const complete = (): void | Promise<void> => {
+      this.discoveryActivating = false;
+      this.discoveryActive = true;
+      if (this.discoveryUpdateRequested) {
+        this.discoveryUpdateRequested = false;
+        return this.queueViewUpdate();
+      }
+    };
+    let activation: void | Promise<void>;
+    try {
+      const fragment = this.platform.globalThis.document.createDocumentFragment();
+      const view = this.view ??= this.factory.create().setHost(fragment);
+      activation = this.coordinator._runRoutePhase('activation', () => view.activate(view, this.$controller, this.scope!));
+    } catch (error) {
+      this.discoveryActivating = false;
+      this.discoveryUpdateRequested = false;
+      throw error;
+    }
     if (isPromise(activation)) {
-      return activation.then(() => {
-        this.discoveryActive = true;
+      return activation.then(complete, error => {
+        this.discoveryActivating = false;
+        this.discoveryUpdateRequested = false;
+        throw error;
       });
     }
-    this.discoveryActive = true;
+    return complete();
+  }
+
+  /** @internal */
+  private deactivateDiscoveryView(): void | Promise<void> {
+    if (!this.isGroup || !this.discoveryActive || this.view == null) {
+      return;
+    }
+    const view = this.view;
+    this.discoveryActive = false;
+    return onResolve(view.deactivate(view, this.$controller), () => {
+      view.dispose();
+      if (this.view === view) {
+        this.view = null;
+      }
+    });
   }
 
   /** @internal */

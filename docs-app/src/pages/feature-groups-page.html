@@ -28,6 +28,21 @@
       <p>A group may contain ordinary markup, bindings, slots, and child components in addition to nested <code>au-route</code> declarations. It is not restricted to route elements only.</p>
       <p>Keep <code>group</code> by itself. It does not combine with <code>path</code>, <code>exact</code>, <code>fallback</code>, or <code>redirect-to</code>.</p>
     </section>
+
+    <section>
+      <h3>Discovery and view side effects</h3>
+      <pre class="code-block" syntax-html>&lt;au-route group&gt;
+  &lt;!-- Guard UI whose binding or lifecycle has side effects. --&gt;
+  &lt;workspace-shell if.bind="$route.active"&gt;&lt;/workspace-shell&gt;
+
+  &lt;!-- Keep route declarations available for discovery. --&gt;
+  &lt;au-route path="projects" exact&gt;Projects&lt;/au-route&gt;
+  &lt;au-route path="reports" exact&gt;Reports&lt;/au-route&gt;
+&lt;/au-route&gt;</pre>
+      <p>The router creates and binds a group's projected view before the group is selected so it can discover static, bound, conditional, and repeated child routes. The discovery view is detached from the document while the group is inactive, but bindings and component lifecycle can still run.</p>
+      <p>Use <code>if.bind="$route.active"</code> around non-route content that must not be created early. Keep descendant <code>au-route</code> declarations outside that guard; hiding them behind the group's active state would prevent the router from discovering the routes that can activate the group.</p>
+      <p>When the owning <code>au-route</code> unbinds, its discovery view is deactivated and disposed with it.</p>
+    </section>
   </div>
 
   <div class="feature-details" data-e2e="route-group-usage-guide">
