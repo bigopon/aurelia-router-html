@@ -657,6 +657,9 @@ export class RouteContext implements IRouteContext {
     const parent = this.parent;
     if (parent == null || parent instanceof RouteContext && parent.children.includes(this)) {
       this._markStructureChanged();
+      if (parent instanceof RouteContext && this._registered) {
+        this._notifyRegistryChanged();
+      }
     }
   }
 

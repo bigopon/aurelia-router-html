@@ -1013,6 +1013,39 @@ describe('au-route pathless route groups', function () {
     }
   });
 
+  it('deactivates a group and selects the parent fallback when its bound child path stops matching', async function () {
+    class App {
+      public childPath: string = 'orders';
+    }
+
+    const adapter = new MemoryPathAdapter('/orders');
+    const fixture = await createFixture(
+      `<au-route group>
+        <span data-orders-shell>Orders shell</span>
+        <au-route path.bind="childPath" exact><span data-orders>Orders</span></au-route>
+      </au-route>
+      <au-route path="*" fallback><span data-fallback>Not found</span></au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-orders-shell]')?.textContent, 'Orders shell');
+      assert.strictEqual(fixture.appHost.querySelector('[data-orders]')?.textContent, 'Orders');
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]'), null);
+
+      fixture.component.childPath = 'invoices';
+      await tasksSettled();
+
+      assert.strictEqual(fixture.appHost.querySelector('[data-orders-shell]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-orders]'), null);
+      assert.strictEqual(fixture.appHost.querySelector('[data-fallback]')?.textContent, 'Not found');
+      assert.strictEqual(adapter.getCurrentPath(), '/orders');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('discovers a conditional child before first group activation and removes its inactive declaration', async function () {
     class App {
       public showPrivate: boolean = false;
