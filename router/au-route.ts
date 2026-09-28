@@ -814,98 +814,136 @@ export class AuRoute implements ICustomElementViewModel {
   }
 
   /** @internal */
-  private async runReplace(lifecycle: RouteLifecycleContext): Promise<void> {
-    await this.runLoading(lifecycle);
-    this.coordinator._assertNavigationSignal(lifecycle.signal);
-    if (!this.viewActive || this.view == null || this.scope == null) {
-      return;
-    }
+  private runReplace(lifecycle: RouteLifecycleContext): void | Promise<void> {
+    return onResolve(this.runLoading(lifecycle), () => {
+      this.coordinator._assertNavigationSignal(lifecycle.signal);
+      if (!this.viewActive || this.view == null || this.scope == null) {
+        return;
+      }
 
-    const previousView = this.view;
-    const scope = this.scope;
-    let candidateView: ISyntheticView | null = null;
-    let candidateSettling = false;
-    let previousDeactivation: Promise<void> | null = null;
-    let rolledBack = false;
-    let committed = false;
-    let rollbackPromise: Promise<void> | null = null;
-    const finishCandidateSettlement = (): void => {
-      if (!candidateSettling) {
-        return;
-      }
-      candidateSettling = false;
-      this.endViewActivation();
-    };
-    const commit = (): void => {
-      if (committed || rolledBack) {
-        return;
-      }
-      committed = true;
-      previousView.dispose();
-    };
-    const rollback = (): void | Promise<void> => {
-      if (committed || rolledBack) {
-        return rollbackPromise ?? undefined;
-      }
-      rolledBack = true;
-      rollbackPromise = (async () => {
-        if (!lifecycle.signal.aborted) {
-          await previousDeactivation?.catch(() => {});
+      const previousView = this.view;
+      const scope = this.scope;
+      let candidateView: ISyntheticView | null = null;
+      let candidateSettling = false;
+      let previousDeactivation: Promise<void> | null = null;
+      let rolledBack = false;
+      let committed = false;
+      let rollbackPromise: Promise<void> | null = null;
+      const finishCandidateSettlement = (): void => {
+        if (!candidateSettling) {
+          return;
         }
+        candidateSettling = false;
+        this.endViewActivation();
+      };
+      const commit = (): void => {
+        if (committed || rolledBack) {
+          return;
+        }
+        committed = true;
+        previousView.dispose();
+      };
+      const rollback = (): void | Promise<void> => {
+        if (committed || rolledBack) {
+          return rollbackPromise ?? undefined;
+        }
+        rolledBack = true;
+        const restore = (): void | Promise<void> => {
+          finishCandidateSettlement();
+          return this.restoreReplacedView(previousView, candidateView, scope, lifecycle.signal.aborted);
+        };
+        const result = lifecycle.signal.aborted
+          ? restore()
+          : onResolve(previousDeactivation?.catch(() => {}), restore);
+        if (isPromise(result)) {
+          rollbackPromise = result;
+        }
+        return result;
+      };
+      const recover = (error: unknown): never | Promise<never> => {
         finishCandidateSettlement();
-        await this.restoreReplacedView(previousView, candidateView, scope, lifecycle.signal.aborted);
-      })();
-      return rollbackPromise;
-    };
-    const registered = this.coordinator._registerViewTransaction(commit, rollback);
-    try {
-      await this.runRouteTransition('leave');
-      this.coordinator._assertNavigationSignal(lifecycle.signal);
-      this.viewActive = false;
-      let finishPreviousDeactivation!: () => void;
-      previousDeactivation = new Promise<void>(resolve => { finishPreviousDeactivation = resolve; });
+        let result: void | Promise<void>;
+        try {
+          result = this.coordinator._runViewRollback(rollback);
+        } catch (rollbackError) {
+          throw new AggregateError([error, rollbackError], 'Route replacement and view rollback both failed.');
+        }
+        if (isPromise(result)) {
+          return result.then(
+            () => { throw error; },
+            rollbackError => {
+              throw new AggregateError([error, rollbackError], 'Route replacement and view rollback both failed.');
+            },
+          );
+        }
+        throw error;
+      };
+      const registered = this.coordinator._registerViewTransaction(commit, rollback);
+      let replacement: void | Promise<void>;
       try {
-        await previousView.deactivate(previousView, this.$controller);
-      } finally {
-        finishPreviousDeactivation();
+        replacement = onResolve(this.runRouteTransition('leave'), () => {
+          this.coordinator._assertNavigationSignal(lifecycle.signal);
+          this.viewActive = false;
+          let finishPreviousDeactivation!: () => void;
+          previousDeactivation = new Promise<void>(resolve => { finishPreviousDeactivation = resolve; });
+          let deactivation: void | Promise<void>;
+          try {
+            deactivation = previousView.deactivate(previousView, this.$controller);
+          } catch (error) {
+            finishPreviousDeactivation();
+            throw error;
+          }
+          if (isPromise(deactivation)) {
+            deactivation = deactivation.then(
+              () => { finishPreviousDeactivation(); },
+              error => {
+                finishPreviousDeactivation();
+                throw error;
+              },
+            );
+          } else {
+            finishPreviousDeactivation();
+          }
+          return onResolve(deactivation, () => {
+            this.coordinator._assertNavigationSignal(lifecycle.signal);
+            candidateView = this.getView();
+            this.view = candidateView;
+            this.viewActive = true;
+            this.settlement.begin();
+            candidateSettling = true;
+            return onResolve(
+              this.coordinator._runRoutePhase('activation', () => candidateView!.activate(candidateView!, this.$controller, scope)),
+              () => {
+                this.coordinator._assertNavigationSignal(lifecycle.signal);
+                return onResolve(this.notifyDescendantVisibilityChange(), () => {
+                  this.coordinator._assertNavigationSignal(lifecycle.signal);
+                  return onResolve(this.runLoaded(lifecycle), () => {
+                    this.coordinator._assertNavigationSignal(lifecycle.signal);
+                    finishCandidateSettlement();
+                    if (!registered) {
+                      commit();
+                    }
+                    this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
+                  });
+                });
+              },
+            );
+          });
+        });
+      } catch (error) {
+        return recover(error);
       }
-      this.coordinator._assertNavigationSignal(lifecycle.signal);
-
-      candidateView = this.getView();
-      this.view = candidateView;
-      this.viewActive = true;
-      this.settlement.begin();
-      candidateSettling = true;
-      await this.coordinator._runRoutePhase('activation', () => candidateView!.activate(candidateView!, this.$controller, scope));
-      this.coordinator._assertNavigationSignal(lifecycle.signal);
-      await this.notifyDescendantVisibilityChange();
-      this.coordinator._assertNavigationSignal(lifecycle.signal);
-      await this.runLoaded(lifecycle);
-      this.coordinator._assertNavigationSignal(lifecycle.signal);
-      finishCandidateSettlement();
-
-      if (!registered) {
-        commit();
-      }
-      this.coordinator._runEnterAnimation(() => this.runRouteTransition('enter'));
-    } catch (error) {
-      finishCandidateSettlement();
-      try {
-        await this.coordinator._runViewRollback(rollback);
-      } catch (rollbackError) {
-        throw new AggregateError([error, rollbackError], 'Route replacement and view rollback both failed.');
-      }
-      throw error;
-    }
+      return isPromise(replacement) ? replacement.catch(recover) : replacement;
+    });
   }
 
   /** @internal */
-  private async restoreReplacedView(
+  private restoreReplacedView(
     previousView: ISyntheticView,
     candidateView: ISyntheticView | null,
     scope: Scope,
     cancelling: boolean,
-  ): Promise<void> {
+  ): void | Promise<void> {
     if (candidateView == null && this.view === previousView && this.viewActive) {
       this.titleService.requestUpdate();
       return;
@@ -921,18 +959,27 @@ export class AuRoute implements ICustomElementViewModel {
         if (cancelling) {
           void deactivation.then(disposeCandidate, disposeCandidate);
         } else {
-          await deactivation;
-          disposeCandidate();
+          return deactivation.then(() => {
+            disposeCandidate();
+            return this.restorePreviousView(previousView, scope);
+          });
         }
       } else {
         disposeCandidate();
       }
     }
+    return this.restorePreviousView(previousView, scope);
+  }
+
+  /** @internal */
+  private restorePreviousView(previousView: ISyntheticView, scope: Scope): void | Promise<void> {
     this.clearViewLocation();
     this.view = previousView;
     if (this.requestedViewActive && this.scope != null) {
-      await previousView.activate(previousView, this.$controller, scope);
-      this.viewActive = true;
+      return onResolve(previousView.activate(previousView, this.$controller, scope), () => {
+        this.viewActive = true;
+        this.titleService.requestUpdate();
+      });
     }
     this.titleService.requestUpdate();
   }

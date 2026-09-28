@@ -2969,6 +2969,53 @@ describe('au-route same-declaration transitions', function () {
     }
   });
 
+  it('keeps replace navigation synchronous when all application work is synchronous', async function () {
+    class App {
+      public readonly calls: string[] = [];
+
+      public loading(): void {
+        this.calls.push('loading');
+      }
+
+      public loaded(): void {
+        this.calls.push('loaded');
+      }
+    }
+
+    const adapter = new MemoryPathAdapter('/items/1');
+    const fixture = await createFixture(
+      `<au-route
+        path="items/:id"
+        exact
+        transition-plan="replace"
+        loading.bind="loading()"
+        loaded.bind="loaded()">
+        <span data-item>Item \${$params.id}</span>
+      </au-route>`,
+      App,
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const firstItem = fixture.appHost.querySelector('[data-item]');
+      fixture.component.calls.length = 0;
+
+      const changed = router.load('/items/2');
+
+      assert.strictEqual(changed, true);
+      assert.deepStrictEqual(fixture.component.calls, ['loading', 'loaded']);
+      assert.strictEqual(router.currentPath, '/items/2');
+      assert.strictEqual(adapter.getCurrentPath(), '/items/2');
+      const secondItem = fixture.appHost.querySelector('[data-item]');
+      assert.notStrictEqual(secondItem, firstItem);
+      assert.strictEqual(firstItem?.isConnected, false);
+      assert.strictEqual(secondItem?.textContent?.trim(), 'Item 2');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('uses the configured reload plan and accepts a one-attempt override', async function () {
     const calls: LifecycleCall[] = [];
     class App {
