@@ -1896,7 +1896,7 @@ describe('au-route animation scheduling', function () {
 
   it('supports named css animation variants through the animate value', async function () {
     const fixture = await createFixture(
-      '<au-route path="/animated" animate="fade"><span data-animated>Animated route</span></au-route>',
+      '<au-route path="/animated" animate="fade"><span data-animated style="transition-property: opacity; transition-duration: 1s;">Animated route</span></au-route>',
       class App {},
       [Routing.customize({ animations: { fallbackMs: 500 } })],
     ).started;
@@ -1918,6 +1918,34 @@ describe('au-route animation scheduling', function () {
       assert.strictEqual(element?.dataset.auRouteTransition, 'enter');
       assert.strictEqual(element?.classList.contains('au-route-enter-active'), true);
       assert.strictEqual(element?.classList.contains('au-route-fade-enter-active'), true);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('does not wait for the css fallback when no animation events are expected', async function () {
+    const fixture = await createFixture(
+      '<au-route path="/animated" animate><span data-animated>Animated route</span></au-route>',
+      class App {},
+      [Routing.customize({ animations: { fallbackMs: 1000 } })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      router.load('/animated');
+      const platform = fixture.container.get(IPlatform) as IPlatform & {
+        requestAnimationFrame: typeof requestAnimationFrame;
+      };
+      await new Promise<void>(resolve => {
+        platform.requestAnimationFrame(() => {
+          platform.requestAnimationFrame(() => resolve());
+        });
+      });
+      await Promise.resolve();
+
+      const element = fixture.appHost.querySelector<HTMLElement>('[data-animated]');
+      assert.strictEqual(element?.dataset.auRouteTransition, undefined);
+      assert.strictEqual(element?.classList.contains('au-route-enter-active'), false);
     } finally {
       await fixture.tearDown();
     }

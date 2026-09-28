@@ -1106,7 +1106,7 @@ export class AuRoute implements ICustomElementViewModel {
     }
 
     const profile = this.getCssAnimationProfile(elements);
-    if (profile.fallbackMs > 0) {
+    if (profile.pendingEvents > 0) {
       await this.waitForCssAnimation(elements, profile, signal);
     }
 
