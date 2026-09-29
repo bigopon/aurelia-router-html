@@ -43,6 +43,8 @@ export class BrowserPathAdapter implements IPathAdapter {
   /** @internal */
   private acceptedNavigationIndex: number | null = null;
   /** @internal */
+  private acceptedHistoryLength: number = 0;
+  /** @internal */
   private acceptedHref: string | null = null;
   /** @internal */
   private acceptedState: unknown = null;
@@ -262,6 +264,7 @@ export class BrowserPathAdapter implements IPathAdapter {
   private acceptHistoryEntry(index: number): void {
     this.historyIndex = index;
     this.acceptedNavigationIndex = this.readNavigationIndex();
+    this.acceptedHistoryLength = this.window.history.length;
     this.acceptedHref = this.window.location.href;
     this.acceptedState = this.window.history.state;
   }
@@ -269,9 +272,12 @@ export class BrowserPathAdapter implements IPathAdapter {
   /** @internal */
   private inferHistoryIndex(previousIndex: number): number | null {
     const targetNavigationIndex = this.readNavigationIndex();
-    return this.acceptedNavigationIndex == null || targetNavigationIndex == null
-      ? null
-      : previousIndex + targetNavigationIndex - this.acceptedNavigationIndex;
+    if (this.acceptedNavigationIndex != null && targetNavigationIndex != null) {
+      return previousIndex + targetNavigationIndex - this.acceptedNavigationIndex;
+    }
+    return this.window.history.length > this.acceptedHistoryLength
+      ? previousIndex + 1
+      : null;
   }
 
   /** @internal */

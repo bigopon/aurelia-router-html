@@ -655,6 +655,59 @@ describe('memory path adapter', function () {
 });
 
 describe('browser history settlement', function () {
+  it('preserves entries after an unmarked forward entry without the Navigation API', async function () {
+    const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/home' });
+    const window = dom.window as unknown as Window;
+    const adapter = new BrowserPathAdapter(window);
+    let resolveNavigation: ((value: { path: string; navigation: PathNavigation }) => void) | undefined;
+    const nextNavigation = () => new Promise<{ path: string; navigation: PathNavigation }>(resolve => {
+      resolveNavigation = resolve;
+    });
+    const unsubscribe = adapter.subscribe((path, navigation) => {
+      if (navigation != null) {
+        const resolve = resolveNavigation;
+        resolveNavigation = undefined;
+        resolve?.({ path, navigation });
+      }
+    });
+
+    try {
+      adapter.push('/guard/product');
+
+      const hashState = { source: 'hash-link' };
+      const pendingHash = nextNavigation();
+      window.history.pushState(hashState, '', '#reviews');
+      window.dispatchEvent(new dom.window.PopStateEvent('popstate', { state: hashState }));
+      const hashNavigation = await pendingHash;
+      assert.strictEqual(hashNavigation.path, '/guard/product#reviews');
+      hashNavigation.navigation.commit();
+
+      adapter.push('/guard/checkout');
+      const pendingDenied = nextNavigation();
+      window.history.go(-2);
+      const denied = await pendingDenied;
+      assert.strictEqual(denied.path, '/guard/product');
+
+      await denied.navigation.rollback();
+      assert.strictEqual(window.location.pathname, '/guard/checkout');
+
+      const pendingHashBack = nextNavigation();
+      window.history.back();
+      const hashBack = await pendingHashBack;
+      assert.strictEqual(hashBack.path, '/guard/product#reviews');
+      hashBack.navigation.commit();
+
+      const pendingProductBack = nextNavigation();
+      window.history.back();
+      const productBack = await pendingProductBack;
+      assert.strictEqual(productBack.path, '/guard/product');
+      productBack.navigation.commit();
+    } finally {
+      unsubscribe();
+      dom.window.close();
+    }
+  });
+
   it('uses Navigation API indexes to compensate an unmarked multi-entry traversal', async function () {
     const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/editor' });
     const window = dom.window as unknown as Window;
