@@ -114,7 +114,7 @@ export function createRouteQuery(input: RouteQueryInput | RouteQuery = ''): Rout
 }
 
 export function normalizeRoutePath(path: string): string {
-  const trimmed = path.trim();
+  const trimmed = path.trim().replace(/[\t\n\r]/g, '').replace(/\\/g, '/');
   if (trimmed === '') {
     return '/';
   }

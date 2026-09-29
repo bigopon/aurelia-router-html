@@ -1787,6 +1787,36 @@ describe('active route links', function () {
 });
 
 describe('au-link', function () {
+  it('keeps URL-parser separator variants on the application origin', async function () {
+    class App {
+      public target: string = '/\\evil.example';
+    }
+    const fixture = await createFixture(
+      '<a data-link au-link.bind="target">Continue</a>',
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      const link = fixture.appHost.querySelector<HTMLAnchorElement>('[data-link]')!;
+      const origin = fixture.appHost.ownerDocument.location.origin;
+      for (const [target, expected] of [
+        ['/\\evil.example', '/evil.example'],
+        ['/\t/evil.example', '/evil.example'],
+        ['/\n/evil.example', '/evil.example'],
+        ['/\r/evil.example', '/evil.example'],
+        ['/%5Cevil.example', '/%5Cevil.example'],
+      ]) {
+        fixture.component.target = target;
+        await tasksSettled();
+        assert.strictEqual(link.getAttribute('href'), expected);
+        assert.strictEqual(new URL(link.href).origin, origin);
+      }
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('loads through its route context with a custom adapter', async function () {
     const adapter = new MemoryPathAdapter('/dashboard');
     const fixture = await createFixture(
