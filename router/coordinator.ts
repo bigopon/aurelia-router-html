@@ -767,10 +767,14 @@ export class RouteCoordinator implements IRouteCoordinator {
           this.tryFinish(transaction);
         },
         error => {
-          if (transaction.finalized || error instanceof NavigationCancelled) {
+          if (transaction.finalized) {
             return;
           }
           transaction.finalizing = false;
+          if (error instanceof NavigationCancelled) {
+            this.tryFinish(transaction);
+            return;
+          }
           this.cancelTransaction(transaction, 'failed', error);
         },
       );

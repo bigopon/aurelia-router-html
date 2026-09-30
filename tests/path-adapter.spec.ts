@@ -432,6 +432,50 @@ describe('route focus management', function () {
 });
 
 describe('memory path adapter', function () {
+  it('finishes a redirect registered while views are settling', async function () {
+    let blockSettlement = false;
+    const settlement = {
+      begin(): void {},
+      end(): void {},
+      queue(): void {},
+      cancel(): void {},
+      whenSettled(): void | Promise<void> {
+        return blockSettlement ? new Promise<void>(() => {}) : undefined;
+      },
+    };
+    const adapter = new MemoryPathAdapter('/home');
+    const root = new RouteContext(null, '*');
+    root.createChild('/home', { exact: true });
+    root.createChild('/target', { exact: true });
+    const coordinator = new RouteCoordinator(root, adapter, undefined, undefined, undefined, settlement);
+    coordinator.start();
+
+    try {
+      blockSettlement = true;
+      const navigation = coordinator.load('/late');
+      assert.strictEqual(navigation instanceof Promise, true);
+      assert.strictEqual(coordinator.navigation.phase, 'settling');
+
+      blockSettlement = false;
+      const late = root.createChild('/late', { exact: true }) as RouteContext;
+      late.subscribe(state => {
+        if (state.active) {
+          root._redirect('/target', {}, true);
+        }
+      });
+
+      for (let index = 0; index < 10 && coordinator.navigation.pending; index++) {
+        await Promise.resolve();
+      }
+      assert.strictEqual(coordinator.navigation.pending, false);
+      assert.strictEqual(await navigation, true);
+      assert.strictEqual(adapter.getCurrentPath(), '/target');
+      assert.strictEqual(coordinator.currentPath, '/target');
+    } finally {
+      coordinator.stop();
+    }
+  });
+
   it('serializes newer navigation behind an asynchronous adapter commit', async function () {
     let releaseCommit!: () => void;
     class DeferredCommitAdapter extends MemoryPathAdapter {
