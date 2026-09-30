@@ -1201,6 +1201,16 @@ interface RouteParameterCapture {
   readonly name: string;
 }
 
+interface RoutePatternCandidate {
+  readonly expression: RegExp;
+  readonly constraints: readonly RouteParameterConstraint[];
+}
+
+type CompiledRoutePart =
+  | { readonly kind: 'literal'; readonly value: string }
+  | { readonly kind: 'wildcard' }
+  | { readonly kind: 'parameter'; readonly group: string; readonly parameter: RouteParameterSegment };
+
 interface RoutePatternMatcher {
   readonly parameters: readonly RouteParameterCapture[];
   exec(path: string): RegExpExecArray | null;
@@ -1228,13 +1238,13 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   const restIndex = parts.indexOf('**');
   const consumesRest = restIndex >= 0;
   const routeParts = consumesRest ? parts.slice(0, -1) : parts;
-  const constraints: RouteParameterConstraint[] = [];
   const parameters: RouteParameterCapture[] = [];
   const parameterNames = new Set<string>();
-  let compiled = '';
+  const optionalConstrainedGroups: string[] = [];
+  const compiledParts: CompiledRoutePart[] = [];
   for (const part of routeParts) {
     if (part === '*') {
-      compiled += '/(?<wildcard__>[^/]+)';
+      compiledParts.push({ kind: 'wildcard' });
       continue;
     }
     if (part.startsWith(':')) {
@@ -1245,59 +1255,126 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
       parameterNames.add(parameter.name);
       const group = `p${parameters.length}`;
       parameters.push({ group, name: parameter.name });
-      if (parameter.pattern != null) {
-        constraints.push({
-          group,
-          pattern: parameter.pattern,
-        });
+      compiledParts.push({ kind: 'parameter', group, parameter });
+      if (parameter.optional && parameter.pattern != null) {
+        optionalConstrainedGroups.push(group);
       }
-      const capture = `(?<${group}>[^/]+)`;
-      compiled += parameter.optional ? `(?:/${capture})?` : `/${capture}`;
       continue;
     }
-    compiled += `/${escapeRegex(part)}`;
+    compiledParts.push({ kind: 'literal', value: part });
   }
 
-  if (consumesRest) {
-    return createRoutePatternMatcher(routeParts.length === 0
-      ? /^\/(?<restWildcard__>.*)$/
-      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`), constraints, parameters);
+  if (optionalConstrainedGroups.length > 4) {
+    throw new Error(`Route pattern "${pattern}" contains more than 4 optional constrained parameters.`);
   }
 
-  const pathExpression = routeParts.every(part => part.startsWith(':') && parseRouteParameter(part).optional)
-    ? `(?:${compiled}|/)`
-    : compiled;
-  return createRoutePatternMatcher(exact
-    ? new RegExp(`^${pathExpression}$`)
-    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`), constraints, parameters);
+  const compileCandidate = (omitted: ReadonlySet<string>): RoutePatternCandidate => {
+    const constraints: RouteParameterConstraint[] = [];
+    let compiled = '';
+    let allOptional = true;
+    for (const part of compiledParts) {
+      switch (part.kind) {
+        case 'literal':
+          compiled += `/${escapeRegex(part.value)}`;
+          allOptional = false;
+          break;
+        case 'wildcard':
+          compiled += '/(?<wildcard__>[^/]+)';
+          allOptional = false;
+          break;
+        case 'parameter': {
+          if (omitted.has(part.group)) {
+            break;
+          }
+          const { group, parameter } = part;
+          if (parameter.pattern != null) {
+            constraints.push({ group, pattern: parameter.pattern });
+          }
+          const capture = `(?<${group}>[^/]+)`;
+          compiled += parameter.optional ? `(?:/${capture})?` : `/${capture}`;
+          allOptional &&= parameter.optional;
+          break;
+        }
+      }
+    }
+
+    if (consumesRest) {
+      return {
+        expression: compiled === ''
+          ? /^\/(?<restWildcard__>.*)$/
+          : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`),
+        constraints,
+      };
+    }
+    if (compiled === '') {
+      return {
+        expression: exact ? /^\/$/ : /^(?<rest__>\/.*|\/)?$/,
+        constraints,
+      };
+    }
+    const pathExpression = allOptional ? `(?:${compiled}|/)` : compiled;
+    return {
+      expression: exact
+        ? new RegExp(`^${pathExpression}$`)
+        : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`),
+      constraints,
+    };
+  };
+
+  const primary = compileCandidate(new Set());
+  const omissionMasks = Array.from(
+    { length: (1 << optionalConstrainedGroups.length) - 1 },
+    (_, index) => index + 1,
+  ).sort((left, right) => countSetBits(left) - countSetBits(right) || left - right);
+  const alternatives = omissionMasks.map(mask => compileCandidate(new Set(
+    optionalConstrainedGroups.filter((_, index) => (mask & (1 << index)) !== 0),
+  )));
+  return createRoutePatternMatcher(primary.expression, primary.constraints, parameters, alternatives);
 }
 
 function createRoutePatternMatcher(
   expression: RegExp,
   constraints: readonly RouteParameterConstraint[] = [],
   parameters: readonly RouteParameterCapture[] = [],
+  alternatives: readonly RoutePatternCandidate[] = [],
 ): RoutePatternMatcher {
+  const candidates: readonly RoutePatternCandidate[] = [{ expression, constraints }, ...alternatives];
   return {
     parameters,
     exec(path: string): RegExpExecArray | null {
-      const match = expression.exec(path);
-      if (match == null || constraints.length === 0) {
-        return match;
-      }
-      const groups = match.groups ?? {};
-      for (const constraint of constraints) {
-        const value = groups[constraint.group];
-        if (value == null) {
+      for (const candidate of candidates) {
+        const match = candidate.expression.exec(path);
+        if (match == null) {
           continue;
         }
-        constraint.pattern.lastIndex = 0;
-        if (!constraint.pattern.test(value)) {
-          return null;
+        const groups = match.groups ?? {};
+        let valid = true;
+        for (const constraint of candidate.constraints) {
+          const value = groups[constraint.group];
+          if (value == null) {
+            continue;
+          }
+          constraint.pattern.lastIndex = 0;
+          if (!constraint.pattern.test(value)) {
+            valid = false;
+            break;
+          }
+        }
+        if (valid) {
+          return match;
         }
       }
-      return match;
+      return null;
     },
   };
+}
+
+function countSetBits(value: number): number {
+  let count = 0;
+  for (let remaining = value; remaining !== 0; remaining >>>= 1) {
+    count += remaining & 1;
+  }
+  return count;
 }
 
 function parseRouteParameter(segment: string): RouteParameterSegment {

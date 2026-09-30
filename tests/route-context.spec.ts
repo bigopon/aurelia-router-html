@@ -670,6 +670,47 @@ run('A2 optional constrained parameters accept omission but validate a supplied 
   assert.equal(archive.active, false);
 });
 
+run('A2 optional constrained parameters let descendants consume rejected segments', () => {
+  const root = new RouteContext(null, '*');
+  const archive = root.createChild('/archive/:year{{^\\d{4}$}}?') as RouteContext;
+  const latest = archive.createChild('/latest', { exact: true }) as RouteContext;
+
+  root.apply('/archive/latest');
+  assert.equal(archive.active, true);
+  assert.deepEqual({ ...archive.$params }, {});
+  assert.equal(latest.active, true);
+
+  root.apply('/archive/2026/latest');
+  assert.equal(archive.active, true);
+  assert.deepEqual({ ...archive.$params }, { year: '2026' });
+  assert.equal(latest.active, true);
+});
+
+run('A2 multiple optional constraints try the fewest omissions first', () => {
+  const root = new RouteContext(null, '*');
+  const localized = root.createChild('/:lang{{^(en|fr)$}}?/:year{{^\\d{4}$}}?') as RouteContext;
+  const about = localized.createChild('/about', { exact: true }) as RouteContext;
+
+  root.apply('/fr/2026/about');
+  assert.deepEqual({ ...localized.$params }, { lang: 'fr', year: '2026' });
+  assert.equal(about.active, true);
+
+  root.apply('/2026/about');
+  assert.deepEqual({ ...localized.$params }, { year: '2026' });
+  assert.equal(about.active, true);
+
+  root.apply('/about');
+  assert.deepEqual({ ...localized.$params }, {});
+  assert.equal(about.active, true);
+});
+
+run('A2 optional constrained parameter expansion is capped', () => {
+  assert.throws(
+    () => new RouteContext(null, '/:a{{^a$}}?/:b{{^b$}}?/:c{{^c$}}?/:d{{^d$}}?/:e{{^e$}}?'),
+    /more than 4 optional constrained parameters/,
+  );
+});
+
 run('A2 constrained parameters work in middle segments and retain raw regular-expression semantics', () => {
   const root = new RouteContext(null, '*');
   const summary = root.createChild('/calendar/:date{{^\\d{4}-\\d{2}-\\d{2}$}}/summary', { exact: true }) as RouteContext;

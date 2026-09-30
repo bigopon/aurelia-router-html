@@ -1600,6 +1600,32 @@ describe('au-route parameter names', function () {
 });
 
 describe('au-route constrained parameters', function () {
+  it('lets a child consume a segment rejected by an optional parent parameter', async function () {
+    const adapter = new MemoryPathAdapter('/archive/latest');
+    const fixture = await createFixture(
+      `<au-route path="archive/:year{{^\\d{4}$}}?">
+        <span data-archive>\${$params.year || 'none'}</span>
+        <au-route path="latest" exact><span data-latest>Latest</span></au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(fixture.appHost.querySelector('[data-archive]')?.textContent, 'none');
+      assert.strictEqual(fixture.appHost.querySelector('[data-latest]')?.textContent, 'Latest');
+
+      const navigation = router.load('/archive/2026/latest');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+      assert.strictEqual(fixture.appHost.querySelector('[data-archive]')?.textContent, '2026');
+      assert.strictEqual(fixture.appHost.querySelector('[data-latest]')?.textContent, 'Latest');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('renders only the sibling whose segment constraint matches', async function () {
     const fixture = await createFixture(
       `<au-route path="/products/:id{{^\\d+$}}" exact>
