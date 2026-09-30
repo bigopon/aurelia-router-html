@@ -46,11 +46,21 @@ export type RouteNavigationCallback = (state: RouteNavigationState) => void;
 interface InternalLoadOptions extends LoadOptions {
   redirect?: boolean;
   chain?: string[];
+  redirectSources?: PendingRedirectSource[];
   external?: boolean;
   initial?: boolean;
   scrollNavigation?: RouteScrollNavigation;
   adapterNavigation?: PathNavigation;
   source?: RouteNavigationSource;
+}
+
+interface PendingRedirectSource {
+  readonly path: string;
+  readonly replace: boolean;
+  readonly external: boolean;
+  readonly rollbackExternal: boolean;
+  readonly previousPath: string;
+  readonly adapterNavigation?: PathNavigation;
 }
 
 interface RetainedRouteTransitionWork {
@@ -535,7 +545,8 @@ export class RouteCoordinator implements IRouteCoordinator {
 
       active.superseded = true;
       const keepLatestTraversal =
-        active.options.adapterNavigation?.kind === 'traverse'
+        (active.options.adapterNavigation?.kind === 'traverse'
+          || active.options.redirectSources?.some(source => source.adapterNavigation?.kind === 'traverse') === true)
         && options.adapterNavigation?.kind === 'traverse';
       const cancelled = this.cancelTransaction(active, 'superseded', undefined, false, !keepLatestTraversal);
       return isPromise(cancelled)
@@ -786,16 +797,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     this.publishPhase(transaction, 'committing');
     let adapterCommit: void | Promise<void>;
     try {
-      const adapterNavigation = transaction.options.adapterNavigation;
-      if (adapterNavigation != null) {
-        adapterCommit = adapterNavigation.commit(transaction.normalizedPath, {
-          replace: transaction.options.replace,
-        });
-      } else if (transaction.options.external !== true) {
-        adapterCommit = transaction.options.replace === true
-          ? this.adapter.replace(transaction.normalizedPath)
-          : this.adapter.push(transaction.normalizedPath);
-      }
+      adapterCommit = this.commitAdapterTransaction(transaction);
     } catch (error) {
       transaction.finalizing = false;
       transaction.committing = false;
@@ -813,6 +815,49 @@ export class RouteCoordinator implements IRouteCoordinator {
       return transaction.completion;
     }
     return this.commitTransaction(transaction);
+  }
+
+  /** @internal */
+  private commitAdapterTransaction(transaction: NavigationTransaction): void | Promise<void> {
+    let pending: Promise<void> | null = null;
+    for (const source of transaction.options.redirectSources ?? []) {
+      if (pending != null) {
+        pending = pending.then(() => this.commitRedirectSource(source));
+        continue;
+      }
+      const result = this.commitRedirectSource(source);
+      if (isPromise(result!)) {
+        pending = Promise.resolve(result);
+      }
+    }
+    return pending == null
+      ? this.commitAdapterDestination(transaction)
+      : pending.then(() => this.commitAdapterDestination(transaction));
+  }
+
+  /** @internal */
+  private commitRedirectSource(source: PendingRedirectSource): void | Promise<void> {
+    if (source.adapterNavigation != null) {
+      return source.adapterNavigation.commit(source.path, { replace: source.replace });
+    }
+    if (!source.external) {
+      return source.replace ? this.adapter.replace(source.path) : this.adapter.push(source.path);
+    }
+  }
+
+  /** @internal */
+  private commitAdapterDestination(transaction: NavigationTransaction): void | Promise<void> {
+    const adapterNavigation = transaction.options.adapterNavigation;
+    if (adapterNavigation != null) {
+      return adapterNavigation.commit(transaction.normalizedPath, {
+        replace: transaction.options.replace,
+      });
+    }
+    if (transaction.options.external !== true) {
+      return transaction.options.replace === true
+        ? this.adapter.replace(transaction.normalizedPath)
+        : this.adapter.push(transaction.normalizedPath);
+    }
   }
 
   /** @internal */
@@ -968,6 +1013,16 @@ export class RouteCoordinator implements IRouteCoordinator {
     } catch (rollbackError) {
       recordRollbackError(rollbackError);
     }
+    if (rollbackAdapter) {
+      try {
+        const redirectRollback = this.rollbackRedirectSources(transaction.options.redirectSources);
+        if (isPromise(redirectRollback!)) {
+          pendingRollbacks.push(redirectRollback);
+        }
+      } catch (rollbackError) {
+        recordRollbackError(rollbackError);
+      }
+    }
 
     const settle = (): boolean => {
       if (this.transaction === transaction) {
@@ -1019,8 +1074,24 @@ export class RouteCoordinator implements IRouteCoordinator {
       this.restorePreviousLocation(transaction);
     }
 
+    let adapterNavigation = transaction.options.adapterNavigation;
+    let redirectSources = transaction.options.redirectSources;
+    if (!replace) {
+      redirectSources = [
+        ...(redirectSources ?? []),
+        {
+          path: transaction.normalizedPath,
+          replace: transaction.options.replace === true,
+          external: transaction.options.external === true,
+          rollbackExternal: transaction.options.external === true && transaction.options.initial !== true,
+          previousPath: stringifyRouteLocation(transaction.previousLocation),
+          adapterNavigation,
+        },
+      ];
+      adapterNavigation = undefined;
+    }
+
     const continueNavigation = (
-      adapterNavigation: PathNavigation | undefined,
       throwSynchronously: boolean,
     ): boolean | Promise<boolean> => {
       transaction.finalizing = false;
@@ -1029,9 +1100,9 @@ export class RouteCoordinator implements IRouteCoordinator {
         this.transaction = null;
       }
       try {
-        return this.continueRedirect(transaction, path, replace, adapterNavigation);
+        return this.continueRedirect(transaction, path, replace, adapterNavigation, redirectSources);
       } catch (error) {
-        const failed = this.failRedirectTransaction(transaction, error, adapterNavigation);
+        const failed = this.failRedirectTransaction(transaction, error, adapterNavigation, redirectSources);
         if (throwSynchronously) {
           void failed.catch(() => {});
           throw error;
@@ -1040,51 +1111,20 @@ export class RouteCoordinator implements IRouteCoordinator {
       }
     };
 
-    const settleAdapter = (throwSynchronously: boolean): boolean | Promise<boolean> => {
-      let adapterNavigation = transaction.options.adapterNavigation;
-      if (!replace) {
-        transaction.committing = true;
-        try {
-          if (adapterNavigation != null) {
-            const committed = adapterNavigation.commit(transaction.normalizedPath, {
-              replace: transaction.options.replace,
-            });
-            if (isPromise(committed)) {
-              void committed.then(
-                () => { continueNavigation(undefined, false); },
-                error => { this.failRedirectTransaction(transaction, error, adapterNavigation); },
-              );
-              return transaction.completion;
-            }
-            adapterNavigation = undefined;
-          } else if (transaction.options.external !== true) {
-            if (transaction.options.replace === true) {
-              this.adapter.replace(transaction.normalizedPath);
-            } else {
-              this.adapter.push(transaction.normalizedPath);
-            }
-          }
-        } catch (error) {
-          return this.failRedirectTransaction(transaction, error, adapterNavigation);
-        }
-      }
-      return continueNavigation(adapterNavigation, throwSynchronously);
-    };
-
     let viewRollback: void | Promise<void>;
     try {
       viewRollback = this.rollbackViewTransactions(transaction);
     } catch (error) {
-      return this.failRedirectTransaction(transaction, error, transaction.options.adapterNavigation);
+      return this.failRedirectTransaction(transaction, error, replace ? adapterNavigation : undefined, redirectSources);
     }
     if (isPromise(viewRollback!)) {
       void viewRollback.then(
-        () => { settleAdapter(false); },
-        error => { this.failRedirectTransaction(transaction, error, transaction.options.adapterNavigation); },
+        () => { continueNavigation(false); },
+        error => { this.failRedirectTransaction(transaction, error, replace ? adapterNavigation : undefined, redirectSources); },
       );
       return transaction.completion;
     }
-    return settleAdapter(true);
+    return continueNavigation(true);
   }
 
   /** @internal */
@@ -1093,12 +1133,14 @@ export class RouteCoordinator implements IRouteCoordinator {
     path: string,
     replace: boolean,
     adapterNavigation: PathNavigation | undefined,
+    redirectSources: PendingRedirectSource[] | undefined,
   ): boolean | Promise<boolean> {
     const replaceDestination = replace
       ? transaction.options.external === true || transaction.options.replace === true
       : false;
     const redirected = this.navigate(path, {
       adapterNavigation,
+      redirectSources,
       external: adapterNavigation?.kind === 'traverse',
       replace: replaceDestination,
       redirect: true,
@@ -1119,6 +1161,7 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction: NavigationTransaction,
     error: unknown,
     adapterNavigation?: PathNavigation,
+    redirectSources?: PendingRedirectSource[],
   ): Promise<boolean> {
     transaction.finalized = true;
     transaction.finalizing = false;
@@ -1135,18 +1178,29 @@ export class RouteCoordinator implements IRouteCoordinator {
       transaction.reject(failure);
     };
 
-    let rollback: void | Promise<void>;
+    const pendingRollbacks: Promise<void>[] = [];
     try {
-      rollback = adapterNavigation?.rollback();
+      const adapterRollback = adapterNavigation?.rollback();
+      if (isPromise(adapterRollback!)) {
+        pendingRollbacks.push(adapterRollback);
+      }
+      const redirectRollback = this.rollbackRedirectSources(redirectSources);
+      if (isPromise(redirectRollback!)) {
+        pendingRollbacks.push(redirectRollback);
+      }
     } catch (rollbackError) {
       settle(new AggregateError([error, rollbackError], 'Redirect and location rollback both failed.'));
       return transaction.completion;
     }
-    if (isPromise(rollback!)) {
-      void rollback.then(
-        () => settle(error),
-        rollbackError => settle(new AggregateError([error, rollbackError], 'Redirect and location rollback both failed.')),
-      );
+    if (pendingRollbacks.length > 0) {
+      void Promise.allSettled(pendingRollbacks).then(results => {
+        const rollbackErrors = results
+          .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+          .map(result => result.reason);
+        settle(rollbackErrors.length === 0
+          ? error
+          : new AggregateError([error, ...rollbackErrors], 'Redirect and location rollback both failed.'));
+      });
       return transaction.completion;
     }
     settle(error);
@@ -1915,6 +1969,33 @@ export class RouteCoordinator implements IRouteCoordinator {
   private notify(): void {
     for (const subscriber of this.subscribers) {
       subscriber(this.currentPath);
+    }
+  }
+
+  /** @internal */
+  private rollbackRedirectSources(sources: readonly PendingRedirectSource[] | undefined): void | Promise<void> {
+    let pending: Promise<void> | null = null;
+    for (let index = (sources?.length ?? 0) - 1; index >= 0; index--) {
+      const source = sources![index];
+      if (pending != null) {
+        pending = pending.then(() => this.rollbackRedirectSource(source));
+        continue;
+      }
+      const result = this.rollbackRedirectSource(source);
+      if (isPromise(result!)) {
+        pending = Promise.resolve(result);
+      }
+    }
+    return pending ?? undefined;
+  }
+
+  /** @internal */
+  private rollbackRedirectSource(source: PendingRedirectSource): void | Promise<void> {
+    if (source.adapterNavigation != null) {
+      return source.adapterNavigation.rollback();
+    }
+    if (source.rollbackExternal) {
+      this.adapter.replace(source.previousPath);
     }
   }
 

@@ -2161,6 +2161,91 @@ describe('au-route redirects', function () {
     }
   });
 
+  it('commits deferred push redirect sources in order after the destination succeeds', async function () {
+    class RecordingAdapter extends MemoryPathAdapter {
+      public readonly pushed: string[] = [];
+
+      public override push(path: string): void {
+        this.pushed.push(path);
+        super.push(path);
+      }
+    }
+
+    const adapter = new RecordingAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="offer" exact redirect-to="/sale" redirect-mode="push"></au-route>
+      <au-route path="sale" exact redirect-to="/checkout" redirect-mode="push"></au-route>
+      <au-route path="checkout" exact><span data-checkout>Checkout</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/offer');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, true);
+      await tasksSettled();
+
+      assert.deepStrictEqual(adapter.pushed, ['/offer', '/sale', '/checkout']);
+      assert.strictEqual(adapter.getCurrentPath(), '/checkout');
+      assert.strictEqual(fixture.appHost.querySelector('[data-checkout]')?.textContent, 'Checkout');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('does not commit a push redirect source when its destination is denied', async function () {
+    const adapter = new MemoryPathAdapter('/home');
+    const fixture = await createFixture(
+      `<au-route path="home" exact><span data-home>Home</span></au-route>
+      <au-route path="offer" exact redirect-to="/sale" redirect-mode="push"></au-route>
+      <au-route path="sale" exact can-load.bind="() => false">Sale</au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      const navigation = router.load('/offer');
+      assert.strictEqual(navigation instanceof Promise ? await navigation : navigation, false);
+      await tasksSettled();
+
+      assert.strictEqual(adapter.getCurrentPath(), '/home');
+      assert.strictEqual(router.currentPath, '/home');
+      assert.strictEqual(adapter.back(), false);
+      assert.strictEqual(fixture.appHost.querySelector('[data-home]')?.textContent, 'Home');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('rolls back traversal onto a push redirect when its destination is denied', async function () {
+    const adapter = new MemoryPathAdapter('/home');
+    adapter.push('/offer');
+    adapter.push('/other');
+    const fixture = await createFixture(
+      `<au-route path="home" exact>Home</au-route>
+      <au-route path="offer" exact redirect-to="/sale" redirect-mode="push"></au-route>
+      <au-route path="sale" exact can-load.bind="() => false">Sale</au-route>
+      <au-route path="other" exact><span data-other>Other</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator);
+      assert.strictEqual(adapter.back(), true);
+      await tasksSettled();
+
+      assert.strictEqual(adapter.getCurrentPath(), '/other');
+      assert.strictEqual(router.currentPath, '/other');
+      assert.strictEqual(fixture.appHost.querySelector('[data-other]')?.textContent, 'Other');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('resolves a contextual declarative redirect with query and hash state', async function () {
     const adapter = new MemoryPathAdapter('/area/workspace/private/42');
     const fixture = await createFixture(
