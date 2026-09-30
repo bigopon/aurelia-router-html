@@ -601,6 +601,44 @@ run('A2 required and optional parameters differ at the missing segment', () => {
   assert.equal(root.href('/offers/:id?', { id: 'winter' }), '/offers/winter');
 });
 
+run('A2 parameter names are preserved independently of regular-expression group syntax', () => {
+  const root = new RouteContext(null, '*');
+  const route = root.createChild('/users/:user-id/:1/:名前/:rest__', { exact: true }) as RouteContext;
+
+  root.apply('/users/alice/one/taro/tail');
+  assert.equal(route.active, true);
+  assert.deepEqual({ ...route.$params }, {
+    '1': 'one',
+    'user-id': 'alice',
+    '名前': 'taro',
+    rest__: 'tail',
+  });
+  assert.equal(
+    root.href('/users/:user-id/:1/:名前/:rest__', {
+      '1': 'two',
+      'user-id': 'bob',
+      '名前': 'jiro',
+      rest__: 'end',
+    }),
+    '/users/bob/two/jiro/end',
+  );
+});
+
+run('A2 parameter names that normalize alike remain distinct', () => {
+  const route = new RouteContext(null, '/compare/:a-b/:a_b', { exact: true });
+
+  route.apply('/compare/left/right');
+  assert.equal(route.active, true);
+  assert.deepEqual({ ...route.$params }, { 'a-b': 'left', a_b: 'right' });
+});
+
+run('A2 duplicate declared parameter names fail with a route-specific error', () => {
+  assert.throws(
+    () => new RouteContext(null, '/compare/:id/:id', { exact: true }),
+    /Route pattern "\/compare\/:id\/:id" declares parameter "id" more than once/,
+  );
+});
+
 run('A2 constrained parameters match one required segment and expose its decoded value', () => {
   const root = new RouteContext(null, '*');
   const product = root.createChild('/products/:id{{^\\d+$}}', { exact: true }) as RouteContext;

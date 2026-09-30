@@ -1574,6 +1574,31 @@ describe('au-route optional parameters', function () {
   });
 });
 
+describe('au-route parameter names', function () {
+  it('preserves punctuation in params and reuses the declared name in relative links', async function () {
+    const adapter = new MemoryPathAdapter('/users/alice');
+    const fixture = await createFixture(
+      `<au-route path="users/:user-id">
+        <span data-user>\${$params['user-id']}</span>
+        <a data-details au-link="details/:user-id">Details</a>
+        <au-route path="details/:user-id" exact>Details</au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      assert.strictEqual(fixture.appHost.querySelector('[data-user]')?.textContent, 'alice');
+      assert.strictEqual(
+        fixture.appHost.querySelector('[data-details]')?.getAttribute('href'),
+        '/users/alice/details/alice',
+      );
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route constrained parameters', function () {
   it('renders only the sibling whose segment constraint matches', async function () {
     const fixture = await createFixture(

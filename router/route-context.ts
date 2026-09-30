@@ -743,7 +743,9 @@ export class RouteContext implements IRouteContext {
 
     const groups = match.groups ?? {};
     const nextResidue = this._group ? normalizedPath : normalizeResidue(groups.rest__);
-    const nextParams = this._group ? freezeParams({}) : freezeParams(extractParams(groups));
+    const nextParams = this._group
+      ? freezeParams({})
+      : freezeParams(extractParams(groups, this._matcher.parameters));
     const stateChanged =
       !this.active
       || this.residue !== nextResidue
@@ -1118,7 +1120,9 @@ export class RouteContext implements IRouteContext {
     if (match == null) {
       return;
     }
-    matches.set(this, this._group ? emptyObject as Readonly<Record<string, string>> : extractParams(match.groups ?? {}));
+    matches.set(this, this._group
+      ? emptyObject as Readonly<Record<string, string>>
+      : extractParams(match.groups ?? {}, this._matcher.parameters));
     const residue = this._group ? normalizedPath : normalizeResidue(match.groups?.rest__);
     const selected = this._selectOwnMatches(residue);
     for (const child of selected) {
@@ -1192,7 +1196,13 @@ interface RouteParameterConstraint {
   readonly pattern: RegExp;
 }
 
+interface RouteParameterCapture {
+  readonly group: string;
+  readonly name: string;
+}
+
 interface RoutePatternMatcher {
+  readonly parameters: readonly RouteParameterCapture[];
   exec(path: string): RegExpExecArray | null;
 }
 
@@ -1219,6 +1229,8 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   const consumesRest = restIndex >= 0;
   const routeParts = consumesRest ? parts.slice(0, -1) : parts;
   const constraints: RouteParameterConstraint[] = [];
+  const parameters: RouteParameterCapture[] = [];
+  const parameterNames = new Set<string>();
   let compiled = '';
   for (const part of routeParts) {
     if (part === '*') {
@@ -1227,7 +1239,12 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
     }
     if (part.startsWith(':')) {
       const parameter = parseRouteParameter(part);
-      const group = escapeGroupName(parameter.name);
+      if (parameterNames.has(parameter.name)) {
+        throw new Error(`Route pattern "${pattern}" declares parameter "${parameter.name}" more than once.`);
+      }
+      parameterNames.add(parameter.name);
+      const group = `p${parameters.length}`;
+      parameters.push({ group, name: parameter.name });
       if (parameter.pattern != null) {
         constraints.push({
           group,
@@ -1244,7 +1261,7 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
   if (consumesRest) {
     return createRoutePatternMatcher(routeParts.length === 0
       ? /^\/(?<restWildcard__>.*)$/
-      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`), constraints);
+      : new RegExp(`^${compiled}(?:/(?<restWildcard__>.*))?$`), constraints, parameters);
   }
 
   const pathExpression = routeParts.every(part => part.startsWith(':') && parseRouteParameter(part).optional)
@@ -1252,11 +1269,16 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
     : compiled;
   return createRoutePatternMatcher(exact
     ? new RegExp(`^${pathExpression}$`)
-    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`), constraints);
+    : new RegExp(`^${pathExpression}(?<rest__>/.*)?$`), constraints, parameters);
 }
 
-function createRoutePatternMatcher(expression: RegExp, constraints: readonly RouteParameterConstraint[] = []): RoutePatternMatcher {
+function createRoutePatternMatcher(
+  expression: RegExp,
+  constraints: readonly RouteParameterConstraint[] = [],
+  parameters: readonly RouteParameterCapture[] = [],
+): RoutePatternMatcher {
   return {
+    parameters,
     exec(path: string): RegExpExecArray | null {
       const match = expression.exec(path);
       if (match == null || constraints.length === 0) {
@@ -1300,24 +1322,23 @@ function parseRouteParameter(segment: string): RouteParameterSegment {
   };
 }
 
-function extractParams(groups: Record<string, string | undefined>): Record<string, string> {
+function extractParams(
+  groups: Record<string, string | undefined>,
+  parameters: readonly RouteParameterCapture[],
+): Record<string, string> {
   const params: Record<string, string> = Object.create(null);
-  for (const [key, value] of Object.entries(groups)) {
-    if (key === 'rest__') {
-      continue;
-    }
-    if (key === 'restWildcard__') {
-      params['**'] = value == null ? '' : decodeURIComponent(value);
-      continue;
-    }
-    if (key === 'wildcard__') {
-      params['*'] = decodeURIComponent(value!);
-      continue;
-    }
+  if ('restWildcard__' in groups) {
+    params['**'] = groups.restWildcard__ == null ? '' : decodeURIComponent(groups.restWildcard__);
+  }
+  if (groups.wildcard__ != null) {
+    params['*'] = decodeURIComponent(groups.wildcard__);
+  }
+  for (const parameter of parameters) {
+    const value = groups[parameter.group];
     if (value == null) {
       continue;
     }
-    params[key] = decodeURIComponent(value);
+    params[parameter.name] = decodeURIComponent(value);
   }
   return params;
 }
@@ -1557,10 +1578,6 @@ function createBranchesSnapshot(branches: readonly (readonly RouteSnapshot[])[])
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function escapeGroupName(value: string): string {
-  return value.replace(/[^A-Za-z0-9_]/g, '_');
 }
 
 function isRouteParameterResolutionError(error: unknown): boolean {
