@@ -194,9 +194,9 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private readonly isGroup: boolean;
   /** @internal */
-  private readonly unsubscribe: () => void;
+  private unsubscribe: (() => void) | null = null;
   /** @internal */
-  private readonly unsubscribeNavigation: () => void;
+  private unsubscribeNavigation: (() => void) | null = null;
   /** @internal */
   private viewActive: boolean = false;
   /** @internal */
@@ -262,6 +262,14 @@ export class AuRoute implements ICustomElementViewModel {
     this.overrideContext.$route = this.context;
     this.overrideContext.$navigation = this.coordinator.navigation;
     this.isActive = this.context.active;
+    childContainer.register(Registration.instance(IRouteContext, this.context));
+  }
+
+  /** @internal */
+  private subscribe(): void {
+    if (this.unsubscribe != null) {
+      return;
+    }
     this.unsubscribe = this.context.subscribe(state => {
       const previous = this.previousState;
       this.previousState = state;
@@ -281,7 +289,14 @@ export class AuRoute implements ICustomElementViewModel {
     this.unsubscribeNavigation = this.coordinator.subscribeNavigation(state => {
       this.overrideContext.$navigation = state;
     });
-    childContainer.register(Registration.instance(IRouteContext, this.context));
+  }
+
+  /** @internal */
+  private unsubscribeAll(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    this.unsubscribeNavigation?.();
+    this.unsubscribeNavigation = null;
   }
 
   $controller!: ICustomElementController<this>;
@@ -293,6 +308,7 @@ export class AuRoute implements ICustomElementViewModel {
   public $params?: Record<string, unknown>;
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
+    this.subscribe();
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
     this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
     this.updateErrorHandler();
@@ -303,6 +319,7 @@ export class AuRoute implements ICustomElementViewModel {
     this.loadingAst ??= this.loadingExpression == null ? null : this.expressionParser.parse(this.loadingExpression, 'None');
     this.loadedAst ??= this.loadedExpression == null ? null : this.expressionParser.parse(this.loadedExpression, 'None');
     this.updatePath(this.path);
+    (this.context as RouteContext)._attach();
     (this.context as RouteContext)._setRegistered(true);
     const prepared = this.ensureDiscoveryView();
     const update = onResolve(prepared, () => {
@@ -433,6 +450,8 @@ export class AuRoute implements ICustomElementViewModel {
       controller = controller.parent;
     }
     (this.context as RouteContext)._setRegistered(false, parentStopping);
+    (this.context as RouteContext)._detach();
+    this.unsubscribeAll();
     this.requestedViewActive = false;
     const update = this.queueViewUpdate();
     const cleanup = onResolve(update, () => this.deactivateDiscoveryView());
@@ -442,8 +461,7 @@ export class AuRoute implements ICustomElementViewModel {
   public dispose(): void {
     this.animationAbortController?.abort();
     this.animationAbortController = null;
-    this.unsubscribe();
-    this.unsubscribeNavigation();
+    this.unsubscribeAll();
     delete (this.context as RouteContext & { _auRoute?: AuRoute })._auRoute;
     this.context.dispose();
     this.titleService.requestUpdate();

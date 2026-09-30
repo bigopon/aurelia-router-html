@@ -111,6 +111,7 @@ export interface IRouteContext {
 export const IRouteContext = DI.createInterface<IRouteContext>('IRouteContext');
 
 let routeContextId = 0;
+let routeContextCreationOrder = 0;
 
 interface RouteContextLookup {
   version: number;
@@ -203,6 +204,8 @@ export class RouteContext implements IRouteContext {
   private readonly _hrefFormatter: (path: string) => string;
   /** @internal */
   private _registered: boolean = true;
+  /** @internal */
+  private readonly _creationOrder: number = routeContextCreationOrder++;
   /** @internal */
   private _navigator: ((path: string, options: RouteNavigationOptions) => unknown) | null = null;
   /** @internal */
@@ -681,6 +684,32 @@ export class RouteContext implements IRouteContext {
       if (!suppressParentUpdate) {
         parent._notifyRegistryChanged();
       }
+    }
+  }
+
+  /** @internal */
+  public _attach(): void {
+    const parent = this.parent;
+    if (!(parent instanceof RouteContext) || parent.children.includes(this)) {
+      return;
+    }
+
+    const index = parent.children.findIndex(child => child._creationOrder > this._creationOrder);
+    parent.children.splice(index < 0 ? parent.children.length : index, 0, this);
+    this._markStructureChanged();
+  }
+
+  /** @internal */
+  public _detach(): void {
+    const parent = this.parent;
+    if (!(parent instanceof RouteContext)) {
+      return;
+    }
+
+    const index = parent.children.indexOf(this);
+    if (index >= 0) {
+      parent.children.splice(index, 1);
+      this._markStructureChanged();
     }
   }
 

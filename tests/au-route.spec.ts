@@ -89,6 +89,87 @@ describe('au-route dynamic path binding', function () {
   });
 });
 
+describe('au-route dynamic declaration lifecycle', function () {
+  it('releases contexts and subscriptions when repeated routes are replaced', async function () {
+    class App {
+      public routes = ['one', 'two'];
+    }
+
+    const fixture = await createFixture(
+      `<au-route repeat.for="route of routes" path.bind="route" exact>\${route}</au-route>
+      <au-route path="tail" exact>Tail</au-route>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator) as RouteCoordinator;
+      const initialContexts = router.root.children.filter(context => context.fullPath !== '/tail');
+      const initialNavigationSubscribers = (router as unknown as { navigationSubscribers: Set<unknown> }).navigationSubscribers.size;
+      assert.deepStrictEqual(router.root.getPaths(false), ['/tail', '/one', '/two']);
+
+      fixture.component.routes = ['three'];
+      await tasksSettled();
+
+      assert.deepStrictEqual(router.root.getPaths(false), ['/tail', '/three']);
+      assert.strictEqual(router.root.children.length, 2);
+      assert.strictEqual((initialContexts[0] as unknown as { _subscriptions: Set<unknown> })._subscriptions.size, 0);
+      assert.strictEqual((initialContexts[1] as unknown as { _subscriptions: Set<unknown> })._subscriptions.size, 0);
+      assert.strictEqual(
+        (router as unknown as { navigationSubscribers: Set<unknown> }).navigationSubscribers.size,
+        initialNavigationSubscribers - 1,
+      );
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
+  it('reattaches a cached conditional route in its original sibling order', async function () {
+    class App {
+      public showMiddle = true;
+    }
+
+    const fixture = await createFixture(
+      `<au-route path="first" exact>First</au-route>
+      <au-route if.bind="showMiddle" path="middle" exact>Middle</au-route>
+      <au-route path="last" exact>Last</au-route>`,
+      App,
+      [Routing],
+    ).started;
+
+    try {
+      const router = fixture.container.get(IRouteCoordinator) as RouteCoordinator;
+      const middle = router.root.children.find(context => context.fullPath === '/middle')!;
+      const initialOrder = [...router.root.children];
+      const initialNavigationSubscribers = (router as unknown as { navigationSubscribers: Set<unknown> }).navigationSubscribers.size;
+      assert.deepStrictEqual(router.root.getPaths(false), ['/first', '/last', '/middle']);
+
+      fixture.component.showMiddle = false;
+      await tasksSettled();
+
+      assert.deepStrictEqual(router.root.getPaths(false), ['/first', '/last']);
+      assert.strictEqual((middle as unknown as { _subscriptions: Set<unknown> })._subscriptions.size, 0);
+      assert.strictEqual(
+        (router as unknown as { navigationSubscribers: Set<unknown> }).navigationSubscribers.size,
+        initialNavigationSubscribers - 1,
+      );
+
+      fixture.component.showMiddle = true;
+      await tasksSettled();
+
+      assert.deepStrictEqual(router.root.getPaths(false), ['/first', '/last', '/middle']);
+      assert.deepStrictEqual(router.root.children, initialOrder);
+      assert.strictEqual((middle as unknown as { _subscriptions: Set<unknown> })._subscriptions.size, 1);
+      assert.strictEqual(
+        (router as unknown as { navigationSubscribers: Set<unknown> }).navigationSubscribers.size,
+        initialNavigationSubscribers,
+      );
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+});
+
 describe('au-route empty content', function () {
   it('starts and matches a route with no projected view', async function () {
     const adapter = new MemoryPathAdapter('/empty');
