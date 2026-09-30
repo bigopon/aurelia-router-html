@@ -382,6 +382,21 @@ run('A4 link targets distinguish context-relative and root-absolute paths', () =
   assert.equal(section.isActive('/product', {}, { exact: true }), false);
 });
 
+run('A4 root-absolute targets do not fall back to a descendant leaf pattern', () => {
+  const root = new RouteContext(null, '*');
+  const account = root.createChild('/account') as RouteContext;
+  account.createChild('/settings', { exact: true });
+  root.apply('/account/settings');
+
+  assert.equal(root.href('/settings'), '/settings');
+  assert.equal(root.isActive('/settings', {}, { exact: true }), false);
+
+  const navigations: string[] = [];
+  root._setNavigator(path => navigations.push(path));
+  root.load('/settings');
+  assert.deepEqual(navigations, ['/settings']);
+});
+
 run('A4 relative targets support parent traversal and clamp attempts above the route root', () => {
   const root = new RouteContext(null, '*');
   const products = root.createChild('/products/:productId') as RouteContext;

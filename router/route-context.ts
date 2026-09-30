@@ -993,9 +993,7 @@ export class RouteContext implements IRouteContext {
       : this;
     const normalizedPattern = normalizePattern(resolveRouteTarget(baseContext.fullPath, target.path));
     const lookup = (this.root as RouteContext)._getContextLookup();
-    return lookup.byFullPath.get(normalizedPattern)
-      ?? lookup.contexts.find(context => context.pattern === normalizedPattern)
-      ?? null;
+    return lookup.byFullPath.get(normalizedPattern) ?? null;
   }
 
   /** @internal */

@@ -1924,6 +1924,32 @@ describe('au-link', function () {
     }
   });
 
+  it('keeps a root-absolute link distinct from a nested route with the same leaf pattern', async function () {
+    const adapter = new MemoryPathAdapter('/account/settings');
+    const fixture = await createFixture(
+      `<a data-settings au-link="/settings">Root settings</a>
+      <au-route path="account">
+        <au-route path="settings" exact><span data-account-settings>Account settings</span></au-route>
+      </au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const link = fixture.appHost.querySelector<HTMLAnchorElement>('[data-settings]')!;
+      assert.strictEqual(link.getAttribute('href'), '/settings');
+      assert.strictEqual(link.classList.contains('is-active'), false);
+      assert.strictEqual(link.hasAttribute('aria-current'), false);
+
+      link.click();
+      await tasksSettled();
+      assert.strictEqual(adapter.getCurrentPath(), '/settings');
+      assert.strictEqual(fixture.appHost.querySelector('[data-account-settings]'), null);
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('generates relative and absolute hrefs and maintains active anchor state', async function () {
     const fixture = await createFixture(
       `<a data-early au-link="/help">Early help</a>
