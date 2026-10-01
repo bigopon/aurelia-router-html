@@ -2362,6 +2362,64 @@ describe('au-route redirects', function () {
 
     assert.throws(() => coordinator.start(), /Redirect loop detected: \/a -> \/b -> \/a/);
   });
+
+  it('rejects redirect chains that exceed 32 unique locations', function () {
+    const initialPath = '/login?return=0';
+    const adapter = new MemoryPathAdapter(initialPath);
+    const root = new RouteContext(null, '*');
+    const login = root.createChild('/login', { exact: true }) as RouteContext;
+    const coordinator = new RouteCoordinator(root, adapter);
+    let redirects = 0;
+    login.subscribe(state => {
+      if (state.active) root._redirect(`/login?return=${++redirects}`, {}, true);
+    });
+
+    assert.throws(
+      () => coordinator.start(),
+      /Redirect limit of 32 exceeded: \/login\?return=0 -> .* -> \/login\?return=32/,
+    );
+    assert.strictEqual(redirects, 32);
+    assert.strictEqual(adapter.getCurrentPath(), initialPath);
+  });
+
+  it('rejects asynchronous guard redirect chains that exceed 32 unique locations', async function () {
+    const initialPath = '/login/0';
+    const adapter = new MemoryPathAdapter(initialPath);
+    const root = new RouteContext(null, '*');
+    const login = root.createChild('/login/:attempt', { exact: true }) as RouteContext;
+    let redirects = 0;
+    login._setGuards(
+      async () => {
+        await Promise.resolve();
+        return { target: `/login/${++redirects}` };
+      },
+      null,
+    );
+    let coordinator!: RouteCoordinator;
+    login.subscribe(state => {
+      if (state.active) {
+        void coordinator._runRouteActivation(
+          login,
+          login._canLoad,
+          coordinator._createLifecycleContext(login, 'enter'),
+          () => {},
+        );
+      }
+    });
+    coordinator = new RouteCoordinator(root, adapter);
+
+    try {
+      const navigation = coordinator.start();
+      await assert.rejects(
+        async () => navigation,
+        /Redirect limit of 32 exceeded: \/login\/0 -> .* -> \/login\/32/,
+      );
+      assert.strictEqual(redirects, 32);
+      assert.strictEqual(adapter.getCurrentPath(), initialPath);
+    } finally {
+      coordinator.stop();
+    }
+  });
 });
 
 describe('au-route animation scheduling', function () {

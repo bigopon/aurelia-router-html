@@ -104,6 +104,8 @@ export const IRouteCoordinator = DI.createInterface<IRouteCoordinator>('IRouteCo
 
 class NavigationCancelled extends Error {}
 
+const maxRedirectChainLength = 32;
+
 interface NavigationTransaction {
   readonly id: number;
   readonly location: RouteLocation;
@@ -1962,6 +1964,9 @@ export class RouteCoordinator implements IRouteCoordinator {
     const loopStart = chain.indexOf(path);
     if (loopStart >= 0) {
       throw new Error(`Redirect loop detected: ${[...chain.slice(loopStart), path].join(' -> ')}`);
+    }
+    if (chain.length >= maxRedirectChainLength) {
+      throw new Error(`Redirect limit of ${maxRedirectChainLength} exceeded: ${[...chain, path].join(' -> ')}`);
     }
   }
 
