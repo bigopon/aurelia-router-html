@@ -573,10 +573,11 @@ export class RouteContext implements IRouteContext {
     }
 
     const targetLocation = parseRouteLocation(href);
-    const currentPath = this.root.$path;
+    const currentPath = canonicalizePath(this.root.$path);
+    const targetPath = canonicalizePath(targetLocation.pathname);
     const pathMatches = options.exact || targetLocation.pathname === '/'
-      ? currentPath === targetLocation.pathname
-      : currentPath === targetLocation.pathname || currentPath.startsWith(`${targetLocation.pathname}/`);
+      ? currentPath === targetPath
+      : currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
     if (!pathMatches) {
       return false;
     }
@@ -1275,7 +1276,7 @@ function compilePattern(pattern: string, exact: boolean, transparentRoot: boolea
     for (const part of compiledParts) {
       switch (part.kind) {
         case 'literal':
-          compiled += `/${escapeRegex(part.value)}`;
+          compiled += `/${compileLiteralSegment(part.value)}`;
           allOptional = false;
           break;
         case 'wildcard':
@@ -1655,6 +1656,29 @@ function createBranchesSnapshot(branches: readonly (readonly RouteSnapshot[])[])
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function compileLiteralSegment(value: string): string {
+  return [...value].map(character => {
+    const literal = escapeRegex(character);
+    if (/^[A-Za-z0-9\-._~]$/.test(character)) {
+      return literal;
+    }
+    const encoded = encodePathCharacter(character)
+      .replace(/[A-F]/g, hex => `[${hex}${hex.toLowerCase()}]`);
+    return `(?:${literal}|${encoded})`;
+  }).join('');
+}
+
+function canonicalizePath(path: string): string {
+  return path.replace(/%[0-9A-Fa-f]{2}|[^A-Za-z0-9\-._~/]/gu, character => character.startsWith('%')
+    ? character.toUpperCase()
+    : encodePathCharacter(character));
+}
+
+function encodePathCharacter(character: string): string {
+  return encodeURIComponent(character)
+    .replace(/[!'()*]/g, reserved => `%${reserved.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 function isRouteParameterResolutionError(error: unknown): boolean {

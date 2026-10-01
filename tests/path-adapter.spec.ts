@@ -838,6 +838,28 @@ describe('browser history settlement', function () {
 });
 
 describe('browser base paths', function () {
+  it('matches browser-encoded static deep links and keeps them active', function () {
+    const dom = new JSDOM('<!doctype html><body></body>', {
+      url: 'https://example.test/caf%C3%A9%20au%20lait',
+    });
+    const adapter = new BrowserPathAdapter(dom.window as unknown as Window);
+    const root = new RouteContext(null, '*');
+    const cafe = root.createChild('/café au lait', { exact: true }) as RouteContext;
+    const fallback = root.createChild('*', { fallback: true }) as RouteContext;
+    const coordinator = new RouteCoordinator(root, adapter);
+
+    try {
+      coordinator.start();
+
+      assert.strictEqual(cafe.active, true);
+      assert.strictEqual(fallback.active, false);
+      assert.strictEqual(root.isActive(cafe, {}, { exact: true }), true);
+    } finally {
+      coordinator.stop();
+      dom.window.close();
+    }
+  });
+
   it('derives the mount path from a same-origin base element', function () {
     const dom = new JSDOM(
       '<!doctype html><base href="/store/"><body><a href="products/camera">Camera</a></body>',

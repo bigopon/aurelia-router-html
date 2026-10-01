@@ -105,6 +105,31 @@ run('A2 trailing slash normalizes to same state', () => {
   assert.equal(route.residue, '/');
 });
 
+run('A2 static segments match literal and UTF-8 percent-encoded paths', () => {
+  for (const [pattern, paths] of [
+    ['/café', ['/café', '/caf%C3%A9', '/caf%c3%a9']],
+    ['/über uns', ['/über uns', '/%C3%BCber%20uns']],
+    ['/sales!', ['/sales!', '/sales%21']],
+  ] as const) {
+    for (const path of paths) {
+      const route = new RouteContext(null, pattern, { exact: true });
+      route.apply(path);
+
+      assert.equal(route.active, true, `${pattern} should match ${path}`);
+    }
+  }
+});
+
+run('A4 active links compare encoded current paths with decoded static hrefs', () => {
+  const root = new RouteContext(null, '*');
+  const cafe = root.createChild('/café au lait', { exact: true }) as RouteContext;
+
+  root.apply('/caf%c3%a9%20au%20lait');
+
+  assert.equal(cafe.active, true);
+  assert.equal(root.isActive(cafe, {}, { exact: true }), true);
+});
+
 run('A2 repeated apply keeps stable state', () => {
   const route = new RouteContext(null, '/store/:storeId');
   route.apply('/store/123/order');
