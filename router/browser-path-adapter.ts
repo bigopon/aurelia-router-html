@@ -350,7 +350,7 @@ export class BrowserPathAdapter implements IPathAdapter {
         if (url.hash === '') {
           return '/';
         }
-        return stringifyRouteLocation(parseRouteLocation(normalizeRoutePath(url.hash.slice(1))));
+        return stringifyRouteLocation(parseRouteLocation(url.hash.slice(1)));
       }
       case 'query': {
         if (!url.searchParams.has(this.routeQueryKey)) {

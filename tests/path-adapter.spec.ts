@@ -939,6 +939,27 @@ describe('browser base paths', function () {
     queryDom.window.close();
   });
 
+  it('preserves slash sequences in hash route query values', function () {
+    for (const testCase of [
+      {
+        route: '/login?returnUrl=https://shop.example/orders',
+        key: 'returnUrl',
+        value: 'https://shop.example/orders',
+      },
+      { route: '/files?dir=/photos/', key: 'dir', value: '/photos/' },
+      { route: '/search?q=a//b', key: 'q', value: 'a//b' },
+    ]) {
+      const dom = new JSDOM('<!doctype html><body></body>', {
+        url: `https://example.test/#${testCase.route}`,
+      });
+      const adapter = new BrowserHashAdapter(dom.window as unknown as Window);
+      const location = parseRouteLocation(adapter.getCurrentPath());
+
+      assert.strictEqual(location.query.get(testCase.key), testCase.value);
+      dom.window.close();
+    }
+  });
+
   for (const testCase of [
     {
       label: 'hash',
