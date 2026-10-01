@@ -206,6 +206,9 @@ export class BrowserPathAdapter implements IPathAdapter {
       if (url.origin !== this.window.location.origin) {
         return;
       }
+      if (this.routingMode !== 'path' && !this.isRouteDocument(url.pathname)) {
+        return;
+      }
 
       const nextPath = this.routeFromUrl(url);
       if (nextPath == null) {
@@ -326,6 +329,13 @@ export class BrowserPathAdapter implements IPathAdapter {
   /** @internal */
   private isCurrentHref(href: string): boolean {
     return new URL(href, this.window.location.href).href === this.window.location.href;
+  }
+
+  /** @internal */
+  private isRouteDocument(pathname: string): boolean {
+    const normalized = normalizeRoutePath(pathname);
+    return normalized === normalizeRoutePath(this.window.location.pathname)
+      || normalized === normalizeRoutePath(this.baseDocumentPath());
   }
 
   /** @internal */

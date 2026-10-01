@@ -939,6 +939,64 @@ describe('browser base paths', function () {
     queryDom.window.close();
   });
 
+  for (const testCase of [
+    {
+      label: 'hash',
+      markup: '<!doctype html><body></body>',
+      url: 'https://example.test/app.html#/home',
+      create: (window: Window) => new BrowserHashAdapter(window, { interceptLinks: true }),
+      otherDocument: '/docs/terms.pdf',
+      currentDocument: '/app.html#/account',
+      mountDocument: '/#/cart',
+      expectedRoutes: ['/account', '/cart'],
+    },
+    {
+      label: 'query',
+      markup: '<!doctype html><base href="/store/"><body></body>',
+      url: 'https://example.test/store/app.html?app=home',
+      create: (window: Window) => new BrowserQueryAdapter(window, { interceptLinks: true }),
+      otherDocument: '/store/admin.html?app=users',
+      currentDocument: '/store/app.html?app=account',
+      mountDocument: '/store/?app=cart',
+      expectedRoutes: ['/account', '/cart'],
+    },
+  ] as const) {
+    it(`leaves other same-origin documents alone in ${testCase.label} mode`, function () {
+      const dom = new JSDOM(testCase.markup, { url: testCase.url });
+      const window = dom.window as unknown as Window;
+      const adapter = testCase.create(window);
+      const navigations: string[] = [];
+      const unsubscribe = adapter.subscribe(path => navigations.push(path));
+      const click = (href: string): boolean => {
+        const anchor = window.document.createElement('a');
+        anchor.href = href;
+        window.document.body.append(anchor);
+        let routerPreventedDefault = false;
+        window.addEventListener('click', event => {
+          routerPreventedDefault = event.defaultPrevented;
+          event.preventDefault();
+        }, { once: true });
+        anchor.dispatchEvent(new dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+        }));
+        anchor.remove();
+        return routerPreventedDefault;
+      };
+
+      try {
+        assert.strictEqual(click(testCase.otherDocument), false);
+        assert.strictEqual(click(testCase.currentDocument), true);
+        assert.strictEqual(click(testCase.mountDocument), true);
+        assert.deepStrictEqual(navigations, testCase.expectedRoutes);
+      } finally {
+        unsubscribe();
+        dom.window.close();
+      }
+    });
+  }
+
   it('rejects query and fragment data in an explicit base path', function () {
     const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/' });
     const window = dom.window as unknown as Window;
