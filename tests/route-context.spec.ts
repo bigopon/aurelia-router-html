@@ -946,15 +946,19 @@ run('A2 nested wildcard captures stay local to their route contexts', () => {
   assert.deepEqual({ ...member.$params }, { '*': 'alice' });
 });
 
-run('A2 malformed wildcard encoding fails before route state changes', () => {
-  const root = new RouteContext(null, '*');
-  const single = root.createChild('/files/*', { exact: true }) as RouteContext;
-  const terminal = root.createChild('/archive/**') as RouteContext;
+run('A2 malformed parameter and wildcard encodings are exposed as raw values', () => {
+  for (const [pattern, path, name] of [
+    ['/products/:id', '/products/100%', 'id'],
+    ['/files/*', '/files/%FF', '*'],
+    ['/archive/**', '/archive/%E0%A4%A', '**'],
+  ] as const) {
+    const route = new RouteContext(null, pattern, { exact: true });
+    route.apply(path);
 
-  assert.throws(() => root.apply('/files/%E0%A4%A'), URIError);
-  assert.equal(single.active, false);
-  assert.throws(() => root.apply('/archive/%E0%A4%A'), URIError);
-  assert.equal(terminal.active, false);
+    assert.equal(route.active, true);
+    assert.equal(route.$params[name], path.slice(path.lastIndexOf('/') + 1));
+    assert.equal(route.residue, '/');
+  }
 });
 
 run('A2 duplicate anonymous wildcards in one pattern are rejected', () => {

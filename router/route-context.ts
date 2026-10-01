@@ -1406,19 +1406,27 @@ function extractParams(
 ): Record<string, string> {
   const params: Record<string, string> = Object.create(null);
   if ('restWildcard__' in groups) {
-    params['**'] = groups.restWildcard__ == null ? '' : decodeURIComponent(groups.restWildcard__);
+    params['**'] = groups.restWildcard__ == null ? '' : decodeRouteSegment(groups.restWildcard__);
   }
   if (groups.wildcard__ != null) {
-    params['*'] = decodeURIComponent(groups.wildcard__);
+    params['*'] = decodeRouteSegment(groups.wildcard__);
   }
   for (const parameter of parameters) {
     const value = groups[parameter.group];
     if (value == null) {
       continue;
     }
-    params[parameter.name] = decodeURIComponent(value);
+    params[parameter.name] = decodeRouteSegment(value);
   }
   return params;
+}
+
+function decodeRouteSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function freezeParams(params: Record<string, string>): Readonly<Record<string, string>> {

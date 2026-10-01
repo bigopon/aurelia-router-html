@@ -432,6 +432,47 @@ describe('route focus management', function () {
 });
 
 describe('memory path adapter', function () {
+  it('completes navigation with a malformed percent escape', function () {
+    const adapter = new MemoryPathAdapter('/home');
+    const root = new RouteContext(null, '*');
+    root.createChild('/home', { exact: true });
+    const product = root.createChild('/products/:id', { exact: true }) as RouteContext;
+    const coordinator = new RouteCoordinator(root, adapter);
+    coordinator.start();
+
+    try {
+      assert.strictEqual(coordinator.load('/products/50%'), true);
+      assert.strictEqual(product.$params.id, '50%');
+      assert.strictEqual(coordinator.currentPath, '/products/50%');
+      assert.strictEqual(adapter.getCurrentPath(), '/products/50%');
+      assert.strictEqual(coordinator.navigation.pending, false);
+      assert.strictEqual(coordinator.navigation.result?.outcome, 'completed');
+    } finally {
+      coordinator.stop();
+    }
+  });
+
+  it('completes traversal onto a malformed percent escape', function () {
+    const adapter = new MemoryPathAdapter('/home');
+    adapter.push('/products/50%');
+    adapter.push('/other');
+    const root = new RouteContext(null, '*');
+    root.createChild('/other', { exact: true });
+    const product = root.createChild('/products/:id', { exact: true }) as RouteContext;
+    const coordinator = new RouteCoordinator(root, adapter);
+    coordinator.start();
+
+    try {
+      assert.strictEqual(adapter.back(), true);
+      assert.strictEqual(product.active, true);
+      assert.strictEqual(product.$params.id, '50%');
+      assert.strictEqual(coordinator.currentPath, '/products/50%');
+      assert.strictEqual(coordinator.navigation.result?.outcome, 'completed');
+    } finally {
+      coordinator.stop();
+    }
+  });
+
   it('finishes a redirect registered while views are settling', async function () {
     let blockSettlement = false;
     const settlement = {
@@ -838,6 +879,47 @@ describe('browser history settlement', function () {
 });
 
 describe('browser base paths', function () {
+  it('starts on malformed percent escapes in every browser routing mode', function () {
+    for (const testCase of [
+      {
+        mode: 'path',
+        url: 'https://example.test/files/%FF',
+        create: (window: Window) => new BrowserPathAdapter(window),
+        expected: '%FF',
+      },
+      {
+        mode: 'hash',
+        url: 'https://example.test/#files/100%',
+        create: (window: Window) => new BrowserHashAdapter(window),
+        expected: '100%',
+      },
+      {
+        mode: 'query',
+        url: 'https://example.test/?app=files/100%25',
+        create: (window: Window) => new BrowserQueryAdapter(window, { routeQueryKey: 'app' }),
+        expected: '100%',
+      },
+    ] as const) {
+      const dom = new JSDOM('<!doctype html><body></body>', { url: testCase.url });
+      const adapter = testCase.create(dom.window as unknown as Window);
+      const root = new RouteContext(null, '*');
+      const files = root.createChild('/files/:name', { exact: true }) as RouteContext;
+      const fallback = root.createChild('*', { fallback: true }) as RouteContext;
+      const coordinator = new RouteCoordinator(root, adapter);
+
+      try {
+        assert.strictEqual(coordinator.start(), true, testCase.mode);
+        assert.strictEqual(files.active, true, testCase.mode);
+        assert.strictEqual(files.$params.name, testCase.expected, testCase.mode);
+        assert.strictEqual(fallback.active, false, testCase.mode);
+        assert.strictEqual(coordinator.navigation.result?.outcome, 'completed', testCase.mode);
+      } finally {
+        coordinator.stop();
+        dom.window.close();
+      }
+    }
+  });
+
   it('matches browser-encoded static deep links and keeps them active', function () {
     const dom = new JSDOM('<!doctype html><body></body>', {
       url: 'https://example.test/caf%C3%A9%20au%20lait',
