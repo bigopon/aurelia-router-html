@@ -1,7 +1,7 @@
 import { IPlatform } from '@aurelia/kernel';
 import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture } from '@aurelia/testing';
-import { CustomElement } from '@aurelia/runtime-html';
+import { CustomElement, ValueConverter } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator, type RouteNavigationState } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
@@ -47,6 +47,48 @@ describe('au-route dynamic path binding', function () {
       } finally {
         await fixture.tearDown();
       }
+    });
+  }
+
+  for (const testCase of [
+    {
+      label: 'a value converter in path',
+      markup: '<au-route path.bind="routePath | section">Route</au-route>',
+      expected: /au-route path expression does not support value converters or binding behaviors/,
+    },
+    {
+      label: 'a binding behavior in path',
+      markup: '<au-route path.bind="routePath & oneTime">Route</au-route>',
+      expected: /au-route path expression does not support value converters or binding behaviors/,
+    },
+    {
+      label: 'a value converter in loading',
+      markup: '<au-route path="home" loading.bind="load() | section">Home</au-route>',
+      expected: /au-route loading expression does not support value converters or binding behaviors/,
+    },
+    {
+      label: 'a binding behavior in loaded',
+      markup: '<au-route path="home" loaded.bind="load() & oneTime">Home</au-route>',
+      expected: /au-route loaded expression does not support value converters or binding behaviors/,
+    },
+  ]) {
+    it(`rejects ${testCase.label} expressions`, async function () {
+      const SectionValueConverter = ValueConverter.define('section', class {
+        public toView(value: string): string {
+          return `/section/${value}`;
+        }
+      });
+      class App {
+        public routePath = 'users';
+        public load(): string {
+          return 'loaded';
+        }
+      }
+
+      await assert.rejects(
+        async () => createFixture(testCase.markup, App, [Routing, SectionValueConverter]).started,
+        testCase.expected,
+      );
     });
   }
 

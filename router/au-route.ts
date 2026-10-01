@@ -313,11 +313,11 @@ export class AuRoute implements ICustomElementViewModel {
     this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
     this.updateErrorHandler();
     if (this.pathExpression != null) {
-      const expression = this.expressionParser.parse(this.pathExpression, 'None');
+      const expression = this.parseExpression(this.pathExpression, 'path');
       this.path = String(astEvaluate(expression, this.scope, null, null));
     }
-    this.loadingAst ??= this.loadingExpression == null ? null : this.expressionParser.parse(this.loadingExpression, 'None');
-    this.loadedAst ??= this.loadedExpression == null ? null : this.expressionParser.parse(this.loadedExpression, 'None');
+    this.loadingAst ??= this.loadingExpression == null ? null : this.parseExpression(this.loadingExpression, 'loading');
+    this.loadedAst ??= this.loadedExpression == null ? null : this.parseExpression(this.loadedExpression, 'loaded');
     this.updatePath(this.path);
     (this.context as RouteContext)._attach();
     (this.context as RouteContext)._setRegistered(true);
@@ -850,6 +850,15 @@ export class AuRoute implements ICustomElementViewModel {
     } finally {
       this.lifecycleOverrideContext.$lifecycle = undefined;
     }
+  }
+
+  /** @internal */
+  private parseExpression(expression: string, name: 'path' | 'loading' | 'loaded'): IsBindingBehavior {
+    const ast = this.expressionParser.parse(expression, 'None');
+    if (ast.$kind === 'ValueConverter' || ast.$kind === 'BindingBehavior') {
+      throw new Error(`au-route ${name} expression does not support value converters or binding behaviors.`);
+    }
+    return ast;
   }
 
   /** @internal */
