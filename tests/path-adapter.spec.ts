@@ -432,6 +432,97 @@ describe('route focus management', function () {
 });
 
 describe('memory path adapter', function () {
+  it('finishes a committed navigation when application teardown callbacks throw', function () {
+    const firstFailure = new Error('first teardown failed');
+    const secondFailure = new Error('second teardown failed');
+    const notifyFailure = new Error('path subscriber failed');
+    const terminalFailure = new Error('navigation subscriber failed');
+    const adapter = new MemoryPathAdapter('/a');
+    const root = new RouteContext(null, '*');
+    const first = root.createChild('/a', { exact: true }) as RouteContext;
+    const second = root.createChild('/a', { exact: true }) as RouteContext;
+    const b = root.createChild('/b', { exact: true }) as RouteContext;
+    const c = root.createChild('/c', { exact: true }) as RouteContext;
+    let failEffects = false;
+    let scrolled = false;
+    let focused = false;
+    const coordinator = new RouteCoordinator(
+      root,
+      adapter,
+      undefined,
+      {
+        start() {},
+        beforeNavigation() {},
+        afterNavigation() {
+          if (!failEffects) return;
+          scrolled = true;
+          throw new Error('scroll failed');
+        },
+        stop() {},
+      },
+      {
+        start() {},
+        beforeNavigation() {},
+        register: () => () => {},
+        afterNavigation() {
+          if (!failEffects) return;
+          focused = true;
+          throw new Error('focus failed');
+        },
+        cancelNavigation() {},
+        stop() {},
+      },
+    );
+    let firstWasActive = false;
+    let secondWasActive = false;
+    let notifiedB = false;
+    let publishedB = false;
+    first.subscribe(state => {
+      if (firstWasActive && !state.active) throw firstFailure;
+      firstWasActive ||= state.active;
+    });
+    second.subscribe(state => {
+      if (secondWasActive && !state.active) throw secondFailure;
+      secondWasActive ||= state.active;
+    });
+    coordinator.subscribe(path => {
+      if (path === '/b') {
+        notifiedB = true;
+        throw notifyFailure;
+      }
+    });
+    coordinator.subscribeNavigation(state => {
+      if (state.result?.outcome === 'completed' && state.result.requested.pathname === '/b') {
+        publishedB = true;
+        throw terminalFailure;
+      }
+    });
+    coordinator.start();
+    failEffects = true;
+
+    try {
+      assert.throws(() => coordinator.load('/b'), (error: unknown) => error === firstFailure);
+      assert.strictEqual(first.active, false);
+      assert.strictEqual(second.active, false);
+      assert.strictEqual(b.active, true);
+      assert.strictEqual(notifiedB, true);
+      assert.strictEqual(publishedB, true);
+      assert.strictEqual(scrolled, true);
+      assert.strictEqual(focused, true);
+      assert.strictEqual(adapter.getCurrentPath(), '/b');
+      assert.strictEqual(coordinator.currentPath, '/b');
+      assert.strictEqual(coordinator.navigation.pending, false);
+      assert.strictEqual(coordinator.navigation.result?.outcome, 'completed');
+
+      failEffects = false;
+      assert.strictEqual(coordinator.load('/c'), true);
+      assert.strictEqual(c.active, true);
+      assert.strictEqual(coordinator.currentPath, '/c');
+    } finally {
+      coordinator.stop();
+    }
+  });
+
   it('completes navigation with a malformed percent escape', function () {
     const adapter = new MemoryPathAdapter('/home');
     const root = new RouteContext(null, '*');

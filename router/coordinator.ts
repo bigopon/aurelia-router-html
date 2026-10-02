@@ -870,9 +870,22 @@ export class RouteCoordinator implements IRouteCoordinator {
     transaction.finalized = true;
     transaction.finalizing = false;
     transaction.committing = false;
-    this.commitViewTransactions(transaction);
+    let firstError: unknown;
+    let hasError = false;
+    const run = (callback: () => void): void => {
+      try {
+        callback();
+      } catch (error) {
+        if (!hasError) {
+          firstError = error;
+          hasError = true;
+        }
+      }
+    };
+    run(() => this.commitViewTransactions(transaction));
     if (this.root instanceof RouteContext) {
-      this.root._commitNavigationTransaction();
+      const root = this.root;
+      run(() => root._commitNavigationTransaction());
     }
     const enterAnimations: Promise<unknown>[] = [];
     for (const animation of transaction.enterAnimations) {
@@ -890,26 +903,50 @@ export class RouteCoordinator implements IRouteCoordinator {
     if (this.transaction === transaction) {
       this.transaction = null;
     }
-    this.notify();
+    run(() => this.notify());
     const navigation = transaction.options.scrollNavigation
       ?? (transaction.options.replace === true ? 'replace' : 'push');
     const runPostCommitEffects = (): void => {
       if (this.navigation.id !== transaction.id || this.navigation.pending) {
         return;
       }
-      this.scrollService.afterNavigation(transaction.location, navigation);
-      this.focusService.afterNavigation(navigation);
+      let effectError: unknown;
+      let hasEffectError = false;
+      try {
+        this.scrollService.afterNavigation(transaction.location, navigation);
+      } catch (error) {
+        effectError = error;
+        hasEffectError = true;
+      }
+      try {
+        this.focusService.afterNavigation(navigation);
+      } catch (error) {
+        if (!hasEffectError) {
+          effectError = error;
+          hasEffectError = true;
+        }
+      }
+      if (hasEffectError) {
+        throw effectError;
+      }
     };
+    transaction.resolve(true);
+    run(() => this.publishTerminal(transaction, 'completed'));
     if (enterAnimations.length === 0) {
-      runPostCommitEffects();
+      run(runPostCommitEffects);
     } else {
       void Promise.allSettled(enterAnimations).then(() => {
-        runPostCommitEffects();
+        try {
+          runPostCommitEffects();
+        } catch {
+          // Post-commit effects cannot fail an already settled navigation.
+        }
       });
     }
-    transaction.resolve(true);
-    this.publishTerminal(transaction, 'completed');
     this.redirectChain = [];
+    if (hasError) {
+      throw firstError;
+    }
     return true;
   }
 

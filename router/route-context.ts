@@ -432,18 +432,34 @@ export class RouteContext implements IRouteContext {
     root._failureSnapshot = null;
     root._dataSnapshot = null;
     root._transactionFailureOwners = null;
+    let firstError: unknown;
+    let hasError = false;
     for (const context of root._getContexts()) {
       if (context.failure != null && failureOwners?.has(context) !== true) {
-        context._setFailure(null);
+        try {
+          context._setFailure(null);
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
       }
     }
-    if (deferred == null) {
-      return;
-    }
-    for (const context of deferred) {
+    for (const context of deferred ?? []) {
       if (context.active) {
-        context._deactivateBranch('/__inactive__', root.$query, root.$hash);
+        try {
+          context._deactivateBranch('/__inactive__', root.$query, root.$hash);
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
       }
+    }
+    if (hasError) {
+      throw firstError;
     }
   }
 
@@ -930,12 +946,29 @@ export class RouteContext implements IRouteContext {
     this.$query = query;
     this.$hash = hash;
 
+    let firstError: unknown;
+    let hasError = false;
     if (stateChanged) {
-      this._notify();
+      try {
+        this._notify();
+      } catch (error) {
+        firstError = error;
+        hasError = true;
+      }
     }
 
     for (const child of this.children) {
-      child._deactivateBranch('/__inactive__', query, hash);
+      try {
+        child._deactivateBranch('/__inactive__', query, hash);
+      } catch (error) {
+        if (!hasError) {
+          firstError = error;
+          hasError = true;
+        }
+      }
+    }
+    if (hasError) {
+      throw firstError;
     }
   }
 
