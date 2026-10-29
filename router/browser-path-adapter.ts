@@ -278,6 +278,8 @@ export class BrowserPathAdapter implements IPathAdapter {
     if (this.acceptedNavigationIndex != null && targetNavigationIndex != null) {
       return previousIndex + targetNavigationIndex - this.acceptedNavigationIndex;
     }
+    // TODO: Remove this legacy History API inference once the supported browser baseline guarantees
+    // Navigation.currentEntry.index. Test environments should provide that capability separately.
     return this.window.history.length > this.acceptedHistoryLength
       ? previousIndex + 1
       : null;
