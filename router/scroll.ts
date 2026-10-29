@@ -149,7 +149,7 @@ export class BrowserRouteScrollService implements IRouteScrollService {
   /** @internal */
   private readonly onPopState = (): void => {
     this.captureCurrentPosition();
-    this.pendingPopEntryId = this.readEntryId() ?? this.ensureEntryId();
+    this.pendingPopEntryId = this.readEntryId();
   };
 
   /** @internal */

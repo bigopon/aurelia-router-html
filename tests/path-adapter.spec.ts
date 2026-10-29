@@ -924,6 +924,38 @@ describe('memory path adapter', function () {
 });
 
 describe('browser history settlement', function () {
+  it('does not rewrite an unaccepted traversal entry while preparing scroll restoration', async function () {
+    const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/editor' });
+    const window = dom.window as unknown as Window;
+    window.history.replaceState('legacy-token', '', '/guard/private');
+    window.history.pushState({ source: 'router-start' }, '', '/guard/editor');
+
+    const adapter = new BrowserPathAdapter(window);
+    const scrolling = new BrowserRouteScrollService(window.document, new RouteViewSettlement());
+    scrolling.start();
+    let resolveNavigation!: (navigation: PathNavigation) => void;
+    const pendingNavigation = new Promise<PathNavigation>(resolve => { resolveNavigation = resolve; });
+    const unsubscribe = adapter.subscribe((_path, navigation) => {
+      if (navigation != null) {
+        resolveNavigation(navigation);
+      }
+    });
+
+    try {
+      window.history.back();
+      const denied = await pendingNavigation;
+      assert.strictEqual(window.location.pathname, '/guard/private');
+      assert.strictEqual(window.history.state, 'legacy-token');
+
+      await denied.rollback();
+      assert.strictEqual(window.location.pathname, '/guard/editor');
+    } finally {
+      unsubscribe();
+      scrolling.stop();
+      dom.window.close();
+    }
+  });
+
   it('preserves entries after an unmarked forward entry without the Navigation API', async function () {
     const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/guard/home' });
     const window = dom.window as unknown as Window;
