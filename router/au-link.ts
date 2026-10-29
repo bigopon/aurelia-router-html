@@ -87,7 +87,7 @@ export class AuLink implements ICustomAttributeViewModel {
     if (event.defaultPrevented || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
-    if (this.element.tagName !== 'A' || !this.element.hasAttribute('href') || this.element.hasAttribute('download') || this.element.hasAttribute('external') || this.element.hasAttribute('data-external')) {
+    if (this.element.localName !== 'a' || !this.element.hasAttribute('href') || this.element.hasAttribute('download') || this.element.hasAttribute('external') || this.element.hasAttribute('data-external')) {
       return;
     }
     const target = this.element.getAttribute('target');

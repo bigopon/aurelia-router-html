@@ -1162,6 +1162,29 @@ describe('browser base paths', function () {
     }
   });
 
+  it('intercepts SVG anchors using their href attribute', function () {
+    const dom = new JSDOM(
+      '<!doctype html><body><svg><a href="/products/aster-pack/specs"><text>Specs</text></a></svg></body>',
+      { url: 'https://example.test/products' },
+    );
+    const window = dom.window as unknown as Window;
+    const adapter = new BrowserPathAdapter(window, { interceptLinks: true });
+    const navigations: string[] = [];
+    const unsubscribe = adapter.subscribe(path => navigations.push(path));
+
+    try {
+      const anchor = window.document.querySelector('a')!;
+      const event = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+      anchor.dispatchEvent(event);
+
+      assert.strictEqual(event.defaultPrevented, true);
+      assert.deepStrictEqual(navigations, ['/products/aster-pack/specs']);
+    } finally {
+      unsubscribe();
+      dom.window.close();
+    }
+  });
+
   it('accepts an absolute same-origin base and ignores a cross-origin base', function () {
     const sameOriginDom = new JSDOM(
       '<!doctype html><base href="https://example.test/store/"><body></body>',

@@ -187,7 +187,7 @@ export class BrowserPathAdapter implements IPathAdapter {
 
       const node = target as Node;
       const element = node.nodeType === 1 ? node as Element : node.parentElement;
-      const anchor = element?.closest<HTMLAnchorElement>('a[href]');
+      const anchor = element?.closest('a[href]');
 
       if (anchor == null) {
         return;
@@ -202,7 +202,7 @@ export class BrowserPathAdapter implements IPathAdapter {
         return;
       }
 
-      const url = new URL(anchor.href, this.window.document.baseURI);
+      const url = new URL(anchor.getAttribute('href')!, this.window.document.baseURI);
       if (url.origin !== this.window.location.origin) {
         return;
       }

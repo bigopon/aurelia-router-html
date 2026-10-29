@@ -2017,6 +2017,33 @@ describe('au-link', function () {
     }
   });
 
+  it('loads from an SVG anchor', async function () {
+    const adapter = new MemoryPathAdapter('/dashboard');
+    const fixture = await createFixture(
+      `<svg>
+        <a data-reports au-link="reports"><text>Reports</text></a>
+      </svg>
+      <au-route path="dashboard" exact><span data-view>Dashboard</span></au-route>
+      <au-route path="reports" exact><span data-view>Reports</span></au-route>`,
+      class App {},
+      [Routing.customize({ adapter })],
+    ).started;
+
+    try {
+      const reports = fixture.appHost.querySelector('[data-reports]')!;
+      const Event = reports.ownerDocument.defaultView!.MouseEvent;
+      const event = new Event('click', { bubbles: true, cancelable: true, button: 0 });
+      reports.dispatchEvent(event);
+      await tasksSettled();
+
+      assert.strictEqual(event.defaultPrevented, true);
+      assert.strictEqual(adapter.getCurrentPath(), '/reports');
+      assert.strictEqual(fixture.appHost.querySelector('[data-view]')?.textContent, 'Reports');
+    } finally {
+      await fixture.tearDown();
+    }
+  });
+
   it('keeps a root-absolute link distinct from a nested route with the same leaf pattern', async function () {
     const adapter = new MemoryPathAdapter('/account/settings');
     const fixture = await createFixture(
