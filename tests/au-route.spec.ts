@@ -1,6 +1,7 @@
-import { IPlatform } from '@aurelia/kernel';
+import { IPlatform, Registration } from '@aurelia/kernel';
+import { BrowserPlatform } from '@aurelia/platform-browser';
 import { tasksSettled } from '@aurelia/runtime';
-import { assert, createFixture } from '@aurelia/testing';
+import { assert, createFixture, TestContext } from '@aurelia/testing';
 import { CustomElement, ValueConverter } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator, type RouteNavigationState } from '../router/coordinator';
@@ -2492,6 +2493,32 @@ describe('au-route redirects', function () {
 });
 
 describe('au-route animation scheduling', function () {
+  it('tears down an animated route when requestAnimationFrame is unavailable', async function () {
+    const activePlatform = BrowserPlatform.getOrCreate(globalThis);
+    const platform = new BrowserPlatform(activePlatform.globalThis, {
+      requestAnimationFrame: () => {
+        throw new Error('requestAnimationFrame is unavailable');
+      },
+    });
+    class App {
+      public route!: { animateChanged(value: boolean): void };
+    }
+    const context = TestContext.create();
+    context.container.deregister(IPlatform);
+    context.container.register(Registration.instance(IPlatform, platform));
+    const fixture = await createFixture(
+      '<au-route component.ref="route" path="/animated"><span>Animated route</span></au-route>',
+      App,
+      [Routing.customize({ adapter: new MemoryPathAdapter('/animated') })],
+      true,
+      context,
+    ).started;
+
+    assert.strictEqual(fixture.container.get(IPlatform), platform);
+    fixture.component.route.animateChanged(true);
+    await fixture.tearDown();
+  });
+
   it('uses the injected platform frame callback and runtime task scheduler', async function () {
     assert.strictEqual(globalThis.requestAnimationFrame, undefined);
     const fixture = await createFixture(

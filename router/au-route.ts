@@ -1260,9 +1260,17 @@ export class AuRoute implements ICustomElementViewModel {
   /** @internal */
   private nextFrame(): Promise<void> {
     return new Promise(resolve => {
-      this.platform.requestAnimationFrame(() => {
-        this.platform.requestAnimationFrame(() => resolve());
-      });
+      try {
+        this.platform.requestAnimationFrame(() => {
+          try {
+            this.platform.requestAnimationFrame(() => resolve());
+          } catch {
+            resolve();
+          }
+        });
+      } catch {
+        resolve();
+      }
     });
   }
 
