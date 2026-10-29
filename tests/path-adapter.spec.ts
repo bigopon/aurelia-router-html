@@ -890,6 +890,37 @@ describe('memory path adapter', function () {
     }));
     assert.strictEqual(factoryContainer.get(IPathAdapter), factoryAdapter);
   });
+
+  for (const testCase of [
+    {
+      label: 'Routing followed by Routing.customize',
+      first: () => Routing,
+      second: () => Routing.customize({ adapter: new MemoryPathAdapter('/custom') }),
+    },
+    {
+      label: 'Routing.customize followed by Routing',
+      first: () => Routing.customize({ adapter: new MemoryPathAdapter('/custom') }),
+      second: () => Routing,
+    },
+    {
+      label: 'Routing twice',
+      first: () => Routing,
+      second: () => Routing,
+    },
+  ]) {
+    it(`rejects duplicate registration with ${testCase.label}`, function () {
+      const container = DI.createContainer();
+      container.register(
+        Registration.instance(IPathAdapter, new MemoryPathAdapter('/registered')),
+        testCase.first(),
+      );
+
+      assert.throws(
+        () => container.register(testCase.second()),
+        /Routing is already registered in this container\. Register it once, with Routing\.customize\(\.\.\.\) if options are needed\./,
+      );
+    });
+  }
 });
 
 describe('browser history settlement', function () {

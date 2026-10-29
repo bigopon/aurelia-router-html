@@ -25,6 +25,11 @@ export interface RoutingOptions extends BrowserAdapterOptions {
 }
 
 const registerRouting = (options: RoutingOptions = {}) => (c: IContainer) => {
+  if (c.has(IRouteCoordinator, false)) {
+    throw new Error(
+      'Routing is already registered in this container. Register it once, with Routing.customize(...) if options are needed.',
+    );
+  }
   if (options.adapter != null && options.adapterFactory != null) {
     throw new Error('Routing options cannot specify both adapter and adapterFactory.');
   }
