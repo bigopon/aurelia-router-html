@@ -3,13 +3,17 @@ import { Scope } from '@aurelia/runtime';
 import {
   BindingMode,
   CustomElementStaticAuDefinition,
+  FragmentNodeSequence,
   ICustomElementController,
   ICustomElementViewModel,
   IHydratedController,
+  IPlatform,
   IRenderLocation,
   IRendering,
   ISyntheticView,
   IViewFactory,
+  isSSRScope,
+  partitionSiblingNodes,
 } from '@aurelia/runtime-html';
 import { IInstruction, HydrateElementInstruction } from '@aurelia/template-compiler';
 import { IContainer } from '@aurelia/kernel';
@@ -60,6 +64,8 @@ export class AuRouter implements ICustomElementViewModel {
   private externalNavigationSequence: number = 0;
   /** @internal */
   private requestedPath: string | null = null;
+  /** @internal */
+  private readonly platform = resolve(IPlatform);
 
   public constructor() {
     const rendering = resolve(IRendering);
@@ -112,7 +118,17 @@ export class AuRouter implements ICustomElementViewModel {
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
     this.scope = parent.scope;
     this.adapter.replace(normalizeRouterPath(this.currentPath));
-    this.view = this.factory.create().setLocation(this.location);
+    const ssrScope = this.$controller.ssrScope;
+    const nodeCount = ssrScope != null && isSSRScope(ssrScope) ? ssrScope.nodeCount ?? 0 : 0;
+    const nodes = nodeCount > 0 ? partitionSiblingNodes(this.location, [nodeCount])[0] ?? [] : [];
+    this.$controller.ssrScope = undefined;
+    this.view = ssrScope != null && isSSRScope(ssrScope) && nodeCount > 0 && nodes.length === nodeCount
+      ? this.factory.createAdopted(
+        this.$controller,
+        FragmentNodeSequence.adoptSiblings(this.platform, nodes),
+        ssrScope,
+      ).setLocation(this.location)
+      : this.factory.create().setLocation(this.location);
     const activation = this.view.activate(this.view, this.$controller, this.scope);
     if (isPromise(activation)) {
       return activation.then(() => this.startCoordinator());

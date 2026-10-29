@@ -2,7 +2,7 @@ import { IPlatform, Registration } from '@aurelia/kernel';
 import { BrowserPlatform } from '@aurelia/platform-browser';
 import { tasksSettled } from '@aurelia/runtime';
 import { assert, createFixture, TestContext } from '@aurelia/testing';
-import { CustomElement, ValueConverter } from '@aurelia/runtime-html';
+import { Aurelia, CustomElement, ISSRContext, type ISSRScope, ValueConverter } from '@aurelia/runtime-html';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator, RouteCoordinator, type RouteNavigationState } from '../router/coordinator';
 import { BrowserHashAdapter, BrowserPathAdapter, BrowserQueryAdapter } from '../router/browser-path-adapter';
@@ -10,6 +10,121 @@ import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { RouteContext, type IRouteContext } from '../router/route-context';
 import type { RouteFailure } from '../router/error';
 import type { RouteLifecycleContext } from '../router/lifecycle';
+
+describe('au-route SSR hydration', function () {
+  it('adopts the server-rendered route view and hydrates its bindings', async function () {
+    class App {
+      public count: number = 0;
+    }
+
+    const AppElement = CustomElement.define({
+      name: 'ssr-route-app',
+      template: '<au-route path="product" exact><button data-product click.trigger="count++">${count}</button></au-route>',
+    }, App);
+    const serverContext = TestContext.create();
+    serverContext.container.register(
+      Registration.instance(ISSRContext, { preserveMarkers: true }),
+      Routing.customize({ adapter: new MemoryPathAdapter('/product') }),
+    );
+    const serverHost = serverContext.doc.body.appendChild(serverContext.createElement('ssr-route-app'));
+    const serverAurelia = new Aurelia(serverContext.container).app({ host: serverHost, component: AppElement });
+    let serverMarkup: string;
+    try {
+      await serverAurelia.start();
+      await tasksSettled();
+      serverMarkup = serverHost.innerHTML;
+      assert.strictEqual(serverHost.querySelectorAll('[data-product]').length, 1);
+    } finally {
+      await serverAurelia.stop(true);
+      serverAurelia.dispose();
+      serverHost.remove();
+    }
+
+    const clientContext = TestContext.create();
+    clientContext.container.register(
+      Routing.customize({ adapter: new MemoryPathAdapter('/product') }),
+    );
+    const clientHost = clientContext.doc.body.appendChild(clientContext.createElement('ssr-route-app'));
+    clientHost.innerHTML = serverMarkup;
+    const serverButton = clientHost.querySelector<HTMLButtonElement>('[data-product]');
+    const ssrScope: ISSRScope = {
+      name: 'ssr-route-app',
+      children: [{ name: 'au-route', nodeCount: 2, children: [] }],
+    };
+    const clientAurelia = new Aurelia(clientContext.container);
+
+    try {
+      await clientAurelia.hydrate({ host: clientHost, component: AppElement, ssrScope });
+      await tasksSettled();
+
+      const hydratedButton = clientHost.querySelector<HTMLButtonElement>('[data-product]');
+      assert.strictEqual(clientHost.querySelectorAll('[data-product]').length, 1);
+      assert.strictEqual(hydratedButton, serverButton);
+      hydratedButton!.click();
+      await tasksSettled();
+      assert.strictEqual(hydratedButton!.textContent, '1');
+    } finally {
+      await clientAurelia.stop(true);
+      clientAurelia.dispose();
+      clientHost.remove();
+    }
+  });
+
+  it('removes a stale server route when the client starts at a different URL', async function () {
+    const AppElement = CustomElement.define({
+      name: 'ssr-route-mismatch-app',
+      template: [
+        '<au-route path="server" exact><span data-server>Server</span></au-route>',
+        '<au-route path="client" exact><span data-client>Client</span></au-route>',
+      ].join(''),
+    }, class App {});
+    const serverContext = TestContext.create();
+    serverContext.container.register(
+      Registration.instance(ISSRContext, { preserveMarkers: true }),
+      Routing.customize({ adapter: new MemoryPathAdapter('/server') }),
+    );
+    const serverHost = serverContext.doc.body.appendChild(serverContext.createElement('ssr-route-mismatch-app'));
+    const serverAurelia = new Aurelia(serverContext.container).app({ host: serverHost, component: AppElement });
+    let serverMarkup: string;
+    try {
+      await serverAurelia.start();
+      await tasksSettled();
+      serverMarkup = serverHost.innerHTML;
+      assert.strictEqual(serverHost.querySelectorAll('[data-server]').length, 1);
+    } finally {
+      await serverAurelia.stop(true);
+      serverAurelia.dispose();
+      serverHost.remove();
+    }
+
+    const clientContext = TestContext.create();
+    clientContext.container.register(
+      Routing.customize({ adapter: new MemoryPathAdapter('/client') }),
+    );
+    const clientHost = clientContext.doc.body.appendChild(clientContext.createElement('ssr-route-mismatch-app'));
+    clientHost.innerHTML = serverMarkup;
+    const ssrScope: ISSRScope = {
+      name: 'ssr-route-mismatch-app',
+      children: [
+        { name: 'au-route', nodeCount: 2, children: [] },
+        { name: 'au-route', nodeCount: 0, children: [] },
+      ],
+    };
+    const clientAurelia = new Aurelia(clientContext.container);
+
+    try {
+      await clientAurelia.hydrate({ host: clientHost, component: AppElement, ssrScope });
+      await tasksSettled();
+
+      assert.strictEqual(clientHost.querySelector('[data-server]'), null);
+      assert.strictEqual(clientHost.querySelectorAll('[data-client]').length, 1);
+    } finally {
+      await clientAurelia.stop(true);
+      clientAurelia.dispose();
+      clientHost.remove();
+    }
+  });
+});
 
 describe('au-route dynamic path binding', function () {
   for (const syntax of [

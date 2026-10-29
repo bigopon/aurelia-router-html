@@ -1,11 +1,71 @@
+import { Registration } from '@aurelia/kernel';
 import { tasksSettled } from '@aurelia/runtime';
-import { assert, createFixture } from '@aurelia/testing';
+import { Aurelia, CustomElement, ISSRContext, type ISSRScope } from '@aurelia/runtime-html';
+import { assert, createFixture, TestContext } from '@aurelia/testing';
 import type { AuRouter } from '../router/au-router';
 import { Routing } from '../router/configuration';
 import { IRouteCoordinator } from '../router/coordinator';
 import type { RouteFailure } from '../router/error';
 import { MemoryPathAdapter } from '../router/memory-path-adapter';
 import { IRouteContext } from '../router/route-context';
+
+describe('au-router SSR hydration', function () {
+  it('adopts the server-rendered nested router view and hydrates its bindings', async function () {
+    class App {
+      public count: number = 0;
+    }
+
+    const AppElement = CustomElement.define({
+      name: 'ssr-nested-router-app',
+      template: '<au-router><button data-router-view click.trigger="count++">${count}</button></au-router>',
+    }, App);
+    const serverContext = TestContext.create();
+    serverContext.container.register(
+      Registration.instance(ISSRContext, { preserveMarkers: true }),
+      Routing,
+    );
+    const serverHost = serverContext.doc.body.appendChild(serverContext.createElement('ssr-nested-router-app'));
+    const serverAurelia = new Aurelia(serverContext.container).app({ host: serverHost, component: AppElement });
+    let serverMarkup: string;
+    try {
+      await serverAurelia.start();
+      await tasksSettled();
+      serverMarkup = serverHost.innerHTML;
+      assert.strictEqual(serverHost.querySelectorAll('[data-router-view]').length, 1);
+    } finally {
+      await serverAurelia.stop(true);
+      serverAurelia.dispose();
+      serverHost.remove();
+    }
+
+    const clientContext = TestContext.create();
+    clientContext.container.register(Routing);
+    const clientHost = clientContext.doc.body.appendChild(clientContext.createElement('ssr-nested-router-app'));
+    clientHost.innerHTML = serverMarkup;
+    const serverButton = clientHost.querySelector<HTMLButtonElement>('[data-router-view]');
+    const ssrScope: ISSRScope = {
+      name: 'ssr-nested-router-app',
+      children: [{ name: 'au-router', nodeCount: 2, children: [] }],
+    };
+    const clientAurelia = new Aurelia(clientContext.container);
+
+    try {
+      await clientAurelia.hydrate({ host: clientHost, component: AppElement, ssrScope });
+      await tasksSettled();
+
+      const hydratedButton = clientHost.querySelector<HTMLButtonElement>('[data-router-view]');
+      assert.strictEqual(clientHost.querySelectorAll('[data-router-view]').length, 1);
+      assert.strictEqual(hydratedButton, serverButton);
+      hydratedButton!.click();
+      await tasksSettled();
+      assert.strictEqual(hydratedButton!.textContent, '1');
+    } finally {
+      await clientAurelia.stop(true);
+      clientAurelia.dispose();
+      clientHost.remove();
+    }
+  });
+});
 
 describe('au-router memory routing', function () {
   it('starts with no projected content', async function () {

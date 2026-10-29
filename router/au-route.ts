@@ -1,16 +1,21 @@
-import { isPromise, onResolve, resolve, IContainer, IPlatform, Registration } from '@aurelia/kernel';
+import { isPromise, onResolve, resolve, IContainer, Registration } from '@aurelia/kernel';
 import { IExpressionParser, type IsBindingBehavior } from '@aurelia/expression-parser';
 import { astEvaluate, queueAsyncTask, Scope } from '@aurelia/runtime';
 import {
   CustomElementStaticAuDefinition,
+  FragmentNodeSequence,
   ICustomElementController,
   ICustomElementViewModel,
   IHydratedController,
+  IPlatform,
   IRendering,
   IRenderLocation,
   ISyntheticView,
   State,
   IViewFactory,
+  isSSRScope,
+  partitionSiblingNodes,
+  type ISSRScope,
 } from '@aurelia/runtime-html';
 import {
   IInstruction,
@@ -219,6 +224,8 @@ export class AuRoute implements ICustomElementViewModel {
   private previousState: RouteState | null = null;
   /** @internal */
   private preflightedNavigationId: number = 0;
+  /** @internal */
+  private ssrScope: ISSRScope | null = null;
 
   public constructor() {
     const parentContext = resolve(IRouteContext);
@@ -288,6 +295,9 @@ export class AuRoute implements ICustomElementViewModel {
     });
     this.unsubscribeNavigation = this.coordinator.subscribeNavigation(state => {
       this.overrideContext.$navigation = state;
+      if (state.id > 0 && !state.pending && this.ssrScope != null) {
+        this.clearSSRView();
+      }
     });
   }
 
@@ -308,6 +318,11 @@ export class AuRoute implements ICustomElementViewModel {
   public $params?: Record<string, unknown>;
 
   public binding(_initiator: IHydratedController, parent: IHydratedController): void | Promise<void> {
+    const ssrScope = this.$controller.ssrScope;
+    if (ssrScope != null && isSSRScope(ssrScope)) {
+      this.ssrScope = ssrScope;
+      this.$controller.ssrScope = undefined;
+    }
     this.subscribe();
     this.scope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.overrideContext);
     this.lifecycleScope ??= Scope.fromParent(parent.scope, parent.scope.bindingContext, this.lifecycleOverrideContext);
@@ -525,7 +540,33 @@ export class AuRoute implements ICustomElementViewModel {
 
   /** @internal */
   private getView() {
+    const ssrScope = this.ssrScope;
+    this.ssrScope = null;
+    const nodeCount = ssrScope?.nodeCount ?? 0;
+    if (ssrScope != null && nodeCount > 0) {
+      const nodes = partitionSiblingNodes(this.location, [nodeCount])[0] ?? [];
+      if (nodes.length === nodeCount) {
+        return this.factory!.createAdopted(
+          this.$controller,
+          FragmentNodeSequence.adoptSiblings(this.platform, nodes),
+          ssrScope,
+        ).setLocation(this.location);
+      }
+    }
     return this.factory!.create().setLocation(this.location);
+  }
+
+  /** @internal */
+  private clearSSRView(): void {
+    const ssrScope = this.ssrScope;
+    this.ssrScope = null;
+    if (ssrScope == null) {
+      return;
+    }
+    const nodes = partitionSiblingNodes(this.location, [ssrScope.nodeCount ?? 0])[0] ?? [];
+    for (const node of nodes) {
+      node.parentNode?.removeChild(node);
+    }
   }
 
   /** @internal */
