@@ -653,6 +653,68 @@ describe('memory path adapter', function () {
     coordinator.stop();
   });
 
+  it('does not resume navigation queued behind rollback after the coordinator stops', async function () {
+    let releaseRollback!: () => void;
+    let signalRollbackStarted!: () => void;
+    const rollbackStarted = new Promise<void>(resolve => { signalRollbackStarted = resolve; });
+    class DeferredRollbackAdapter extends MemoryPathAdapter {
+      public override subscribe(callback: (path: string, navigation?: PathNavigation) => void): () => void {
+        return super.subscribe((path, navigation) => {
+          callback(path, navigation == null
+            ? undefined
+            : {
+              kind: navigation.kind,
+              commit: (destination, options) => navigation.commit(destination, options),
+              rollback: () => new Promise<void>(resolve => {
+                signalRollbackStarted();
+                releaseRollback = () => {
+                  navigation.rollback();
+                  resolve();
+                };
+              }),
+            });
+        });
+      }
+    }
+
+    let signalPendingStarted!: () => void;
+    const pendingStarted = new Promise<void>(resolve => { signalPendingStarted = resolve; });
+    const adapter = new DeferredRollbackAdapter('/home');
+    const root = new RouteContext(null, '*');
+    root.createChild('/home', { exact: true });
+    const pending = root.createChild('/pending', { exact: true }) as RouteContext;
+    root.createChild('/other', { exact: true });
+    pending._setGuards(() => {
+      signalPendingStarted();
+      return new Promise<boolean>(() => {});
+    }, null);
+    let coordinator!: RouteCoordinator;
+    pending.subscribe(state => {
+      if (state.active) {
+        void coordinator._runRouteActivation(
+          pending,
+          pending._canLoad,
+          coordinator._createLifecycleContext(pending, 'enter'),
+          () => {},
+        );
+      }
+    });
+    coordinator = new RouteCoordinator(root, adapter);
+    coordinator.start();
+
+    adapter.navigate('/pending');
+    await pendingStarted;
+    const queued = coordinator.load('/other');
+    await rollbackStarted;
+    const stopping = coordinator.stop();
+    releaseRollback();
+
+    assert.strictEqual(queued instanceof Promise ? await queued : queued, false);
+    if (stopping instanceof Promise) await stopping;
+    assert.strictEqual(coordinator.currentPath, '/home');
+    assert.strictEqual(adapter.getCurrentPath(), '/home');
+  });
+
   it('settles an external traversal at its redirected destination', function () {
     const adapter = new MemoryPathAdapter('/home');
     let navigation: PathNavigation | undefined;

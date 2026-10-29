@@ -157,6 +157,8 @@ export class RouteCoordinator implements IRouteCoordinator {
   /** @internal */
   private started: boolean = false;
   /** @internal */
+  private stopSequence: number = 0;
+  /** @internal */
   private transaction: NavigationTransaction | null = null;
   /** @internal */
   private redirectChain: string[] = [];
@@ -248,6 +250,7 @@ export class RouteCoordinator implements IRouteCoordinator {
   }
 
   public stop(): void | Promise<void> {
+    this.stopSequence++;
     if (!this.started) {
       return;
     }
@@ -531,11 +534,12 @@ export class RouteCoordinator implements IRouteCoordinator {
     const normalizedPath = stringifyRouteLocation(location);
     const active = this.transaction;
     if (active != null) {
+      const stopSequence = this.stopSequence;
+      const resume = (): boolean | Promise<boolean> => this.stopSequence === stopSequence
+        ? this.navigate(normalizedPath, options)
+        : false;
       if (active.committing) {
-        return active.completion.then(
-          () => this.navigate(normalizedPath, options),
-          () => this.navigate(normalizedPath, options),
-        );
+        return active.completion.then(resume, resume);
       }
       if (options.redirect === true) {
         this.assertNoRedirectLoop(normalizedPath, options.chain ?? this.redirectChain);
@@ -552,11 +556,8 @@ export class RouteCoordinator implements IRouteCoordinator {
         && options.adapterNavigation?.kind === 'traverse';
       const cancelled = this.cancelTransaction(active, 'superseded', undefined, false, !keepLatestTraversal);
       return isPromise(cancelled)
-        ? cancelled.then(
-          () => this.navigate(normalizedPath, options),
-          () => this.navigate(normalizedPath, options),
-        )
-        : this.navigate(normalizedPath, options);
+        ? cancelled.then(resume, resume)
+        : resume();
     }
 
     const chain = options.chain ?? (options.redirect === true
